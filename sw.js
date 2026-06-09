@@ -1,4 +1,4 @@
-const CACHE = 'lrc-v1';
+const CACHE = 'lrc-v2';
 const ASSETS = ['/'];
 
 self.addEventListener('install', e => {
