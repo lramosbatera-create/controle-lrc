@@ -2796,7 +2796,13 @@ function renderPagamentos() {
 
   // Update all month chips
   MESES.forEach(m => {
-    const total = ativos.reduce((s,a)=>s+(a.pag[m]||0),0);
+    let total;
+    if (m === 'jan') {
+      total = ativos.reduce((s,a) => s + (a.mat_pago||0), 0);
+    } else {
+      total = ativos.reduce((s,a) => s + (a.pag[m]||0), 0)
+            + (state.avulsos||[]).filter(av=>av.mes===m).reduce((s,av)=>s+av.valor,0);
+    }
     const chip = document.getElementById('pag-chip-' + m);
     if (chip) chip.textContent = total > 0 ? fmtBRL(total) : '—';
   });
@@ -2805,6 +2811,45 @@ function renderPagamentos() {
 
 function renderPagMensal() {
   const mes = pagMesAtual;
+  // Janeiro: mês exclusivo de matrícula — lógica separada
+  if (mes === 'jan') {
+    const ativos = state.alunos.filter(a => a.status === 'Ativo');
+    const container = document.getElementById('pag-mes-lista');
+    if (!container) return;
+    const matriculados = ativos.filter(a => (a.mat_pago || 0) > 0);
+    const semMat = ativos.filter(a => !((a.mat_pago || 0) > 0));
+    const recebido = matriculados.reduce((s, a) => s + (a.mat_pago || 0), 0);
+    const el = id => document.getElementById(id);
+    if (el('pag-mes-recebido'))    el('pag-mes-recebido').textContent    = fmtBRL(recebido);
+    if (el('pag-mes-pendente'))    el('pag-mes-pendente').textContent    = fmtBRL(0);
+    if (el('pag-mes-pagaram'))     el('pag-mes-pagaram').textContent     = `${matriculados.length} matriculados`;
+    if (el('pag-mes-nao-pagaram')) el('pag-mes-nao-pagaram').textContent = `${semMat.length} sem matrícula`;
+    if (el('pag-mes-esperado'))    el('pag-mes-esperado').textContent    = fmtBRL(0);
+    if (el('pag-mes-total-alunos')) el('pag-mes-total-alunos').textContent = `${ativos.length} alunos ativos`;
+    if (el('pag-mes-pct'))         el('pag-mes-pct').textContent         = '—';
+    if (el('pag-mes-pct-bar'))     el('pag-mes-pct-bar').style.width     = '0%';
+    container.innerHTML = `
+      <div style="background:rgba(201,168,76,0.06);border:1px solid rgba(201,168,76,0.2);border-radius:10px;padding:12px;margin-bottom:16px;">
+        <div style="font-size:11px;color:var(--gold);font-weight:600;">ℹ️ Janeiro — mês de matrícula/rematrícula</div>
+        <div style="font-size:11px;color:var(--muted);margin-top:4px;">Nenhuma mensalidade é cobrada em janeiro. Somente matrículas e rematrículas são contabilizadas.</div>
+      </div>
+      ${matriculados.length ? `
+      <div style="font-size:10px;color:var(--green);letter-spacing:1.5px;text-transform:uppercase;margin-bottom:8px;font-weight:600;">✅ MATRICULADOS (${matriculados.length})</div>
+      ${matriculados.sort((a,b)=>a.nome.localeCompare(b.nome)).map(a=>`
+        <div style="display:flex;align-items:center;gap:10px;padding:10px 12px;background:rgba(39,174,96,0.06);border:1px solid rgba(39,174,96,0.2);border-radius:10px;margin-bottom:6px;">
+          <div style="width:8px;height:8px;border-radius:50%;background:var(--green);flex-shrink:0;"></div>
+          <div style="flex:1;font-size:13px;font-weight:500;color:var(--text);">${a.nome}</div>
+          <div style="font-family:'Cormorant Garamond',serif;font-size:16px;color:var(--green);font-weight:700;">${fmtBRL(a.mat_pago||0)}</div>
+        </div>`).join('')}` : ''}
+      ${semMat.length ? `
+      <div style="font-size:10px;color:var(--muted);letter-spacing:1.5px;text-transform:uppercase;margin-bottom:8px;font-weight:600;margin-top:16px;">⬜ SEM REMATRÍCULA (${semMat.length})</div>
+      ${semMat.sort((a,b)=>a.nome.localeCompare(b.nome)).map(a=>`
+        <div style="display:flex;align-items:center;gap:10px;padding:10px 12px;background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.07);border-radius:10px;margin-bottom:6px;">
+          <div style="width:8px;height:8px;border-radius:50%;background:var(--muted);flex-shrink:0;"></div>
+          <div style="flex:1;font-size:13px;color:var(--muted);">${a.nome}</div>
+        </div>`).join('')}` : ''}`;
+    return;
+  }
   const mesNome = MESES_FULL[MESES.indexOf(mes)];
   const ativos = state.alunos.filter(a => a.status === 'Ativo');
   const container = document.getElementById('pag-mes-lista');
