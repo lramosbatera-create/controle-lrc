@@ -1978,6 +1978,8 @@ function saveState() {
       gastos_inb: state.gastos_inb,
       gastos_nb: state.gastos_nb,
       nextId: state.nextId,
+      cadastroExtra: state.cadastroExtra,
+      avulsos: state.avulsos,
     }));
   } catch(e) { console.warn('Save failed', e); }
 }
@@ -5976,6 +5978,7 @@ function toggleMic() {
   if (!state.cadastroExtra) state.cadastroExtra = {};
   if (!state.agenda || !state.agenda.length) state.agenda = [];
   if (!state.parceladas) state.parceladas = [];
+  if (!state.avulsos) state.avulsos = [];
 
   // 2. Renderiza UI imediatamente
   try { renderAlunos(); } catch(e) { console.warn(e); }
