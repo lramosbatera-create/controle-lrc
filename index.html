@@ -6262,9 +6262,11 @@ function saveWorkerUrl() {
 }
 
 async function saveSupabaseConfig() {
-  const url = document.getElementById('sb-url-input')?.value.trim();
+  let url = document.getElementById('sb-url-input')?.value.trim();
   const key = document.getElementById('sb-key-input')?.value.trim();
   if (!url || !key) { toast('⚠️ Preencha URL e chave'); return; }
+  // Remove sufixos extras que causam URL duplicada
+  url = url.replace(/\/rest\/v1\/?$/, '').replace(/\/$/, '');
   localStorage.setItem('lrc-sb-url', url);
   localStorage.setItem('lrc-sb-key', key);
   toast('✓ Credenciais salvas — recarregando...');
