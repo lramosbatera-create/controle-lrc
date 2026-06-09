@@ -2809,6 +2809,56 @@ function renderPagamentos() {
   renderPagMensal();
 }
 
+// ============ AVULSOS ============
+function renderAvulsos() {
+  const container = document.getElementById('avulsos-lista');
+  if (!container) return;
+  const lista = state.avulsos || [];
+  if (!lista.length) {
+    container.innerHTML = '<div style="font-size:12px;color:var(--muted);text-align:center;padding:16px;">Nenhum aluno avulso cadastrado</div>';
+    return;
+  }
+  container.innerHTML = lista.map(av => `
+    <div style="display:flex;align-items:center;gap:10px;padding:10px 12px;background:var(--card2);border:1px solid var(--border);border-radius:10px;margin-bottom:6px;">
+      <div style="flex:1;">
+        <div style="font-size:13px;font-weight:600;color:var(--text);">${av.nome}</div>
+        <div style="font-size:11px;color:var(--muted);">${MESES_FULL[MESES.indexOf(av.mes)]} · ${av.obs||''}</div>
+      </div>
+      <div style="font-family:'Cormorant Garamond',serif;font-size:16px;color:var(--gold);font-weight:700;margin-right:8px;">${fmtBRL(av.valor)}</div>
+      <button onclick="deleteAvulso(${av.id})" style="background:none;border:none;color:var(--muted);font-size:16px;cursor:pointer;padding:4px;" title="Excluir">🗑</button>
+    </div>`).join('');
+}
+
+function addAvulso() {
+  const nome  = document.getElementById('av-nome')?.value.trim();
+  const mes   = document.getElementById('av-mes')?.value;
+  const valor = parseFloat(document.getElementById('av-valor')?.value) || 0;
+  const obs   = document.getElementById('av-obs')?.value.trim();
+  if (!nome || !mes || !valor) { toast('⚠️ Preencha nome, mês e valor'); return; }
+  if (!state.avulsos) state.avulsos = [];
+  const novo = { id: state.nextId++, nome, mes, valor, obs };
+  state.avulsos.push(novo);
+  dbSave('avulsos', novo);
+  saveState();
+  document.getElementById('av-nome').value  = '';
+  document.getElementById('av-valor').value = '';
+  document.getElementById('av-obs').value   = '';
+  renderAvulsos();
+  updatePainel();
+  renderPagamentos();
+  toast(`✓ ${nome} adicionado como avulso!`);
+}
+
+function deleteAvulso(id) {
+  state.avulsos = (state.avulsos || []).filter(av => av.id !== id);
+  dbDelete('avulsos', id);
+  saveState();
+  renderAvulsos();
+  updatePainel();
+  renderPagamentos();
+  toast('Avulso removido');
+}
+
 function renderPagMensal() {
   const mes = pagMesAtual;
   // Janeiro: mês exclusivo de matrícula — lógica separada
