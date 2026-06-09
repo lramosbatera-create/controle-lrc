@@ -1,10 +1,7 @@
-const CACHE = 'lrc-v2';
-const ASSETS = ['/'];
+const CACHE = 'lrc-v3';
 
 self.addEventListener('install', e => {
-  e.waitUntil(
-    caches.open(CACHE).then(c => c.addAll(ASSETS)).then(() => self.skipWaiting())
-  );
+  e.waitUntil(self.skipWaiting());
 });
 
 self.addEventListener('activate', e => {
@@ -17,6 +14,14 @@ self.addEventListener('activate', e => {
 
 self.addEventListener('fetch', e => {
   if (e.request.method !== 'GET') return;
+  // HTML principal: sempre da rede (garante versão mais recente)
+  if (e.request.mode === 'navigate') {
+    e.respondWith(
+      fetch(e.request).catch(() => caches.match(e.request))
+    );
+    return;
+  }
+  // Outros recursos: cache-first com fallback na rede
   e.respondWith(
     caches.match(e.request).then(cached => {
       const net = fetch(e.request).then(res => {
