@@ -2222,13 +2222,16 @@ async function dbPushAll() {
   setLoading(true);
   try {
     const ops = [];
-    if (state.alunos?.length)        ops.push(sb.from('alunos').upsert(state.alunos));
-    if (state.shows?.length)         ops.push(sb.from('shows').upsert(state.shows));
-    if (state.despesas_fixas?.length) ops.push(sb.from('despesas_fixas').upsert(state.despesas_fixas));
-    if (state.gastos_inb?.length)    ops.push(sb.from('gastos_inb').upsert(state.gastos_inb));
-    if (state.gastos_nb?.length)     ops.push(sb.from('gastos_nb').upsert(state.gastos_nb));
-    await Promise.all(ops);
-    toast('✓ Todos os dados enviados para a nuvem!');
+    const results = await Promise.all([
+      state.alunos?.length        ? sb.from('alunos').upsert(state.alunos)         : null,
+      state.shows?.length         ? sb.from('shows').upsert(state.shows)           : null,
+      state.despesas_fixas?.length? sb.from('despesas_fixas').upsert(state.despesas_fixas) : null,
+      state.gastos_inb?.length    ? sb.from('gastos_inb').upsert(state.gastos_inb) : null,
+      state.gastos_nb?.length     ? sb.from('gastos_nb').upsert(state.gastos_nb)   : null,
+    ]);
+    const erros = results.filter(r => r?.error).map(r => r.error.message);
+    if (erros.length) toast('⚠️ Parcial — erros: ' + erros.join(', '));
+    else toast('✓ Todos os dados enviados para a nuvem!');
   } catch(e) {
     toast('❌ Erro ao sincronizar: ' + e.message);
   } finally {
@@ -6180,20 +6183,21 @@ function toggleMic() {
     const connected = await initSupabase();
     updateSyncStatus(connected);
     if (connected) {
-      // Carrega dados do Supabase sem bloquear
-      const [a, s] = await Promise.all([
+      // Carrega todos os dados do Supabase
+      const [a, s, df, gi, gn] = await Promise.all([
         sb.from('alunos').select('*').order('nome').catch(()=>({data:null,error:true})),
         sb.from('shows').select('*').order('data').catch(()=>({data:null,error:true})),
+        sb.from('despesas_fixas').select('*').catch(()=>({data:null,error:true})),
+        sb.from('gastos_inb').select('*').catch(()=>({data:null,error:true})),
+        sb.from('gastos_nb').select('*').catch(()=>({data:null,error:true})),
       ]);
-      if (!a.error && a.data && a.data.length) {
-        state.alunos = a.data.map(r=>({...r, pag: r.pag||{}}));
-        try { renderAlunos(); updatePainel(); } catch(e) {}
-      }
-      if (!s.error && s.data) {
-        state.shows = s.data;
-        try { updatePainel(); } catch(e) {}
-      }
+      if (!a.error && a.data && a.data.length) state.alunos = a.data.map(r=>({...r, pag: r.pag||{}}));
+      if (!s.error && s.data && s.data.length) state.shows = s.data;
+      if (!df.error && df.data && df.data.length) state.despesas_fixas = df.data;
+      if (!gi.error && gi.data && gi.data.length) state.gastos_inb = gi.data;
+      if (!gn.error && gn.data && gn.data.length) state.gastos_nb = gn.data;
       saveState();
+      try { renderAlunos(); updatePainel(); } catch(e) {}
     }
   } catch(e) { console.warn('Supabase init error:', e); }
 
