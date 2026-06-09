@@ -2532,6 +2532,13 @@ function salvarCadastro(id) {
   ex.mesSaida       = get(`cad-messaida-${id}`)?.value;
   ex.aniversario    = get(`cad-aniv-${id}`)?.value;
   ex.situacao       = get(`cad-obs-${id}`)?.value.trim();
+
+  // Auto-marca matrícula quando mês de início é definido pela primeira vez
+  if (ex.mesInicio && !(a.mat_pago > 0)) {
+    a.mat_pago = a.matricula;
+    dbSave('alunos', {...a});
+  }
+
   saveState();
   renderAlunos();
   toast(`✓ ${a.nome} salvo com sucesso!`);
