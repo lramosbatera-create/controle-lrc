@@ -897,6 +897,51 @@
     <div style="font-size:13px;font-weight:600;color:var(--gold);margin-bottom:12px;">📋 Banco de Dados dos Alunos</div>
     <input class="search-bar" type="text" id="search-cadastro" placeholder="🔍  Buscar aluno..." oninput="renderCadastro()">
     <div id="lista-cadastro"></div>
+
+    <!-- AVULSOS -->
+    <div style="margin-top:24px;">
+      <div style="font-size:10px;color:var(--gold);letter-spacing:1.5px;text-transform:uppercase;margin-bottom:12px;font-weight:600;">👤 Alunos Avulsos</div>
+      <div style="background:var(--card);border:1px solid var(--border);border-radius:12px;padding:14px;margin-bottom:12px;">
+        <div style="display:grid;grid-template-columns:1fr auto 1fr;gap:8px;margin-bottom:8px;align-items:end;">
+          <div>
+            <div style="color:var(--muted);font-size:10px;letter-spacing:1px;text-transform:uppercase;margin-bottom:4px;">Nome</div>
+            <input id="av-nome" type="text" placeholder="Nome do aluno"
+              style="background:var(--card2);border:1px solid rgba(201,168,76,0.2);border-radius:6px;color:var(--text);font-size:12px;padding:6px 8px;width:100%;outline:none;">
+          </div>
+          <div>
+            <div style="color:var(--muted);font-size:10px;letter-spacing:1px;text-transform:uppercase;margin-bottom:4px;">Mês</div>
+            <select id="av-mes"
+              style="background:var(--card2);border:1px solid rgba(201,168,76,0.2);border-radius:6px;color:var(--text);font-size:11px;padding:6px 8px;width:100%;outline:none;">
+              <option value="">—</option>
+              <option value="jan">Janeiro</option>
+              <option value="fev">Fevereiro</option>
+              <option value="mar">Março</option>
+              <option value="abr">Abril</option>
+              <option value="mai">Maio</option>
+              <option value="jun">Junho</option>
+              <option value="jul">Julho</option>
+              <option value="ago">Agosto</option>
+              <option value="set">Setembro</option>
+              <option value="out">Outubro</option>
+              <option value="nov">Novembro</option>
+              <option value="dez">Dezembro</option>
+            </select>
+          </div>
+          <div>
+            <div style="color:var(--muted);font-size:10px;letter-spacing:1px;text-transform:uppercase;margin-bottom:4px;">Valor (R$)</div>
+            <input id="av-valor" type="number" placeholder="0"
+              style="background:var(--card2);border:1px solid rgba(201,168,76,0.2);border-radius:6px;color:var(--text);font-size:12px;padding:6px 8px;width:100%;outline:none;">
+          </div>
+        </div>
+        <div style="margin-bottom:8px;">
+          <div style="color:var(--muted);font-size:10px;letter-spacing:1px;text-transform:uppercase;margin-bottom:4px;">Observação (opcional)</div>
+          <input id="av-obs" type="text" placeholder="Ex: Aulas avulsas, workshop..."
+            style="background:var(--card2);border:1px solid rgba(201,168,76,0.2);border-radius:6px;color:var(--text);font-size:12px;padding:6px 8px;width:100%;outline:none;">
+        </div>
+        <button onclick="addAvulso()" class="btn btn-gold" style="font-size:12px;padding:8px 16px;">＋ Adicionar Avulso</button>
+      </div>
+      <div id="avulsos-lista"></div>
+    </div>
   </div>
 
   <!-- PAGAMENTOS -->
