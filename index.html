@@ -2205,12 +2205,35 @@ function updateSyncStatus(ok) {
   if (!el) {
     el = document.createElement('div');
     el.id = 'sync-dot';
-    el.style.cssText = 'position:fixed;top:18px;right:60px;width:8px;height:8px;border-radius:50%;z-index:150;transition:background 0.3s;';
+    el.style.cssText = 'position:fixed;top:18px;right:60px;width:8px;height:8px;border-radius:50%;z-index:150;transition:background 0.3s;cursor:pointer;';
+    el.onclick = () => {
+      if (!supabaseReady) { toast('⚠️ Supabase não conectado'); return; }
+      if (confirm('Enviar todos os dados locais para a nuvem?\n\nIsso sobrescreve o que estiver no Supabase.')) dbPushAll();
+    };
     document.body.appendChild(el);
   }
-  el.title = ok ? 'Sincronizado com a nuvem' : 'Modo offline (localStorage)';
+  el.title = ok ? 'Nuvem conectada — clique para sincronizar tudo' : 'Offline (clique para configurar)';
   el.style.background = ok ? '#27AE60' : '#C9A84C';
   el.style.boxShadow  = ok ? '0 0 6px #27AE60' : '0 0 6px #C9A84C';
+}
+
+async function dbPushAll() {
+  if (!supabaseReady) { toast('⚠️ Supabase não conectado'); return; }
+  setLoading(true);
+  try {
+    const ops = [];
+    if (state.alunos?.length)        ops.push(sb.from('alunos').upsert(state.alunos));
+    if (state.shows?.length)         ops.push(sb.from('shows').upsert(state.shows));
+    if (state.despesas_fixas?.length) ops.push(sb.from('despesas_fixas').upsert(state.despesas_fixas));
+    if (state.gastos_inb?.length)    ops.push(sb.from('gastos_inb').upsert(state.gastos_inb));
+    if (state.gastos_nb?.length)     ops.push(sb.from('gastos_nb').upsert(state.gastos_nb));
+    await Promise.all(ops);
+    toast('✓ Todos os dados enviados para a nuvem!');
+  } catch(e) {
+    toast('❌ Erro ao sincronizar: ' + e.message);
+  } finally {
+    setLoading(false);
+  }
 }
 
 // ============ INB — AGENDA & CADASTRO ============
