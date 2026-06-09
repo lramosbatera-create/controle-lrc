@@ -3697,14 +3697,22 @@ function filterAlunos(f, btn) {
 }
 
 function calcPago(aluno) {
-  return Object.values(aluno.pag).reduce((a,b) => a+(b||0),0) + (aluno.mat_pago||0);
+  const extra = (state.cadastroExtra || {})[aluno.id] || {};
+  const mesInicioIdx = extra.mesInicio ? parseInt(extra.mesInicio) - 1 : 0; // 0=jan
+  return MESES.reduce((s, m, i) => {
+    if (m === 'jan') return s; // janeiro não conta como mensalidade
+    if (i < mesInicioIdx) return s; // meses antes do início ignorados
+    return s + (aluno.pag[m] || 0);
+  }, 0) + (aluno.mat_pago || 0);
 }
 
 function calcDevedor(aluno) {
-  // meses já passados (jan=0,fev=1,mar=2 = índice 0,1,2 → 3 meses)
-  const mesAtual = 2; // março = índice 2
-  let devido = aluno.matricula || 0;
-  for (let i = 0; i <= mesAtual; i++) {
+  const extra = (state.cadastroExtra || {})[aluno.id] || {};
+  const mesInicioIdx = extra.mesInicio ? parseInt(extra.mesInicio) - 1 : 0; // 0=jan
+  const mesAtualIdx = new Date().getMonth(); // 0=jan, dinâmico
+  let devido = aluno.matricula || 0; // matrícula sempre devida
+  for (let i = mesInicioIdx; i <= mesAtualIdx; i++) {
+    if (i === 0) continue; // janeiro não tem mensalidade
     if (aluno.status === 'Ativo') devido += aluno.mensalidade;
   }
   const pago = calcPago(aluno);
