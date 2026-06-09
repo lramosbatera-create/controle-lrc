@@ -6174,7 +6174,12 @@ function toggleMic() {
     }
   } catch(e) { console.warn('Supabase init error:', e); }
 
-  // 4. Setup banners
+  // 4. Service Worker
+  if ('serviceWorker' in navigator) {
+    navigator.serviceWorker.register('/sw.js').catch(() => {});
+  }
+
+  // 5. Setup banners
   try {
     if (isIosSafari()) setTimeout(() => { const el = document.getElementById('ios-hint'); if(el) el.style.display = 'block'; }, 2500);
     if (!localStorage.getItem('lrc-sb-url')) showSetupBanner();
