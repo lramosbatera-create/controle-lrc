@@ -2949,9 +2949,18 @@ function renderTabelaAnual() {
       <td onclick="toggleMatricula(${a.id})" style="cursor:pointer;text-align:center;padding:4px;border-bottom:1px solid rgba(255,255,255,0.04);background:${mat>0?'rgba(39,174,96,0.15)':'rgba(192,57,43,0.08)'};">
         <span style="font-size:10px;color:${mat>0?'var(--green)':'#E74C3C'};">${mat>0?'✓':'×'}</span>
       </td>
-      ${MESES.map(m => {
-        const pago = a.pag[m]||0;
-        const isFuture = MESES.indexOf(m) > new Date().getMonth();
+      ${MESES.map((m, idx) => {
+        const extra2 = (state.cadastroExtra || {})[a.id] || {};
+        const mesInicioIdx2 = extra2.mesInicio ? parseInt(extra2.mesInicio) - 1 : 0;
+        const pago = a.pag[m] || 0;
+        const isFuture = idx > new Date().getMonth();
+        const isJan = m === 'jan';
+        const beforeStart = idx < mesInicioIdx2;
+        if (isJan || beforeStart) {
+          return `<td style="text-align:center;padding:4px;border-bottom:1px solid rgba(255,255,255,0.04);background:transparent;">
+            <span style="font-size:10px;color:rgba(255,255,255,0.18);">—</span>
+          </td>`;
+        }
         const bg2 = isFuture ? 'transparent' : pago>0 ? 'rgba(39,174,96,0.15)' : 'rgba(192,57,43,0.08)';
         const color = isFuture ? 'rgba(255,255,255,0.15)' : pago>0 ? 'var(--green)' : '#E74C3C';
         const label = isFuture ? '·' : pago>0 ? '✓' : '×';
