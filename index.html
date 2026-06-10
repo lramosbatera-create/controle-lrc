@@ -3024,12 +3024,14 @@ function renderPagMensal() {
   const janExtra = document.getElementById('pag-jan-extra');
   if (janExtra) janExtra.style.display = 'none';
 
-  // KPIs
-  const pagaram = ativos.filter(a => (a.pag[mes]||0) > 0);
-  const naoPagaram = ativos.filter(a => (a.pag[mes]||0) === 0);
+  // KPIs — só conta alunos cujo mês de início é ≤ mês visualizado
+  const mesIdx = MESES.indexOf(mes);
+  const matriculados = ativos.filter(a => getMesInicioIdx(a) <= mesIdx);
+  const pagaram = matriculados.filter(a => (a.pag[mes]||0) > 0);
+  const naoPagaram = matriculados.filter(a => (a.pag[mes]||0) === 0);
   const recebido = pagaram.reduce((s,a) => s+(a.pag[mes]||0), 0);
   const pendente = naoPagaram.reduce((s,a) => s+a.mensalidade, 0);
-  const esperado = ativos.reduce((s,a) => s+a.mensalidade, 0);
+  const esperado = matriculados.reduce((s,a) => s+a.mensalidade, 0);
   const pct = esperado > 0 ? Math.round((recebido/esperado)*100) : 0;
 
   const el = (id) => document.getElementById(id);
@@ -3160,12 +3162,10 @@ function renderTabelaAnual() {
         <span style="font-size:10px;color:${mat>0?'var(--green)':'#E74C3C'};">${mat>0?'✓':'×'}</span>
       </td>
       ${MESES.map((m, idx) => {
-        const extra2 = (state.cadastroExtra || {})[a.id] || {};
-        const mesInicioIdx2 = extra2.mesInicio ? parseInt(extra2.mesInicio) - 1 : 0;
         const pago = a.pag[m] || 0;
         const isFuture = idx > new Date().getMonth();
         const isJan = m === 'jan';
-        const beforeStart = idx < mesInicioIdx2;
+        const beforeStart = idx < getMesInicioIdx(a);
         if (isJan || beforeStart) {
           return `<td style="text-align:center;padding:4px;border-bottom:1px solid rgba(255,255,255,0.04);background:transparent;">
             <span style="font-size:10px;color:rgba(255,255,255,0.18);">—</span>
@@ -3922,23 +3922,33 @@ function filterAlunos(f, btn) {
   renderAlunos();
 }
 
-function calcPago(aluno) {
+// Retorna índice 0-based do mês de início do aluno.
+// Usa mesInicio explícito; se ausente, infere pelo primeiro mês com pagamento.
+// Se não há nenhum pagamento, usa o mês atual (aluno recém-matriculado, sem pendência).
+function getMesInicioIdx(aluno) {
   const extra = (state.cadastroExtra || {})[aluno.id] || {};
-  const mesInicioIdx = extra.mesInicio ? parseInt(extra.mesInicio) - 1 : 0; // 0=jan
+  if (extra.mesInicio) return parseInt(extra.mesInicio) - 1;
+  for (let i = 1; i < 12; i++) {
+    if ((aluno.pag[MESES[i]] || 0) > 0) return i;
+  }
+  return new Date().getMonth(); // sem pagamentos → início agora
+}
+
+function calcPago(aluno) {
+  const startIdx = getMesInicioIdx(aluno);
   return MESES.reduce((s, m, i) => {
-    if (m === 'jan') return s; // janeiro não conta como mensalidade
-    if (i < mesInicioIdx) return s; // meses antes do início ignorados
+    if (m === 'jan') return s;
+    if (i < startIdx) return s;
     return s + (aluno.pag[m] || 0);
   }, 0) + (aluno.mat_pago || 0);
 }
 
 function calcDevedor(aluno) {
-  const extra = (state.cadastroExtra || {})[aluno.id] || {};
-  const mesInicioIdx = extra.mesInicio ? parseInt(extra.mesInicio) - 1 : 0; // 0=jan
-  const mesAtualIdx = new Date().getMonth(); // 0=jan, dinâmico
-  let devido = aluno.matricula || 0; // matrícula sempre devida
-  for (let i = mesInicioIdx; i <= mesAtualIdx; i++) {
-    if (i === 0) continue; // janeiro não tem mensalidade
+  const startIdx = getMesInicioIdx(aluno);
+  const mesAtualIdx = new Date().getMonth();
+  let devido = aluno.matricula || 0;
+  for (let i = startIdx; i <= mesAtualIdx; i++) {
+    if (i === 0) continue;
     if (aluno.status === 'Ativo') devido += aluno.mensalidade;
   }
   const pago = calcPago(aluno);
