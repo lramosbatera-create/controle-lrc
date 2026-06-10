@@ -3923,15 +3923,16 @@ function filterAlunos(f, btn) {
 }
 
 // Retorna índice 0-based do mês de início do aluno.
-// Usa mesInicio explícito; se ausente, infere pelo primeiro mês com pagamento.
-// Se não há nenhum pagamento, usa o mês atual (aluno recém-matriculado, sem pendência).
+// Prioridade: 1) mesInicio explícito, 2) pagou matrícula → fev (início do ano letivo),
+// 3) primeiro mês com pagamento, 4) mês atual (aluno sem histórico).
 function getMesInicioIdx(aluno) {
   const extra = (state.cadastroExtra || {})[aluno.id] || {};
   if (extra.mesInicio) return parseInt(extra.mesInicio) - 1;
+  if ((aluno.mat_pago || 0) > 0) return 1; // matrícula paga → começou em fevereiro
   for (let i = 1; i < 12; i++) {
     if ((aluno.pag[MESES[i]] || 0) > 0) return i;
   }
-  return new Date().getMonth(); // sem pagamentos → início agora
+  return new Date().getMonth();
 }
 
 function calcPago(aluno) {
