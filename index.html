@@ -4066,9 +4066,23 @@ function togglePagamento(id, mes) {
   const a = state.alunos.find(x => x.id === id);
   if (!a) return;
   if (a.pag[mes] > 0) {
+    // Ao desfazer: salva o mês de início atual como fixo antes de remover o pagamento,
+    // para que a remoção não altere a inferência e o aluno suma da lista de pendentes.
+    if (!state.cadastroExtra[id]) state.cadastroExtra[id] = {};
+    if (!state.cadastroExtra[id].mesInicio) {
+      state.cadastroExtra[id].mesInicio = String(getMesInicioIdx(a) + 1);
+    }
     a.pag[mes] = 0;
     toast(`${a.nome} — ${MESES_FULL[MESES.indexOf(mes)]} desmarcado`);
   } else {
+    // Ao marcar: se pagamento é anterior ao início registrado, atualiza o início
+    const mesIdx = MESES.indexOf(mes);
+    if (mesIdx > 0) {
+      if (!state.cadastroExtra[id]) state.cadastroExtra[id] = {};
+      const extra = state.cadastroExtra[id];
+      const startAtual = extra.mesInicio ? parseInt(extra.mesInicio) - 1 : getMesInicioIdx(a);
+      if (mesIdx < startAtual) extra.mesInicio = String(mesIdx + 1);
+    }
     a.pag[mes] = a.mensalidade;
     toast(`✓ ${a.nome} — ${MESES_FULL[MESES.indexOf(mes)]} confirmado`);
   }
