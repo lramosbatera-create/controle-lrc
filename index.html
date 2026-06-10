@@ -4273,7 +4273,7 @@ function renderTabelaFixas() {
   const fixas = state.despesas_fixas;
   if (!fixas.length) { container.innerHTML = '<p style="color:var(--muted);font-size:12px">Nenhuma despesa fixa cadastrada</p>'; return; }
   const mesAtual = new Date().getMonth();
-  const nameW = 150, colW = 42;
+  const nameW = 150, colW = 48;
   let html = `<table style="border-collapse:collapse;font-size:11px;min-width:${nameW + colW*13}px;">
     <thead><tr>
       <th style="position:sticky;left:0;background:#161616;z-index:2;padding:8px 10px;text-align:left;color:var(--gold);font-size:10px;letter-spacing:1px;border-bottom:1px solid var(--border);min-width:${nameW}px;">DESPESA</th>
@@ -4282,44 +4282,54 @@ function renderTabelaFixas() {
     </tr></thead><tbody>`;
   fixas.forEach((d, ri) => {
     const pag = state.pagFixas[d.nome] || {};
-    const totalPago = MESES.filter(m=>pag[m]).length * d.valor;
+    // Compatibilidade: true (legado booleano) → usa valor padrão
+    const getVal = m => { const v = pag[m]; return v === true ? d.valor : (v || 0); };
+    const totalPago = MESES.reduce((s,m) => s + getVal(m), 0);
     const bg = ri%2===0?'#161616':'#141414';
+    const key = d.nome.replace(/\\/g,'\\\\').replace(/'/g,"\\'");
     html += `<tr>
       <td style="position:sticky;left:0;background:${bg};z-index:1;padding:7px 10px;border-bottom:1px solid rgba(255,255,255,0.04);">
         <div style="font-size:12px;font-weight:500;color:var(--text);">${d.nome}</div>
         <div style="font-size:10px;color:var(--muted);">${fmtBRL(d.valor)}/mês · dia ${d.vencimento}</div>
       </td>
       ${MESES.map((m,idx)=>{
-        const pg=pag[m]; const fut=idx>mesAtual;
-        const bg2=fut?'transparent':pg?'rgba(39,174,96,0.15)':'rgba(192,57,43,0.08)';
-        const col=fut?'rgba(255,255,255,0.15)':pg?'var(--green)':'#E74C3C';
-        const lbl=fut?'·':pg?'✓':'×';
-        const key=d.nome.replace(/'/g,"\\'");
-        return `<td onclick="${fut?'':` toggleFixaPag('${key}','${m}')`}" style="cursor:${fut?'default':'pointer'};text-align:center;padding:4px;border-bottom:1px solid rgba(255,255,255,0.04);background:${bg2};">
-          <span style="font-size:10px;color:${col};">${lbl}</span></td>`;
+        const val = getVal(m); const fut = idx > mesAtual; const paid = val > 0;
+        const bg2 = fut?'transparent':paid?'rgba(39,174,96,0.15)':'rgba(192,57,43,0.08)';
+        const col = fut?'rgba(255,255,255,0.15)':paid?'var(--green)':'#E74C3C';
+        const lbl = fut ? '·' : paid ? String(val).replace(/\B(?=(\d{3})+(?!\d))/g,'.') : '×';
+        return `<td onclick="${fut?'':` toggleFixaPag('${key}','${m}',${d.valor})`}" style="cursor:${fut?'default':'pointer'};text-align:center;padding:4px;border-bottom:1px solid rgba(255,255,255,0.04);background:${bg2};">
+          <span style="font-size:${paid&&!fut?'9':'10'}px;color:${col};font-weight:${paid&&!fut?'600':'400'};">${lbl}</span></td>`;
       }).join('')}
       <td style="text-align:right;padding:7px 8px;border-bottom:1px solid rgba(255,255,255,0.04);font-family:'Cormorant Garamond',serif;font-size:14px;color:var(--gold);font-weight:700;">${fmtBRL(totalPago)}</td>
     </tr>`;
   });
-  // Linha de totais por mês
   html += `<tr style="background:rgba(201,168,76,0.05);border-top:1px solid var(--border);">
     <td style="position:sticky;left:0;background:#1a1408;z-index:1;padding:8px 10px;font-size:10px;color:var(--gold);font-weight:700;letter-spacing:1px;">TOTAL</td>
     ${MESES.map((m,idx)=>{
-      const t=fixas.reduce((s,d)=>s+((state.pagFixas[d.nome]||{})[m]?d.valor:0),0);
-      const fut=idx>mesAtual;
+      const t = fixas.reduce((s,d) => { const v=(state.pagFixas[d.nome]||{})[m]; return s+(v===true?d.valor:(v||0)); }, 0);
+      const fut = idx > mesAtual;
       return `<td style="text-align:center;padding:4px;font-size:10px;color:${fut?'rgba(255,255,255,0.15)':'var(--gold)'};">${fut?'·':t>0?fmtBRL(t):'—'}</td>`;
     }).join('')}
-    <td style="text-align:right;padding:8px;font-family:'Cormorant Garamond',serif;font-size:15px;color:var(--gold);font-weight:700;">${fmtBRL(fixas.reduce((s,d)=>s+MESES.filter(m=>(state.pagFixas[d.nome]||{})[m]).length*d.valor,0))}</td>
+    <td style="text-align:right;padding:8px;font-family:'Cormorant Garamond',serif;font-size:15px;color:var(--gold);font-weight:700;">${fmtBRL(fixas.reduce((s,d)=>s+MESES.reduce((ss,m)=>{ const v=(state.pagFixas[d.nome]||{})[m]; return ss+(v===true?d.valor:(v||0)); },0),0))}</td>
   </tr></tbody></table>`;
   container.innerHTML = html;
 }
 
-function toggleFixaPag(nome, mes) {
+function toggleFixaPag(nome, mes, valorDefault) {
   if (!state.pagFixas) state.pagFixas = {};
+  const atual = state.pagFixas[nome]?.[mes];
+  const isPaid = atual && atual > 0;
+  if (isPaid) {
+    state.pagFixas[nome][mes] = 0;
+    saveState(); renderTabelaFixas(); return;
+  }
+  const input = prompt(`${nome} — ${MESES_FULL[MESES.indexOf(mes)]}\nValor pago (R$):`, valorDefault);
+  if (input === null) return;
+  const valor = parseFloat(String(input).replace(',', '.'));
+  if (!valor || valor <= 0) { toast('⚠️ Valor inválido'); return; }
   if (!state.pagFixas[nome]) state.pagFixas[nome] = {};
-  state.pagFixas[nome][mes] = !state.pagFixas[nome][mes];
-  saveState();
-  renderTabelaFixas();
+  state.pagFixas[nome][mes] = valor;
+  saveState(); renderTabelaFixas();
 }
 
 // ============ INB MESES ============
