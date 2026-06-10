@@ -2051,7 +2051,7 @@ const MESES_FULL = ['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho
 
 // ============ SUPABASE CONFIG ============
 // Cole aqui suas credenciais após criar o projeto no Supabase
-const SUPABASE_URL = localStorage.getItem('lrc-sb-url') || '';
+const SUPABASE_URL = (localStorage.getItem('lrc-sb-url') || '').replace(/\/rest\/v1\/?$/, '').replace(/\/$/, '');
 const SUPABASE_KEY = localStorage.getItem('lrc-sb-key') || '';
 let supabaseReady = false;
 let sb = null;
@@ -6183,13 +6183,13 @@ function toggleMic() {
     const connected = await initSupabase();
     updateSyncStatus(connected);
     if (connected) {
-      // Carrega todos os dados do Supabase
+      const qry = q => Promise.resolve(q).catch(() => ({data:null,error:true}));
       const [a, s, df, gi, gn] = await Promise.all([
-        sb.from('alunos').select('*').order('nome').catch(()=>({data:null,error:true})),
-        sb.from('shows').select('*').order('data').catch(()=>({data:null,error:true})),
-        sb.from('despesas_fixas').select('*').catch(()=>({data:null,error:true})),
-        sb.from('gastos_inb').select('*').catch(()=>({data:null,error:true})),
-        sb.from('gastos_nb').select('*').catch(()=>({data:null,error:true})),
+        qry(sb.from('alunos').select('*').order('nome')),
+        qry(sb.from('shows').select('*').order('data')),
+        qry(sb.from('despesas_fixas').select('*')),
+        qry(sb.from('gastos_inb').select('*')),
+        qry(sb.from('gastos_nb').select('*')),
       ]);
       if (!a.error && a.data && a.data.length) state.alunos = a.data.map(r=>({...r, pag: r.pag||{}}));
       if (!s.error && s.data && s.data.length) state.shows = s.data;
