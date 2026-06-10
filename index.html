@@ -3024,9 +3024,9 @@ function renderPagMensal() {
   const janExtra = document.getElementById('pag-jan-extra');
   if (janExtra) janExtra.style.display = 'none';
 
-  // KPIs — só conta alunos cujo mês de início é ≤ mês visualizado
+  // KPIs — só conta alunos ativos no mês visualizado (início ≤ mês ≤ saída)
   const mesIdx = MESES.indexOf(mes);
-  const matriculados = ativos.filter(a => getMesInicioIdx(a) <= mesIdx);
+  const matriculados = ativos.filter(a => getMesInicioIdx(a) <= mesIdx && getMesSaidaIdx(a) >= mesIdx);
   const pagaram = matriculados.filter(a => (a.pag[mes]||0) > 0);
   const naoPagaram = matriculados.filter(a => (a.pag[mes]||0) === 0);
   const recebido = pagaram.reduce((s,a) => s+(a.pag[mes]||0), 0);
@@ -3166,7 +3166,8 @@ function renderTabelaAnual() {
         const isFuture = idx > new Date().getMonth();
         const isJan = m === 'jan';
         const beforeStart = idx < getMesInicioIdx(a);
-        if (isJan || beforeStart) {
+        const afterSaida = idx > getMesSaidaIdx(a);
+        if (isJan || beforeStart || afterSaida) {
           return `<td style="text-align:center;padding:4px;border-bottom:1px solid rgba(255,255,255,0.04);background:transparent;">
             <span style="font-size:10px;color:rgba(255,255,255,0.18);">—</span>
           </td>`;
@@ -3935,6 +3936,12 @@ function getMesInicioIdx(aluno) {
   return new Date().getMonth();
 }
 
+// Retorna índice 0-based do mês de saída (último mês cobrado), ou 11 se não saiu.
+function getMesSaidaIdx(aluno) {
+  const extra = (state.cadastroExtra || {})[aluno.id] || {};
+  return extra.mesSaida ? parseInt(extra.mesSaida) - 1 : 11;
+}
+
 function calcPago(aluno) {
   const startIdx = getMesInicioIdx(aluno);
   return MESES.reduce((s, m, i) => {
@@ -3946,9 +3953,10 @@ function calcPago(aluno) {
 
 function calcDevedor(aluno) {
   const startIdx = getMesInicioIdx(aluno);
-  const mesAtualIdx = new Date().getMonth();
+  const saidaIdx = getMesSaidaIdx(aluno);
+  const limiteIdx = Math.min(new Date().getMonth(), saidaIdx);
   let devido = aluno.matricula || 0;
-  for (let i = startIdx; i <= mesAtualIdx; i++) {
+  for (let i = startIdx; i <= limiteIdx; i++) {
     if (i === 0) continue;
     if (aluno.status === 'Ativo') devido += aluno.mensalidade;
   }
