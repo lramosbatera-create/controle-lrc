@@ -2206,15 +2206,31 @@ function updateSyncStatus(ok) {
     el = document.createElement('div');
     el.id = 'sync-dot';
     el.style.cssText = 'position:fixed;top:18px;right:60px;width:8px;height:8px;border-radius:50%;z-index:150;transition:background 0.3s;cursor:pointer;';
-    el.onclick = () => {
-      if (!supabaseReady) { toast('⚠️ Supabase não conectado'); return; }
-      if (confirm('Enviar todos os dados locais para a nuvem?\n\nIsso sobrescreve o que estiver no Supabase.')) dbPushAll();
-    };
+    el.onclick = showSyncMenu;
     document.body.appendChild(el);
   }
   el.title = ok ? 'Nuvem conectada — clique para sincronizar tudo' : 'Offline (clique para configurar)';
   el.style.background = ok ? '#27AE60' : '#C9A84C';
   el.style.boxShadow  = ok ? '0 0 6px #27AE60' : '0 0 6px #C9A84C';
+}
+
+function showSyncMenu() {
+  if (!supabaseReady) { toast('⚠️ Supabase não conectado'); return; }
+  const existing = document.getElementById('sync-menu');
+  if (existing) { existing.remove(); return; }
+  const menu = document.createElement('div');
+  menu.id = 'sync-menu';
+  menu.style.cssText = 'position:fixed;top:36px;right:40px;background:#1C1C1C;border:1px solid rgba(201,168,76,0.4);border-radius:10px;padding:8px;z-index:1000;min-width:200px;box-shadow:0 4px 16px rgba(0,0,0,0.5)';
+  const btn = s => `display:block;width:100%;text-align:left;background:none;border:none;color:#F0E8D5;font-family:inherit;font-size:12px;padding:7px 10px;cursor:pointer;border-radius:6px;${s}`;
+  menu.innerHTML = `
+    <div style="font-size:11px;color:#7A7060;padding:4px 8px 8px;border-bottom:1px solid rgba(201,168,76,0.15);margin-bottom:6px">☁️ Sincronização</div>
+    <button style="${btn('')}" onmouseover="this.style.background='rgba(201,168,76,0.1)'" onmouseout="this.style.background=''" onclick="dbPushAll();document.getElementById('sync-menu')?.remove()">↑ Enviar para a nuvem</button>
+    <button style="${btn('')}" onmouseover="this.style.background='rgba(201,168,76,0.1)'" onmouseout="this.style.background=''" onclick="dbPullAll();document.getElementById('sync-menu')?.remove()">↓ Importar da nuvem</button>
+  `;
+  document.body.appendChild(menu);
+  setTimeout(() => document.addEventListener('click', function close(e) {
+    if (!menu.contains(e.target) && e.target.id !== 'sync-dot') { menu.remove(); document.removeEventListener('click', close); }
+  }), 100);
 }
 
 async function dbPushAll() {
@@ -2234,6 +2250,34 @@ async function dbPushAll() {
     else toast('✓ Todos os dados enviados para a nuvem!');
   } catch(e) {
     toast('❌ Erro ao sincronizar: ' + e.message);
+  } finally {
+    setLoading(false);
+  }
+}
+
+async function dbPullAll() {
+  if (!supabaseReady) { toast('⚠️ Supabase não conectado'); return; }
+  if (!confirm('Importar dados da nuvem?\n\nOs dados locais serão substituídos pelo que está no Supabase.')) return;
+  setLoading(true);
+  try {
+    const qry = q => Promise.resolve(q).catch(() => ({data:null,error:true}));
+    const [a, s, df, gi, gn] = await Promise.all([
+      qry(sb.from('alunos').select('*').order('nome')),
+      qry(sb.from('shows').select('*').order('data')),
+      qry(sb.from('despesas_fixas').select('*')),
+      qry(sb.from('gastos_inb').select('*')),
+      qry(sb.from('gastos_nb').select('*')),
+    ]);
+    if (!a.error && a.data && a.data.length) state.alunos = a.data.map(r=>({...r, pag: r.pag||{}}));
+    if (!s.error && s.data && s.data.length) state.shows = s.data;
+    if (!df.error && df.data && df.data.length) state.despesas_fixas = df.data;
+    if (!gi.error && gi.data && gi.data.length) state.gastos_inb = gi.data;
+    if (!gn.error && gn.data && gn.data.length) state.gastos_nb = gn.data;
+    saveState();
+    try { renderAlunos(); updatePainel(); } catch(e) {}
+    toast('✓ Dados importados da nuvem!');
+  } catch(e) {
+    toast('❌ Erro ao importar: ' + e.message);
   } finally {
     setLoading(false);
   }
@@ -6182,23 +6226,8 @@ function toggleMic() {
   try {
     const connected = await initSupabase();
     updateSyncStatus(connected);
-    if (connected) {
-      const qry = q => Promise.resolve(q).catch(() => ({data:null,error:true}));
-      const [a, s, df, gi, gn] = await Promise.all([
-        qry(sb.from('alunos').select('*').order('nome')),
-        qry(sb.from('shows').select('*').order('data')),
-        qry(sb.from('despesas_fixas').select('*')),
-        qry(sb.from('gastos_inb').select('*')),
-        qry(sb.from('gastos_nb').select('*')),
-      ]);
-      if (!a.error && a.data && a.data.length) state.alunos = a.data.map(r=>({...r, pag: r.pag||{}}));
-      if (!s.error && s.data && s.data.length) state.shows = s.data;
-      if (!df.error && df.data && df.data.length) state.despesas_fixas = df.data;
-      if (!gi.error && gi.data && gi.data.length) state.gastos_inb = gi.data;
-      if (!gn.error && gn.data && gn.data.length) state.gastos_nb = gn.data;
-      saveState();
-      try { renderAlunos(); updatePainel(); } catch(e) {}
-    }
+    // Supabase conectado — dados locais preservados
+    // Use o ponto verde → "↑ Enviar" ou "↓ Importar" para sincronizar manualmente
   } catch(e) { console.warn('Supabase init error:', e); }
 
   // 4. Service Worker
@@ -6233,7 +6262,8 @@ function showSetupBanner() {
   div.innerHTML = `
     <div style="font-size:13px;font-weight:600;color:#C9A84C;margin-bottom:8px">☁️ Conectar à nuvem (sincronização real)</div>
     <div style="font-size:11px;color:#7A7060;margin-bottom:12px;line-height:1.6">
-      Cole as credenciais do Supabase para sincronizar celular ↔ notebook em tempo real.<br>
+      Cole as credenciais do Supabase. Após conectar, use o <strong style="color:#C9A84C">ponto verde</strong> para<br>
+      <strong style="color:#C9A84C">↑ Enviar</strong> dados do notebook ou <strong style="color:#C9A84C">↓ Importar</strong> no celular.<br>
       <a href="https://supabase.com" target="_blank" style="color:#C9A84C">Criar conta gratuita em supabase.com →</a>
     </div>
     <input id="sb-url-input" placeholder="Project URL (https://xxxxx.supabase.co)" style="width:100%;background:#1C1C1C;border:1px solid rgba(201,168,76,0.25);border-radius:8px;color:#F0E8D5;font-family:inherit;font-size:12px;padding:8px 10px;outline:none;margin-bottom:8px;box-sizing:border-box;">
