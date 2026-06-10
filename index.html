@@ -3072,16 +3072,23 @@ function renderPagMensal() {
       const extra = state.cadastroExtra[a.id]||{};
       const contato = extra.nomeFinanceiro || extra.nomeContato || '';
       const tel = extra.telFinanceiro || a.tel || '';
+      const valorPago = a.pag[mes]||0;
+      const isPartial = valorPago > 0 && valorPago < a.mensalidade;
+      const dotColor = isPartial ? 'var(--gold)' : 'var(--green)';
+      const valColor = isPartial ? 'var(--gold)' : 'var(--green)';
+      const borderColor = isPartial ? 'rgba(201,168,76,0.3)' : 'rgba(39,174,96,0.2)';
+      const bgColor = isPartial ? 'rgba(201,168,76,0.06)' : 'rgba(39,174,96,0.06)';
       return `
-      <div style="display:flex;align-items:center;gap:10px;padding:10px 12px;background:rgba(39,174,96,0.06);border:1px solid rgba(39,174,96,0.2);border-radius:10px;margin-bottom:6px;">
-        <div style="width:8px;height:8px;border-radius:50%;background:var(--green);flex-shrink:0;"></div>
+      <div style="display:flex;align-items:center;gap:10px;padding:10px 12px;background:${bgColor};border:1px solid ${borderColor};border-radius:10px;margin-bottom:6px;">
+        <div style="width:8px;height:8px;border-radius:50%;background:${dotColor};flex-shrink:0;"></div>
         <div style="flex:1;">
           <div style="font-size:13px;font-weight:500;color:var(--text);">${a.nome}</div>
           ${contato?`<div style="font-size:10px;color:var(--muted);">${contato}</div>`:''}
+          ${isPartial?`<div style="font-size:10px;color:var(--gold);">🏷️ Desconto · mensalidade: ${fmtBRL(a.mensalidade)}</div>`:''}
         </div>
         <div style="text-align:right;">
-          <div style="font-family:'Cormorant Garamond',serif;font-size:16px;color:var(--green);font-weight:700;">${fmtBRL(a.pag[mes]||0)}</div>
-          <button onclick="togglePagamento(${a.id},'${mes}')" style="font-size:9px;background:none;border:none;color:var(--muted);cursor:pointer;padding:0;">↩ desfazer</button>
+          <div style="font-family:'Cormorant Garamond',serif;font-size:16px;color:${valColor};font-weight:700;">${fmtBRL(valorPago)}</div>
+          <button onclick="togglePagamento(${a.id},'${mes}')" style="font-size:9px;background:none;border:none;color:var(--muted);cursor:pointer;padding:0;">↩ editar</button>
         </div>
       </div>`;
     }).join('')}
@@ -3121,9 +3128,15 @@ function renderPagMensal() {
 function marcarPagoPagamentos(id, mes) {
   const a = state.alunos.find(x => x.id === id);
   if (!a) return;
-  a.pag[mes] = a.mensalidade;
+  const mesFull = MESES_FULL[MESES.indexOf(mes)];
+  const input = prompt(`${a.nome} — ${mesFull}\nValor pago (R$):`, a.mensalidade);
+  if (input === null) return;
+  const valor = parseFloat(String(input).replace(',', '.'));
+  if (!valor || valor <= 0) { toast('⚠️ Valor inválido'); return; }
+  a.pag[mes] = valor;
   dbSave('alunos', {...a});
-  toast(`✓ ${a.nome} — ${MESES_FULL[MESES.indexOf(mes)]} pago!`);
+  const isPartial = valor < a.mensalidade;
+  toast(isPartial ? `🏷️ ${a.nome} — ${mesFull}: desconto ${fmtBRL(valor)}` : `✓ ${a.nome} — ${mesFull} pago!`);
   renderPagMensal();
   updatePainel();
 }
@@ -3188,10 +3201,12 @@ function renderTabelaAnual() {
             <span style="font-size:10px;color:rgba(255,255,255,0.18);">—</span>
           </td>`;
         }
-        const bg2 = isFuture ? 'transparent' : pago>0 ? 'rgba(39,174,96,0.15)' : 'rgba(192,57,43,0.08)';
-        const color = isFuture ? 'rgba(255,255,255,0.15)' : pago>0 ? 'var(--green)' : '#E74C3C';
-        const label = isFuture ? '·' : pago>0 ? '✓' : '×';
-        return `<td onclick="${isFuture?'':'togglePagamento('+a.id+',\''+m+'\')'}" style="cursor:${isFuture?'default':'pointer'};text-align:center;padding:4px;border-bottom:1px solid rgba(255,255,255,0.04);background:${bg2};">
+        const isPartial = !isFuture && pago > 0 && pago < a.mensalidade;
+        const isFull    = !isFuture && pago >= a.mensalidade && pago > 0;
+        const bg2 = isFuture ? 'transparent' : isFull ? 'rgba(39,174,96,0.15)' : isPartial ? 'rgba(201,168,76,0.12)' : 'rgba(192,57,43,0.08)';
+        const color = isFuture ? 'rgba(255,255,255,0.15)' : isFull ? 'var(--green)' : isPartial ? 'var(--gold)' : '#E74C3C';
+        const label = isFuture ? '·' : isFull ? '✓' : isPartial ? '~' : '×';
+        return `<td onclick="${isFuture?'':'togglePagamento('+a.id+',\''+m+'\')'}" style="cursor:${isFuture?'default':'pointer'};text-align:center;padding:4px;border-bottom:1px solid rgba(255,255,255,0.04);background:${bg2};" title="${isPartial?'Desconto: '+fmtBRL(pago):''}">
           <span style="font-size:10px;color:${color};">${label}</span>
         </td>`;
       }).join('')}
@@ -3972,13 +3987,16 @@ function calcDevedor(aluno) {
   const startIdx = getMesInicioIdx(aluno);
   const saidaIdx = getMesSaidaIdx(aluno);
   const limiteIdx = Math.min(new Date().getMonth(), saidaIdx);
-  let devido = aluno.matricula || 0;
+  // Matrícula devida apenas se não foi paga nada (qualquer valor > 0 quita)
+  let devido = (aluno.mat_pago || 0) > 0 ? 0 : (aluno.matricula || 0);
+  // Mensalidades: apenas meses com pag[m] === 0 — pagamento parcial quita o mês
   for (let i = startIdx; i <= limiteIdx; i++) {
     if (i === 0) continue;
-    if (aluno.status === 'Ativo') devido += aluno.mensalidade;
+    if (aluno.status === 'Ativo' && (aluno.pag[MESES[i]] || 0) === 0) {
+      devido += aluno.mensalidade;
+    }
   }
-  const pago = calcPago(aluno);
-  return Math.max(0, devido - pago);
+  return devido;
 }
 
 function isInadimplente(aluno) {
@@ -4091,17 +4109,26 @@ function removerEspecial(idx) {
 function togglePagamento(id, mes) {
   const a = state.alunos.find(x => x.id === id);
   if (!a) return;
+  const mesFull = MESES_FULL[MESES.indexOf(mes)];
   if (a.pag[mes] > 0) {
-    // Ao desfazer: salva o mês de início atual como fixo antes de remover o pagamento,
-    // para que a remoção não altere a inferência e o aluno suma da lista de pendentes.
+    // Célula paga: abre edição — permite ajustar valor ou zerar (desmarcar)
+    const input = prompt(`${a.nome} — ${mesFull}\nValor atual: ${fmtBRL(a.pag[mes])}\n\nNovo valor (0 para desmarcar):`, a.pag[mes]);
+    if (input === null) return;
+    const novoValor = parseFloat(String(input).replace(',', '.'));
     if (!state.cadastroExtra[id]) state.cadastroExtra[id] = {};
     if (!state.cadastroExtra[id].mesInicio) {
       state.cadastroExtra[id].mesInicio = String(getMesInicioIdx(a) + 1);
     }
-    a.pag[mes] = 0;
-    toast(`${a.nome} — ${MESES_FULL[MESES.indexOf(mes)]} desmarcado`);
+    if (!novoValor || novoValor <= 0) {
+      a.pag[mes] = 0;
+      toast(`${a.nome} — ${mesFull} desmarcado`);
+    } else {
+      a.pag[mes] = novoValor;
+      const isPartial = novoValor < a.mensalidade;
+      toast(isPartial ? `🏷️ ${a.nome} — ${mesFull}: desconto ${fmtBRL(novoValor)}` : `✓ ${a.nome} — ${mesFull} confirmado`);
+    }
   } else {
-    // Ao marcar: se pagamento é anterior ao início registrado, atualiza o início
+    // Célula não paga: marca com valor cheio (rápido para o caso normal)
     const mesIdx = MESES.indexOf(mes);
     if (mesIdx > 0) {
       if (!state.cadastroExtra[id]) state.cadastroExtra[id] = {};
@@ -4110,7 +4137,7 @@ function togglePagamento(id, mes) {
       if (mesIdx < startAtual) extra.mesInicio = String(mesIdx + 1);
     }
     a.pag[mes] = a.mensalidade;
-    toast(`✓ ${a.nome} — ${MESES_FULL[MESES.indexOf(mes)]} confirmado`);
+    toast(`✓ ${a.nome} — ${mesFull} confirmado`);
   }
   dbSave('alunos', {...a});
   renderAlunos();
