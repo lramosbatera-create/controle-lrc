@@ -2870,7 +2870,10 @@ function renderInadimplentes() {
       const tel   = extra.telFinanceiro || a.tel || '';
       const resp  = extra.nomeFinanceiro || extra.nomeContato || '';
       const dev   = calcDevedor(a);
-      const mesesDev = MESES.filter((m,i) => (a.pag[m]||0)===0 && i<=new Date().getMonth()).map(m=>MESES_LABEL[MESES.indexOf(m)]);
+      const _startIdx = getMesInicioIdx(a);
+      const _saidaIdx = getMesSaidaIdx(a);
+      const _limIdx   = Math.min(new Date().getMonth(), _saidaIdx);
+      const mesesDev  = MESES.filter((m,i) => i>=_startIdx && i<=_limIdx && i!==0 && (a.pag[m]||0)===0).map(m=>MESES_LABEL[MESES.indexOf(m)]);
       return `
       <div style="padding:12px 14px;background:rgba(192,57,43,0.06);border:1px solid rgba(192,57,43,0.2);border-radius:10px;margin-bottom:8px;">
         <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:8px;">
@@ -3258,7 +3261,8 @@ function gerarMensagemWpp(tipo, aluno) {
     case 'cobranca': {
       if (!aluno) return gerarMensagemCobrancaGeral();
       const devedor = calcDevedor(aluno);
-      const mesesDev = MESES.filter(m => aluno.pag[m] === 0 && MESES.indexOf(m) <= 2).map(m => MESES_FULL[MESES.indexOf(m)]);
+      const _si = getMesInicioIdx(aluno), _sai = getMesSaidaIdx(aluno), _li = Math.min(new Date().getMonth(), _sai);
+      const mesesDev = MESES.filter((m,i) => i>=_si && i<=_li && i!==0 && (aluno.pag[m]||0)===0).map(m=>MESES_FULL[MESES.indexOf(m)]);
       return `Olá, ${resp}! 🥁\n\nPassando para informar que existe uma pendência financeira referente às aulas de bateria de *${nomeAluno}* no *Instituto Nego Batera*.\n\n📋 *Situação:*\nMeses em aberto: *${mesesDev.join(', ') || 'verificar'}*\nValor pendente: *${fmtBRL(devedor)}*\nMensalidade: *${fmtBRL(aluno.mensalidade)}/mês*\n\nPedimos que regularize o quanto antes para garantir a continuidade das aulas. 🙏\n\nPara pagamentos: [PIX/CONTA]\n\n_Instituto Nego Batera_`;
     }
     case 'agenda': {
