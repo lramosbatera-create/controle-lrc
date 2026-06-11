@@ -828,10 +828,11 @@
   <div id="inb-agenda" class="inb-tab-content" style="display:none">
 
     <!-- Sub-abas da Agenda -->
-    <div style="display:flex;gap:4px;background:var(--dark);border:1px solid var(--border);border-radius:10px;padding:4px;margin-bottom:14px;">
+    <div style="display:flex;gap:4px;background:var(--dark);border:1px solid var(--border);border-radius:10px;padding:4px;margin-bottom:14px;flex-wrap:wrap;">
       <button class="inb-subtab agenda-subtab active" onclick="showAgendaSubTab('horarios',this)">📅 Horários</button>
       <button class="inb-subtab agenda-subtab" onclick="showAgendaSubTab('presenca',this)">✅ Presença</button>
       <button class="inb-subtab agenda-subtab" onclick="showAgendaSubTab('reposicao',this)">🔄 Reposição</button>
+      <button class="inb-subtab agenda-subtab" onclick="showAgendaSubTab('relatorios',this)">📊 Relatórios</button>
     </div>
 
     <!-- Sub-aba: Horários (conteúdo existente) -->
@@ -905,6 +906,11 @@
     <!-- Sub-aba: Reposição -->
     <div id="agenda-sub-reposicao" style="display:none">
       <div id="agenda-reposicao-container"></div>
+    </div>
+
+    <!-- Sub-aba: Relatórios -->
+    <div id="agenda-sub-relatorios" style="display:none">
+      <div id="agenda-relatorios-container"></div>
     </div>
 
   </div>
@@ -2473,7 +2479,7 @@ function adicionarAgenda() {
 // ============ AGENDA: SUB-ABAS ============
 
 function showAgendaSubTab(tab, btn) {
-  ['horarios','presenca','reposicao'].forEach(t => {
+  ['horarios','presenca','reposicao','relatorios'].forEach(t => {
     const el = document.getElementById('agenda-sub-' + t);
     if (el) el.style.display = t === tab ? '' : 'none';
   });
@@ -2481,6 +2487,7 @@ function showAgendaSubTab(tab, btn) {
   if (btn) btn.classList.add('active');
   if (tab === 'presenca') renderPresenca();
   if (tab === 'reposicao') renderReposicoes();
+  if (tab === 'relatorios') renderRelatorios();
 }
 
 // ============ PRESENÇA ============
@@ -2525,6 +2532,7 @@ function renderPresenca() {
     <span><span style="color:var(--green);font-weight:700;">P</span> Presente</span>
     <span><span style="color:#E74C3C;font-weight:700;">F</span> Falta</span>
     <span><span style="color:var(--gold);font-weight:700;">R</span> Reposição</span>
+    <span><span style="color:#7B9ED9;font-weight:700;">H</span> Feriado</span>
     <span><span style="color:rgba(255,255,255,0.25);font-weight:700;">·</span> Não marcado</span>
   </div>`;
 
@@ -2556,14 +2564,16 @@ function renderPresenca() {
         const isFuture = d > hoje;
         const val = (state.presencas[ds] || {})[ag.aluno];
         const isR = val && String(val).startsWith('R');
+        const isH = val === 'H';
         const repDate = isR && val.includes(':') ? val.split(':')[1] : null;
         const repDateFmt = repDate ? new Date(repDate+'T12:00').toLocaleDateString('pt-BR',{day:'2-digit',month:'2-digit'}) : '';
         let cellLabel, cellColor, cellBg, cellBorder;
-        if (isFuture)      { cellLabel='·'; cellColor='rgba(255,255,255,0.25)'; cellBg='transparent'; cellBorder='rgba(255,255,255,0.1)'; }
-        else if (val==='P') { cellLabel='P'; cellColor='var(--green)'; cellBg='rgba(39,174,96,0.18)'; cellBorder='var(--green)'; }
-        else if (val==='F') { cellLabel='F'; cellColor='#E74C3C'; cellBg='rgba(192,57,43,0.12)'; cellBorder='#E74C3C'; }
-        else if (isR)       { cellLabel='R'; cellColor='var(--gold)'; cellBg='rgba(201,168,76,0.15)'; cellBorder='var(--gold)'; }
-        else                { cellLabel='·'; cellColor='rgba(255,255,255,0.25)'; cellBg='rgba(255,255,255,0.03)'; cellBorder='rgba(255,255,255,0.1)'; }
+        if (isFuture)       { cellLabel='·'; cellColor='rgba(255,255,255,0.25)'; cellBg='transparent';              cellBorder='rgba(255,255,255,0.1)'; }
+        else if (val==='P') { cellLabel='P'; cellColor='var(--green)';            cellBg='rgba(39,174,96,0.18)';    cellBorder='var(--green)'; }
+        else if (val==='F') { cellLabel='F'; cellColor='#E74C3C';                 cellBg='rgba(192,57,43,0.12)';   cellBorder='#E74C3C'; }
+        else if (isR)       { cellLabel='R'; cellColor='var(--gold)';             cellBg='rgba(201,168,76,0.15)';  cellBorder='var(--gold)'; }
+        else if (isH)       { cellLabel='H'; cellColor='#7B9ED9';                 cellBg='rgba(123,158,217,0.12)'; cellBorder='#7B9ED9'; }
+        else                { cellLabel='·'; cellColor='rgba(255,255,255,0.25)';  cellBg='rgba(255,255,255,0.03)'; cellBorder='rgba(255,255,255,0.1)'; }
         const click = isFuture ? '' : `togglePresenca('${ds}','${ag.aluno.replace(/'/g,"\\'")}')`;
         html += `<td style="text-align:center;padding:4px 2px;border-bottom:1px solid rgba(255,255,255,0.04);">
           <button onclick="${click}" style="background:${cellBg};border:1px solid ${cellBorder};border-radius:6px;width:38px;min-height:30px;padding:3px 2px;color:${cellColor};font-size:12px;font-weight:700;cursor:${isFuture?'default':'pointer'};font-family:inherit;transition:all 0.15s;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1px;">
@@ -2621,24 +2631,11 @@ function togglePresenca(dateStr, alunoNome) {
     }
     state.presencas[dateStr][alunoNome] = stored;
   } else if (String(atual).startsWith('R')) {
-    // R → permite editar data ou limpar
-    const atualDate = atual.includes(':') ? atual.split(':')[1] : null;
-    const atualFmt  = atualDate ? new Date(atualDate+'T12:00').toLocaleDateString('pt-BR',{day:'2-digit',month:'2-digit'}) : '';
-    const input = prompt(`${alunoNome} — Reposição\nAula: ${dataAulaFmt}\n${atualFmt ? 'Data atual: '+atualFmt : 'Data: a definir'}\n\nNova data (DD/MM) ou deixe em branco para manter.\n0 para limpar.`, atualFmt);
-    if (input === null) return;
-    const trimmed = input.trim();
-    if (trimmed === '0') {
-      delete state.presencas[dateStr][alunoNome];
-    } else if (trimmed) {
-      const parts = trimmed.split('/');
-      if (parts.length >= 2) {
-        const day   = parts[0].padStart(2,'0');
-        const month = parts[1].padStart(2,'0');
-        const ano   = new Date().getFullYear();
-        state.presencas[dateStr][alunoNome] = `R:${ano}-${month}-${day}`;
-      }
-    }
-    // se vazio, mantém como está
+    // R → H ou editar data (toque longo não existe em HTML, então: toque simples avança para H)
+    state.presencas[dateStr][alunoNome] = 'H';
+  } else if (atual === 'H') {
+    // H → limpa
+    delete state.presencas[dateStr][alunoNome];
   }
 
   saveState();
@@ -2794,6 +2791,295 @@ function compartilharReposicaoWpp(id) {
   msg += `\nConfirme sua presença! 🤜🤛\n\n_INB — Instituto Nego Batera_`;
   const url = tel ? `https://wa.me/55${tel}?text=${encodeURIComponent(msg)}` : `https://wa.me/?text=${encodeURIComponent(msg)}`;
   window.open(url, '_blank');
+}
+
+// ============ RELATÓRIOS DE PRESENÇA ============
+
+function getPresencaStatsAluno(alunoNome, ano) {
+  ano = ano || presencaAno;
+  const agEntries = state.agenda.filter(a => a.aluno === alunoNome);
+  if (!agEntries.length) return null;
+  const hoje = new Date(); hoje.setHours(23,59,59,999);
+  const stats = { total:0, P:0, F:0, R:0, H:0, nao:0, byMes:{} };
+  agEntries.forEach(ag => {
+    for (let m = 0; m < 12; m++) {
+      const datas = getAulasDatasDoMes(ag.dia, ano, m);
+      datas.forEach(d => {
+        if (d > hoje) return;
+        const ds = dateToStr(d);
+        const val = (state.presencas[ds] || {})[alunoNome];
+        stats.total++;
+        const mk = MESES[m];
+        if (!stats.byMes[mk]) stats.byMes[mk] = {mesIdx:m, total:0, P:0, F:0, R:0, H:0, nao:0};
+        stats.byMes[mk].total++;
+        if (val === 'P')               { stats.P++;  stats.byMes[mk].P++; }
+        else if (val === 'F')           { stats.F++;  stats.byMes[mk].F++; }
+        else if (val&&val.startsWith('R')){ stats.R++;  stats.byMes[mk].R++; }
+        else if (val === 'H')           { stats.H++;  stats.byMes[mk].H++; }
+        else                            { stats.nao++; stats.byMes[mk].nao++; }
+      });
+    }
+  });
+  const den = stats.P + stats.F + stats.R;
+  stats.taxa = den > 0 ? Math.round(stats.P / den * 100) : null;
+  return stats;
+}
+
+function getPresencaStatsInstituto(ano) {
+  ano = ano || presencaAno;
+  const hoje = new Date(); hoje.setHours(23,59,59,999);
+  const alunos = state.alunos.filter(a => a.status === 'Ativo');
+  const byAluno = {};
+  const byMes   = {};
+
+  alunos.forEach(a => {
+    const agEntries = state.agenda.filter(ag => ag.aluno === a.nome);
+    if (!agEntries.length) return;
+    byAluno[a.nome] = { P:0, F:0, R:0, H:0, nao:0, total:0 };
+    agEntries.forEach(ag => {
+      for (let m = 0; m < 12; m++) {
+        const datas = getAulasDatasDoMes(ag.dia, ano, m);
+        datas.forEach(d => {
+          if (d > hoje) return;
+          const ds  = dateToStr(d);
+          const val = (state.presencas[ds] || {})[a.nome];
+          byAluno[a.nome].total++;
+          const mk = MESES[m];
+          if (!byMes[mk]) byMes[mk] = {mesIdx:m, P:0, F:0, R:0, H:0, total:0};
+          byMes[mk].total++;
+          if (val === 'P')                { byAluno[a.nome].P++;  byMes[mk].P++; }
+          else if (val === 'F')           { byAluno[a.nome].F++;  byMes[mk].F++; }
+          else if (val&&val.startsWith('R')){ byAluno[a.nome].R++;  byMes[mk].R++; }
+          else if (val === 'H')           { byAluno[a.nome].H++;  byMes[mk].H++; }
+        });
+      }
+    });
+    const den = byAluno[a.nome].P + byAluno[a.nome].F + byAluno[a.nome].R;
+    byAluno[a.nome].taxa = den > 0 ? Math.round(byAluno[a.nome].P / den * 100) : null;
+  });
+
+  return { byAluno, byMes };
+}
+
+function barPresenca(pct, width) {
+  width = width || 80;
+  const filled = Math.round((pct / 100) * width);
+  const cor = pct >= 80 ? 'var(--green)' : pct >= 60 ? 'var(--gold)' : '#E74C3C';
+  return `<div style="display:inline-block;width:${width}px;height:6px;background:rgba(255,255,255,0.08);border-radius:3px;vertical-align:middle;overflow:hidden;">
+    <div style="width:${filled}px;height:100%;background:${cor};border-radius:3px;"></div>
+  </div>`;
+}
+
+function renderRelatorios() {
+  const container = document.getElementById('agenda-relatorios-container');
+  if (!container) return;
+
+  const ano = presencaAno;
+  const alunosComAgenda = [...new Set(state.agenda.filter(a => a.aluno !== 'VAGO').map(a => a.aluno))].sort();
+  const opts = alunosComAgenda.map(n => `<option>${n}</option>`).join('');
+
+  const { byAluno, byMes } = getPresencaStatsInstituto(ano);
+  const todosAlunos = Object.entries(byAluno).filter(([,s]) => s.total > 0);
+  const totalP   = todosAlunos.reduce((s,[,x]) => s + x.P,   0);
+  const totalF   = todosAlunos.reduce((s,[,x]) => s + x.F,   0);
+  const totalR   = todosAlunos.reduce((s,[,x]) => s + x.R,   0);
+  const totalH   = todosAlunos.reduce((s,[,x]) => s + x.H,   0);
+  const totalReg = todosAlunos.reduce((s,[,x]) => s + x.total,0);
+  const denGeral = totalP + totalF + totalR;
+  const taxaGeral = denGeral > 0 ? Math.round(totalP / denGeral * 100) : null;
+
+  const rankPresenca = [...todosAlunos].filter(([,s]) => s.taxa !== null)
+    .sort((a,b) => b[1].taxa - a[1].taxa);
+  const top3     = rankPresenca.slice(0, 3);
+  const bottom3  = [...rankPresenca].reverse().slice(0, 3);
+
+  const mesesComDados = MESES.map((m,i) => ({m, i, d: byMes[m]})).filter(x => x.d && x.d.total > 0);
+
+  let html = `
+  <!-- SEÇÃO: INSTITUTO -->
+  <div style="font-size:10px;color:var(--gold);letter-spacing:1.5px;text-transform:uppercase;margin-bottom:12px;font-weight:600;">🏫 INSTITUTO NB — ${ano}</div>
+
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:16px;">
+    <div style="background:var(--card);border:1px solid var(--border);border-radius:10px;padding:12px;text-align:center;">
+      <div style="font-family:'Cormorant Garamond',serif;font-size:28px;color:${taxaGeral!==null?(taxaGeral>=80?'var(--green)':taxaGeral>=60?'var(--gold)':'#E74C3C'):'var(--muted)'};font-weight:700;">${taxaGeral !== null ? taxaGeral+'%' : '—'}</div>
+      <div style="font-size:10px;color:var(--muted);margin-top:2px;">Presença Geral</div>
+    </div>
+    <div style="background:var(--card);border:1px solid var(--border);border-radius:10px;padding:12px;text-align:center;">
+      <div style="font-family:'Cormorant Garamond',serif;font-size:28px;color:var(--text);font-weight:700;">${totalReg}</div>
+      <div style="font-size:10px;color:var(--muted);margin-top:2px;">Aulas registradas</div>
+    </div>
+    <div style="background:var(--card);border:1px solid var(--border);border-radius:10px;padding:12px;text-align:center;">
+      <div style="font-family:'Cormorant Garamond',serif;font-size:22px;color:var(--green);font-weight:700;">${totalP} <span style="font-size:12px;">P</span></div>
+      <div style="font-size:10px;color:var(--muted);">${totalF} <span style="color:#E74C3C;">F</span> · ${totalR} <span style="color:var(--gold);">R</span> · ${totalH} <span style="color:#7B9ED9;">H</span></div>
+    </div>
+    <div style="background:var(--card);border:1px solid var(--border);border-radius:10px;padding:12px;text-align:center;">
+      <div style="font-family:'Cormorant Garamond',serif;font-size:28px;color:var(--gold);font-weight:700;">${todosAlunos.length}</div>
+      <div style="font-size:10px;color:var(--muted);margin-top:2px;">Alunos com dados</div>
+    </div>
+  </div>`;
+
+  if (mesesComDados.length) {
+    html += `<div style="font-size:10px;color:var(--muted);letter-spacing:1px;text-transform:uppercase;margin-bottom:8px;font-weight:600;">📅 Por Mês</div>
+    <div style="overflow-x:auto;margin-bottom:16px;"><table style="width:100%;border-collapse:collapse;min-width:340px;">
+      <thead><tr>
+        <th style="text-align:left;padding:4px 6px;font-size:9px;color:var(--muted);font-weight:400;border-bottom:1px solid var(--border);">Mês</th>
+        <th style="text-align:center;padding:4px;font-size:9px;color:var(--green);font-weight:600;border-bottom:1px solid var(--border);">P</th>
+        <th style="text-align:center;padding:4px;font-size:9px;color:#E74C3C;font-weight:600;border-bottom:1px solid var(--border);">F</th>
+        <th style="text-align:center;padding:4px;font-size:9px;color:var(--gold);font-weight:600;border-bottom:1px solid var(--border);">R</th>
+        <th style="text-align:center;padding:4px;font-size:9px;color:#7B9ED9;font-weight:600;border-bottom:1px solid var(--border);">H</th>
+        <th style="text-align:right;padding:4px 6px;font-size:9px;color:var(--muted);font-weight:400;border-bottom:1px solid var(--border);">%</th>
+      </tr></thead><tbody>`;
+    mesesComDados.forEach(({m, d}) => {
+      const den = d.P + d.F + d.R;
+      const tx  = den > 0 ? Math.round(d.P / den * 100) : null;
+      const txColor = tx === null ? 'var(--muted)' : tx >= 80 ? 'var(--green)' : tx >= 60 ? 'var(--gold)' : '#E74C3C';
+      html += `<tr>
+        <td style="padding:6px 6px;font-size:11px;color:var(--text);border-bottom:1px solid rgba(255,255,255,0.04);">${MESES_LABEL[MESES.indexOf(m)]}</td>
+        <td style="text-align:center;padding:6px 4px;font-size:11px;color:var(--green);border-bottom:1px solid rgba(255,255,255,0.04);">${d.P}</td>
+        <td style="text-align:center;padding:6px 4px;font-size:11px;color:#E74C3C;border-bottom:1px solid rgba(255,255,255,0.04);">${d.F}</td>
+        <td style="text-align:center;padding:6px 4px;font-size:11px;color:var(--gold);border-bottom:1px solid rgba(255,255,255,0.04);">${d.R}</td>
+        <td style="text-align:center;padding:6px 4px;font-size:11px;color:#7B9ED9;border-bottom:1px solid rgba(255,255,255,0.04);">${d.H}</td>
+        <td style="text-align:right;padding:6px 6px;font-size:11px;font-weight:700;color:${txColor};border-bottom:1px solid rgba(255,255,255,0.04);">${tx !== null ? tx+'%' : '—'}</td>
+      </tr>`;
+    });
+    html += '</tbody></table></div>';
+  }
+
+  if (top3.length) {
+    html += `<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:20px;">
+      <div>
+        <div style="font-size:10px;color:var(--green);letter-spacing:1px;text-transform:uppercase;margin-bottom:6px;font-weight:600;">👑 Mais presentes</div>
+        ${top3.map(([n,s],i) => `
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:5px;">
+          <span style="font-size:10px;color:var(--muted);min-width:12px;">${i+1}.</span>
+          <div style="flex:1;min-width:0;">
+            <div style="font-size:11px;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${n.split(' ')[0]}</div>
+            <div style="font-size:9px;color:var(--green);">${s.taxa}%</div>
+          </div>
+        </div>`).join('')}
+      </div>
+      <div>
+        <div style="font-size:10px;color:#E74C3C;letter-spacing:1px;text-transform:uppercase;margin-bottom:6px;font-weight:600;">⚠️ Mais faltas</div>
+        ${bottom3.map(([n,s],i) => `
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:5px;">
+          <span style="font-size:10px;color:var(--muted);min-width:12px;">${i+1}.</span>
+          <div style="flex:1;min-width:0;">
+            <div style="font-size:11px;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${n.split(' ')[0]}</div>
+            <div style="font-size:9px;color:#E74C3C;">${s.taxa}%</div>
+          </div>
+        </div>`).join('')}
+      </div>
+    </div>`;
+  }
+
+  const repTotal = (state.reposicoes||[]).length;
+  const repAgend = (state.reposicoes||[]).filter(r=>r.status==='agendada').length;
+  const repReal  = (state.reposicoes||[]).filter(r=>r.status==='realizada').length;
+  if (repTotal > 0) {
+    html += `<div style="background:var(--card);border:1px solid var(--border);border-radius:10px;padding:12px;margin-bottom:20px;">
+      <div style="font-size:10px;color:var(--muted);letter-spacing:1px;text-transform:uppercase;margin-bottom:6px;font-weight:600;">🔄 Reposições ${ano}</div>
+      <div style="display:flex;gap:20px;font-size:12px;">
+        <span><span style="color:var(--gold);font-weight:700;">${repAgend}</span> agendadas</span>
+        <span><span style="color:var(--green);font-weight:700;">${repReal}</span> realizadas</span>
+      </div>
+    </div>`;
+  }
+
+  html += `<div style="height:1px;background:var(--border);margin-bottom:20px;"></div>`;
+
+  // SEÇÃO: ALUNO INDIVIDUAL
+  html += `
+  <div style="font-size:10px;color:var(--gold);letter-spacing:1.5px;text-transform:uppercase;margin-bottom:12px;font-weight:600;">👤 Relatório por Aluno</div>
+  <div style="margin-bottom:16px;">
+    <select id="rel-aluno-sel" onchange="renderRelatorioAluno(this.value)" style="width:100%;background:var(--card);border:1px solid var(--border);border-radius:8px;padding:10px 12px;color:var(--text);font-size:13px;font-family:inherit;">
+      <option value="">— Selecione o aluno —</option>
+      ${opts}
+    </select>
+  </div>
+  <div id="rel-aluno-detalhe"></div>`;
+
+  container.innerHTML = html;
+}
+
+function renderRelatorioAluno(nome) {
+  const container = document.getElementById('rel-aluno-detalhe');
+  if (!container) return;
+  if (!nome) { container.innerHTML = ''; return; }
+
+  const s = getPresencaStatsAluno(nome, presencaAno);
+  if (!s || s.total === 0) {
+    container.innerHTML = `<div style="text-align:center;color:var(--muted);font-size:12px;padding:16px 0;">Nenhuma aula registrada para ${nome} em ${presencaAno}.</div>`;
+    return;
+  }
+
+  const ag = state.agenda.find(a => a.aluno === nome);
+  const subLabel = ag ? `${ag.dia} · ${ag.hora}` : '';
+  const taxaColor = s.taxa === null ? 'var(--muted)' : s.taxa >= 80 ? 'var(--green)' : s.taxa >= 60 ? 'var(--gold)' : '#E74C3C';
+  const den = s.P + s.F + s.R;
+
+  let html = `
+  <div style="background:var(--card);border:1px solid var(--border);border-radius:12px;padding:14px;margin-bottom:16px;">
+    <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:12px;">
+      <div>
+        <div style="font-size:14px;font-weight:600;color:var(--text);">${nome}</div>
+        ${subLabel ? `<div style="font-size:10px;color:var(--muted);">${subLabel}</div>` : ''}
+      </div>
+      <div style="text-align:right;">
+        <div style="font-family:'Cormorant Garamond',serif;font-size:32px;color:${taxaColor};font-weight:700;line-height:1;">${s.taxa !== null ? s.taxa+'%' : '—'}</div>
+        <div style="font-size:9px;color:var(--muted);">de presença</div>
+      </div>
+    </div>
+    ${s.taxa !== null ? `<div style="margin-bottom:12px;">${barPresenca(s.taxa, 200)}</div>` : ''}
+    <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:6px;text-align:center;">
+      <div style="background:rgba(39,174,96,0.1);border-radius:8px;padding:8px 4px;">
+        <div style="font-size:18px;font-weight:700;color:var(--green);">${s.P}</div>
+        <div style="font-size:9px;color:var(--muted);">Presente${den>0?' ('+Math.round(s.P/den*100)+'%)':''}</div>
+      </div>
+      <div style="background:rgba(192,57,43,0.1);border-radius:8px;padding:8px 4px;">
+        <div style="font-size:18px;font-weight:700;color:#E74C3C;">${s.F}</div>
+        <div style="font-size:9px;color:var(--muted);">Falta${den>0?' ('+Math.round(s.F/den*100)+'%)':''}</div>
+      </div>
+      <div style="background:rgba(201,168,76,0.1);border-radius:8px;padding:8px 4px;">
+        <div style="font-size:18px;font-weight:700;color:var(--gold);">${s.R}</div>
+        <div style="font-size:9px;color:var(--muted);">Reposição</div>
+      </div>
+      <div style="background:rgba(123,158,217,0.1);border-radius:8px;padding:8px 4px;">
+        <div style="font-size:18px;font-weight:700;color:#7B9ED9;">${s.H}</div>
+        <div style="font-size:9px;color:var(--muted);">Feriado</div>
+      </div>
+    </div>
+    ${s.nao > 0 ? `<div style="font-size:10px;color:var(--muted);margin-top:8px;text-align:center;">${s.nao} aula${s.nao>1?'s':''} sem marcação</div>` : ''}
+  </div>`;
+
+  const mesesAluno = Object.entries(s.byMes).sort((a,b) => a[1].mesIdx - b[1].mesIdx);
+  if (mesesAluno.length) {
+    html += `<div style="font-size:10px;color:var(--muted);letter-spacing:1px;text-transform:uppercase;margin-bottom:8px;font-weight:600;">Por mês — ${presencaAno}</div>
+    <div style="overflow-x:auto;"><table style="width:100%;border-collapse:collapse;min-width:280px;">
+      <thead><tr>
+        <th style="text-align:left;padding:4px 6px;font-size:9px;color:var(--muted);font-weight:400;border-bottom:1px solid var(--border);">Mês</th>
+        <th style="text-align:center;padding:4px;font-size:9px;color:var(--green);font-weight:600;border-bottom:1px solid var(--border);">P</th>
+        <th style="text-align:center;padding:4px;font-size:9px;color:#E74C3C;font-weight:600;border-bottom:1px solid var(--border);">F</th>
+        <th style="text-align:center;padding:4px;font-size:9px;color:var(--gold);font-weight:600;border-bottom:1px solid var(--border);">R</th>
+        <th style="text-align:center;padding:4px;font-size:9px;color:#7B9ED9;font-weight:600;border-bottom:1px solid var(--border);">H</th>
+        <th style="text-align:right;padding:4px 6px;font-size:9px;color:var(--muted);font-weight:400;border-bottom:1px solid var(--border);">%</th>
+      </tr></thead><tbody>`;
+    mesesAluno.forEach(([mk, md]) => {
+      const mden = md.P + md.F + md.R;
+      const mtx  = mden > 0 ? Math.round(md.P / mden * 100) : null;
+      const mc   = mtx === null ? 'var(--muted)' : mtx >= 80 ? 'var(--green)' : mtx >= 60 ? 'var(--gold)' : '#E74C3C';
+      html += `<tr>
+        <td style="padding:6px 6px;font-size:11px;color:var(--text);border-bottom:1px solid rgba(255,255,255,0.04);">${MESES_LABEL[MESES.indexOf(mk)]}</td>
+        <td style="text-align:center;padding:6px 4px;font-size:11px;color:var(--green);border-bottom:1px solid rgba(255,255,255,0.04);">${md.P}</td>
+        <td style="text-align:center;padding:6px 4px;font-size:11px;color:#E74C3C;border-bottom:1px solid rgba(255,255,255,0.04);">${md.F}</td>
+        <td style="text-align:center;padding:6px 4px;font-size:11px;color:var(--gold);border-bottom:1px solid rgba(255,255,255,0.04);">${md.R}</td>
+        <td style="text-align:center;padding:6px 4px;font-size:11px;color:#7B9ED9;border-bottom:1px solid rgba(255,255,255,0.04);">${md.H}</td>
+        <td style="text-align:right;padding:6px 6px;font-size:11px;font-weight:700;color:${mc};border-bottom:1px solid rgba(255,255,255,0.04);">${mtx !== null ? mtx+'%' : '—'}</td>
+      </tr>`;
+    });
+    html += '</tbody></table></div>';
+  }
+
+  container.innerHTML = html;
 }
 
 function compartilharAgendaDia() {
