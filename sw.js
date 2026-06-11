@@ -14,6 +14,11 @@ self.addEventListener('activate', e => {
 
 self.addEventListener('fetch', e => {
   if (e.request.method !== 'GET') return;
+  // Requests com ?bust= sempre vão direto à rede (force update)
+  if (e.request.url.includes('bust=')) {
+    e.respondWith(fetch(e.request));
+    return;
+  }
   // HTML principal: sempre da rede (garante versão mais recente)
   if (e.request.mode === 'navigate') {
     e.respondWith(

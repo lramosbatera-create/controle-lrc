@@ -2352,12 +2352,17 @@ async function forceUpdate() {
   try {
     if ('serviceWorker' in navigator) {
       const regs = await navigator.serviceWorker.getRegistrations();
-      for (const r of regs) await r.unregister();
+      for (const r of regs) {
+        try { await r.update(); } catch(e) {}
+        await r.unregister();
+      }
     }
     const keys = await caches.keys();
-    for (const k of keys) await caches.delete(k);
+    await Promise.all(keys.map(k => caches.delete(k)));
   } catch(e) {}
-  setTimeout(() => { location.href = location.href.split('?')[0] + '?v=' + Date.now(); }, 500);
+  // Redireciona para URL limpa forçando busca na rede (sem query antiga)
+  const base = location.origin + location.pathname.replace(/\/$/, '') + '/';
+  setTimeout(() => { location.replace(base + '?bust=' + Date.now()); }, 800);
 }
 
 async function dbPushAll() {
