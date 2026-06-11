@@ -7274,6 +7274,9 @@ const ATV_STATUS_EXERCICIO = ['Em andamento','Dominado'];
 
 let atvAlunoAtual = '';
 let atvTabAtual = 'conteudo';
+let atvEditConteudoId = null;
+let atvEditExercicioId = null;
+let atvEditMusicaId = null;
 
 function populateAtvAlunoSelect() {
   const sel = document.getElementById('atv-aluno-sel');
@@ -7350,6 +7353,37 @@ function renderAtvConteudo() {
   const listaHtml = registros.length === 0
     ? `<div class="empty-state"><div class="icon">📝</div><p>${atvAlunoAtual ? 'Nenhum registro ainda.' : 'Selecione um aluno para ver os registros.'}</p></div>`
     : registros.map(r => {
+        if (r.id === atvEditConteudoId) {
+          return `<div style="background:var(--card);border:1px solid var(--gold);border-radius:12px;padding:14px;margin-bottom:10px;">
+            <div style="color:var(--gold);font-size:12px;font-weight:600;margin-bottom:10px;">✏️ Editando registro</div>
+            <div class="form-group" style="margin-bottom:8px;">
+              <label>Data</label>
+              <input type="date" id="edit-c-data" value="${r.data}" style="width:100%;background:var(--dark);border:1px solid var(--border);border-radius:8px;padding:8px 10px;color:var(--text);font-size:13px;box-sizing:border-box;">
+            </div>
+            <div class="form-group" style="margin-bottom:8px;">
+              <label>Nível</label>
+              <select id="edit-c-nivel" style="width:100%;background:var(--dark);border:1px solid var(--border);border-radius:8px;padding:8px 10px;color:var(--text);font-size:13px;">
+                ${ATV_NIVEIS.map(n => `<option ${n===(r.nivel||'Iniciante')?'selected':''}>${n}</option>`).join('')}
+              </select>
+            </div>
+            <div class="form-group" style="margin-bottom:8px;">
+              <label>Conteúdo</label>
+              <textarea id="edit-c-texto" rows="4" style="width:100%;background:var(--dark);border:1px solid var(--border);border-radius:8px;padding:8px 10px;color:var(--text);font-size:13px;resize:vertical;box-sizing:border-box;font-family:inherit;">${r.texto}</textarea>
+            </div>
+            <div style="margin-bottom:10px;">
+              <label style="font-size:11px;color:var(--text-muted);display:block;margin-bottom:4px;">Tags</label>
+              <div style="display:flex;flex-wrap:wrap;gap:6px;">
+                ${ATV_TAGS.map(t => `<label style="display:flex;align-items:center;gap:4px;font-size:12px;cursor:pointer;">
+                  <input type="checkbox" value="${t}" class="edit-c-tag" ${(r.tags||[]).includes(t)?'checked':''} style="accent-color:var(--gold);"> ${t}
+                </label>`).join('')}
+              </div>
+            </div>
+            <div style="display:flex;gap:8px;">
+              <button class="btn btn-gold" onclick="salvarEdicaoConteudo(${r.id})" style="font-size:12px;padding:7px 14px;">✓ Salvar</button>
+              <button class="btn btn-outline" onclick="atvEditConteudoId=null;renderAtvConteudo();" style="font-size:12px;padding:7px 14px;">Cancelar</button>
+            </div>
+          </div>`;
+        }
         const d = new Date(r.data + 'T12:00:00');
         const dFmt = d.toLocaleDateString('pt-BR', {day:'2-digit',month:'short',year:'numeric'});
         return `<div style="background:var(--card);border:1px solid var(--border);border-radius:12px;padding:14px;margin-bottom:10px;">
@@ -7357,6 +7391,7 @@ function renderAtvConteudo() {
             <span style="color:var(--gold);font-size:12px;font-weight:600;">${dFmt}</span>
             <div style="display:flex;gap:6px;align-items:center;">
               <span style="background:rgba(201,168,76,0.15);color:var(--gold);padding:2px 8px;border-radius:20px;font-size:11px;">${r.nivel || 'Iniciante'}</span>
+              <button onclick="atvEditConteudoId=${r.id};renderAtvConteudo();" style="background:none;border:none;color:var(--gold);cursor:pointer;font-size:14px;padding:0 4px;">✏️</button>
               <button onclick="excluirConteudo(${r.id})" style="background:none;border:none;color:#e74c3c;cursor:pointer;font-size:14px;padding:0 4px;">🗑</button>
             </div>
           </div>
@@ -7386,6 +7421,21 @@ function excluirConteudo(id) {
   if (!confirm('Excluir este registro?')) return;
   state.atividades.conteudo = state.atividades.conteudo.filter(r => r.id !== id);
   saveState();
+  renderAtvConteudo();
+}
+
+function salvarEdicaoConteudo(id) {
+  const r = state.atividades.conteudo.find(x => x.id === id);
+  if (!r) return;
+  const data  = document.getElementById('edit-c-data')?.value;
+  const nivel = document.getElementById('edit-c-nivel')?.value;
+  const texto = document.getElementById('edit-c-texto')?.value.trim();
+  if (!texto) { toast('Digite o conteúdo'); return; }
+  const tags = [...document.querySelectorAll('.edit-c-tag:checked')].map(cb => cb.value);
+  r.data = data; r.nivel = nivel; r.texto = texto; r.tags = tags;
+  atvEditConteudoId = null;
+  saveState();
+  toast('✓ Registro atualizado');
   renderAtvConteudo();
 }
 
@@ -7496,6 +7546,35 @@ function renderAtvExercicios() {
   const listaHtml = lista.length === 0
     ? `<div class="empty-state"><div class="icon">🥁</div><p>${atvAlunoAtual ? 'Nenhum exercício cadastrado.' : 'Selecione um aluno.'}</p></div>`
     : lista.map(e => {
+        if (e.id === atvEditExercicioId) {
+          return `<div style="background:var(--card);border:1px solid var(--gold);border-radius:12px;padding:14px;margin-bottom:10px;">
+            <div style="color:var(--gold);font-size:12px;font-weight:600;margin-bottom:10px;">✏️ Editando exercício</div>
+            <div class="form-group" style="margin-bottom:8px;">
+              <label>Nome</label>
+              <input type="text" id="edit-e-nome" value="${e.nome}" style="width:100%;background:var(--dark);border:1px solid var(--border);border-radius:8px;padding:8px 10px;color:var(--text);font-size:13px;box-sizing:border-box;">
+            </div>
+            <div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:8px;">
+              <div style="flex:1;min-width:110px;" class="form-group">
+                <label>BPM Alvo</label>
+                <input type="number" id="edit-e-bpmalvo" value="${e.bpmAlvo}" min="20" max="400" style="width:100%;background:var(--dark);border:1px solid var(--border);border-radius:8px;padding:8px 10px;color:var(--text);font-size:13px;box-sizing:border-box;">
+              </div>
+              <div style="flex:1;min-width:110px;" class="form-group">
+                <label>BPM Atual</label>
+                <input type="number" id="edit-e-bpmAtual" value="${e.bpmAtual||e.bpmAlvo}" min="20" max="400" style="width:100%;background:var(--dark);border:1px solid var(--border);border-radius:8px;padding:8px 10px;color:var(--text);font-size:13px;box-sizing:border-box;">
+              </div>
+            </div>
+            <div class="form-group" style="margin-bottom:10px;">
+              <label>Status</label>
+              <select id="edit-e-status" style="width:100%;background:var(--dark);border:1px solid var(--border);border-radius:8px;padding:8px 10px;color:var(--text);font-size:13px;">
+                ${ATV_STATUS_EXERCICIO.map(s => `<option ${s===e.status?'selected':''}>${s}</option>`).join('')}
+              </select>
+            </div>
+            <div style="display:flex;gap:8px;">
+              <button class="btn btn-gold" onclick="salvarEdicaoExercicio(${e.id})" style="font-size:12px;padding:7px 14px;">✓ Salvar</button>
+              <button class="btn btn-outline" onclick="atvEditExercicioId=null;renderAtvExercicios();" style="font-size:12px;padding:7px 14px;">Cancelar</button>
+            </div>
+          </div>`;
+        }
         const pct = Math.min(100, Math.round(((e.bpmAtual || e.bpmAlvo) / e.bpmAlvo) * 100));
         const corBarra = pct >= 100 ? '#27ae60' : pct >= 70 ? 'var(--gold)' : '#e74c3c';
         const hist = (e.historico || []).slice(-5).reverse();
@@ -7505,7 +7584,10 @@ function renderAtvExercicios() {
               <span style="font-size:14px;font-weight:600;">${e.nome}</span>
               <span style="margin-left:8px;font-size:11px;background:${e.status==='Dominado'?'rgba(39,174,96,0.2)':'rgba(201,168,76,0.15)'};color:${e.status==='Dominado'?'#27ae60':'var(--gold)'};padding:2px 8px;border-radius:12px;">${e.status}</span>
             </div>
-            <button onclick="excluirExercicio(${e.id})" style="background:none;border:none;color:#e74c3c;cursor:pointer;font-size:14px;">🗑</button>
+            <div style="display:flex;gap:6px;">
+              <button onclick="atvEditExercicioId=${e.id};renderAtvExercicios();" style="background:none;border:none;color:var(--gold);cursor:pointer;font-size:14px;">✏️</button>
+              <button onclick="excluirExercicio(${e.id})" style="background:none;border:none;color:#e74c3c;cursor:pointer;font-size:14px;">🗑</button>
+            </div>
           </div>
           <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px;">
             <span style="font-size:12px;color:var(--text-muted);min-width:60px;">${e.bpmAtual || e.bpmAlvo} / ${e.bpmAlvo} BPM</span>
@@ -7575,6 +7657,21 @@ function excluirExercicio(id) {
   renderAtvExercicios();
 }
 
+function salvarEdicaoExercicio(id) {
+  const e = state.atividades.exercicios.find(x => x.id === id);
+  if (!e) return;
+  const nome     = document.getElementById('edit-e-nome')?.value.trim();
+  const bpmAlvo  = parseInt(document.getElementById('edit-e-bpmalvo')?.value) || e.bpmAlvo;
+  const bpmAtual = parseInt(document.getElementById('edit-e-bpmAtual')?.value) || e.bpmAtual;
+  const status   = document.getElementById('edit-e-status')?.value;
+  if (!nome) { toast('Digite o nome'); return; }
+  e.nome = nome; e.bpmAlvo = bpmAlvo; e.bpmAtual = bpmAtual; e.status = status;
+  atvEditExercicioId = null;
+  saveState();
+  toast('✓ Exercício atualizado');
+  renderAtvExercicios();
+}
+
 // ---- MÚSICAS ----
 
 function renderAtvMusicas() {
@@ -7619,7 +7716,39 @@ function renderAtvMusicas() {
   const corStatus = { 'Em estudo':'var(--gold)', 'Dominada':'#27ae60', 'Apresentada':'#3498db' };
   const listaHtml = lista.length === 0
     ? `<div class="empty-state"><div class="icon">🎵</div><p>${atvAlunoAtual ? 'Nenhuma música cadastrada.' : 'Selecione um aluno.'}</p></div>`
-    : lista.map(m => `
+    : lista.map(m => {
+      if (m.id === atvEditMusicaId) {
+        return `<div style="background:var(--card);border:1px solid var(--gold);border-radius:12px;padding:14px;margin-bottom:10px;">
+          <div style="color:var(--gold);font-size:12px;font-weight:600;margin-bottom:10px;">✏️ Editando música</div>
+          <div class="form-group" style="margin-bottom:8px;">
+            <label>Título</label>
+            <input type="text" id="edit-m-nome" value="${m.nome}" style="width:100%;background:var(--dark);border:1px solid var(--border);border-radius:8px;padding:8px 10px;color:var(--text);font-size:13px;box-sizing:border-box;">
+          </div>
+          <div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:8px;">
+            <div style="flex:1;min-width:130px;" class="form-group">
+              <label>Artista</label>
+              <input type="text" id="edit-m-artista" value="${m.artista}" style="width:100%;background:var(--dark);border:1px solid var(--border);border-radius:8px;padding:8px 10px;color:var(--text);font-size:13px;box-sizing:border-box;">
+            </div>
+            <div style="flex:1;min-width:110px;" class="form-group">
+              <label>Estilo</label>
+              <select id="edit-m-estilo" style="width:100%;background:var(--dark);border:1px solid var(--border);border-radius:8px;padding:8px 10px;color:var(--text);font-size:13px;">
+                ${ATV_ESTILOS.map(s => `<option ${s===m.estilo?'selected':''}>${s}</option>`).join('')}
+              </select>
+            </div>
+          </div>
+          <div class="form-group" style="margin-bottom:10px;">
+            <label>Status</label>
+            <select id="edit-m-status" style="width:100%;background:var(--dark);border:1px solid var(--border);border-radius:8px;padding:8px 10px;color:var(--text);font-size:13px;">
+              ${ATV_STATUS_MUSICA.map(s => `<option ${s===m.status?'selected':''}>${s}</option>`).join('')}
+            </select>
+          </div>
+          <div style="display:flex;gap:8px;">
+            <button class="btn btn-gold" onclick="salvarEdicaoMusica(${m.id})" style="font-size:12px;padding:7px 14px;">✓ Salvar</button>
+            <button class="btn btn-outline" onclick="atvEditMusicaId=null;renderAtvMusicas();" style="font-size:12px;padding:7px 14px;">Cancelar</button>
+          </div>
+        </div>`;
+      }
+      return `
       <div style="background:var(--card);border:1px solid var(--border);border-radius:12px;padding:14px;margin-bottom:10px;">
         <div style="display:flex;justify-content:space-between;align-items:flex-start;">
           <div>
@@ -7631,6 +7760,7 @@ function renderAtvMusicas() {
               style="background:var(--dark);border:1px solid var(--border);border-radius:6px;padding:4px 8px;color:${corStatus[m.status]||'var(--text)'};font-size:11px;cursor:pointer;">
               ${ATV_STATUS_MUSICA.map(s => `<option value="${s}" ${s===m.status?'selected':''}>${s}</option>`).join('')}
             </select>
+            <button onclick="atvEditMusicaId=${m.id};renderAtvMusicas();" style="background:none;border:none;color:var(--gold);cursor:pointer;font-size:14px;">✏️</button>
             <button onclick="excluirMusica(${m.id})" style="background:none;border:none;color:#e74c3c;cursor:pointer;font-size:14px;">🗑</button>
           </div>
         </div>
@@ -7672,7 +7802,9 @@ function atualizarStatusMusica(id, novoStatus) {
   } else {
     m.dataConclusao = null;
   }
+  atvEditMusicaId = null;
   saveState();
+  toast('✓ Música atualizada');
   renderAtvMusicas();
 }
 
@@ -7681,6 +7813,19 @@ function excluirMusica(id) {
   state.atividades.musicas = state.atividades.musicas.filter(m => m.id !== id);
   saveState();
   renderAtvMusicas();
+}
+
+function salvarEdicaoMusica(id) {
+  const m = state.atividades.musicas.find(x => x.id === id);
+  if (!m) return;
+  const nome    = document.getElementById('edit-m-nome')?.value.trim();
+  const artista = document.getElementById('edit-m-artista')?.value.trim() || '—';
+  const estilo  = document.getElementById('edit-m-estilo')?.value;
+  const status  = document.getElementById('edit-m-status')?.value;
+  if (!nome) { toast('Digite o nome da música'); return; }
+  m.nome = nome; m.artista = artista; m.estilo = estilo;
+  if (m.status !== status) atualizarStatusMusica(id, status);
+  else { atvEditMusicaId = null; saveState(); toast('✓ Música atualizada'); renderAtvMusicas(); }
 }
 
 // ============ CERTIFICADO ============
