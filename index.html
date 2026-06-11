@@ -674,6 +674,12 @@
   <div class="nav-tab" onclick="showPage('relatorios')" id="tab-relatorios">
     <span class="icon">📊</span> Relatórios
   </div>
+  <div class="nav-tab" onclick="showPage('atividades')" id="tab-atividades">
+    <span class="icon">🎯</span> Atividades
+  </div>
+  <div class="nav-tab" onclick="showPage('certificado')" id="tab-certificado">
+    <span class="icon">🎓</span> Certificado
+  </div>
 </nav>
 
 <div class="page active" id="page-painel">
@@ -1941,6 +1947,42 @@
   </div>
 </div>
 
+<!-- ======== ATIVIDADES ======== -->
+<div class="page" id="page-atividades">
+  <p class="section-title">Atividades dos Bateras</p>
+
+  <!-- Seletor de aluno (persistente) -->
+  <div style="margin-bottom:12px;">
+    <select id="atv-aluno-sel" onchange="atvAlunoChange(this.value)"
+      style="width:100%;background:var(--card);border:1px solid var(--border);border-radius:10px;padding:11px 14px;color:var(--text);font-size:13px;font-family:inherit;">
+      <option value="">— Selecione o aluno —</option>
+    </select>
+  </div>
+
+  <!-- Sub-abas -->
+  <div style="display:flex;gap:4px;background:var(--dark);border:1px solid var(--border);border-radius:10px;padding:4px;margin-bottom:14px;flex-wrap:wrap;">
+    <button class="inb-subtab atv-subtab active" onclick="showAtvTab('conteudo',this)">📝 Conteúdo</button>
+    <button class="inb-subtab atv-subtab" onclick="showAtvTab('exercicios',this)">🥁 Exercícios/BPM</button>
+    <button class="inb-subtab atv-subtab" onclick="showAtvTab('musicas',this)">🎵 Músicas</button>
+  </div>
+
+  <div id="atv-sub-conteudo"><div id="atv-conteudo-container"></div></div>
+  <div id="atv-sub-exercicios" style="display:none"><div id="atv-exercicios-container"></div></div>
+  <div id="atv-sub-musicas" style="display:none"><div id="atv-musicas-container"></div></div>
+</div>
+
+<!-- ======== CERTIFICADO ======== -->
+<div class="page" id="page-certificado">
+  <p class="section-title">Certificado / Diploma</p>
+  <div style="margin-bottom:12px;">
+    <select id="cert-aluno-sel" onchange="renderCertificado(this.value)"
+      style="width:100%;background:var(--card);border:1px solid var(--border);border-radius:10px;padding:11px 14px;color:var(--text);font-size:13px;font-family:inherit;">
+      <option value="">— Selecione o aluno —</option>
+    </select>
+  </div>
+  <div id="cert-container"></div>
+</div>
+
 <div id="install-banner" style="
   display:none; position:fixed; bottom:0; left:0; right:0; z-index:200;
   background:linear-gradient(135deg,#1a1408,#111);
@@ -2063,6 +2105,7 @@ function saveState() {
       pagFixas: state.pagFixas,
       presencas: state.presencas,
       reposicoes: state.reposicoes,
+      atividades: state.atividades,
     }));
   } catch(e) { console.warn('Save failed', e); }
 }
@@ -2200,6 +2243,7 @@ async function dbLoad() {
   if (!state.agenda) state.agenda = [];
   if (!state.presencas) state.presencas = {};
   if (!state.reposicoes) state.reposicoes = [];
+  if (!state.atividades) state.atividades = { conteudo: [], exercicios: [], musicas: [] };
   migrateAgendaPresenca();
 }
 
@@ -4641,6 +4685,8 @@ function showPage(id) {
   if (id === 'whatsapp') renderWpp();
   if (id === 'recital') { updateRecitalKPIs(); renderRecitalInscricoes(); populateRecitalSelect(); }
   if (id === 'relatorios') { document.getElementById('rel-mes-filter').style.display='block'; }
+  if (id === 'atividades') { populateAtvAlunoSelect(); renderAtvConteudo(); }
+  if (id === 'certificado') { populateCertAlunoSelect(); }
 }
 
 // ============ TOAST ============
@@ -7170,6 +7216,654 @@ async function saveSupabaseConfig() {
   localStorage.setItem('lrc-sb-key', key);
   toast('✓ Credenciais salvas — recarregando...');
   setTimeout(() => location.reload(), 1200);
+}
+
+// ============ ATIVIDADES ============
+
+const ATV_TAGS = ['Rudimentos','Coordenação','Leitura','Estilo','Teoria','Improvisação','Técnica','Repertório'];
+const ATV_NIVEIS = ['Iniciante','Intermediário','Avançado'];
+const ATV_ESTILOS = ['Rock','Pop','Jazz','Funk','Samba','Baião','Metal','Reggae','Outro'];
+const ATV_STATUS_MUSICA = ['Em estudo','Dominada','Apresentada'];
+const ATV_STATUS_EXERCICIO = ['Em andamento','Dominado'];
+
+let atvAlunoAtual = '';
+let atvTabAtual = 'conteudo';
+
+function populateAtvAlunoSelect() {
+  const sel = document.getElementById('atv-aluno-sel');
+  if (!sel) return;
+  const ativos = state.alunos.filter(a => a.status !== 'Inativo').sort((a,b) => a.nome.localeCompare(b.nome));
+  sel.innerHTML = '<option value="">— Selecione o aluno —</option>' +
+    ativos.map(a => `<option value="${a.id}"${a.id == atvAlunoAtual ? ' selected':''}">${a.nome}</option>`).join('');
+}
+
+function atvAlunoChange(idStr) {
+  atvAlunoAtual = idStr;
+  if (atvTabAtual === 'conteudo') renderAtvConteudo();
+  else if (atvTabAtual === 'exercicios') renderAtvExercicios();
+  else if (atvTabAtual === 'musicas') renderAtvMusicas();
+}
+
+function showAtvTab(tab, btn) {
+  atvTabAtual = tab;
+  document.querySelectorAll('.atv-subtab').forEach(b => b.classList.remove('active'));
+  if (btn) btn.classList.add('active');
+  ['conteudo','exercicios','musicas'].forEach(t => {
+    const el = document.getElementById('atv-sub-' + t);
+    if (el) el.style.display = t === tab ? '' : 'none';
+  });
+  if (tab === 'conteudo') renderAtvConteudo();
+  else if (tab === 'exercicios') renderAtvExercicios();
+  else if (tab === 'musicas') renderAtvMusicas();
+}
+
+// ---- CONTEÚDO ----
+
+function renderAtvConteudo() {
+  const c = document.getElementById('atv-conteudo-container');
+  if (!c) return;
+  if (!state.atividades) state.atividades = { conteudo:[], exercicios:[], musicas:[] };
+  const aId = parseInt(atvAlunoAtual);
+  const registros = atvAlunoAtual
+    ? state.atividades.conteudo.filter(r => r.alunoId === aId).sort((a,b) => b.data.localeCompare(a.data))
+    : [];
+
+  const formHtml = `
+    <div style="background:var(--card);border:1px solid var(--border);border-radius:12px;padding:16px;margin-bottom:14px;">
+      <p style="color:var(--gold);font-weight:600;margin:0 0 12px;font-size:13px;">➕ Novo Registro de Aula</p>
+      <div class="form-group">
+        <label>Data</label>
+        <input type="date" id="atvc-data" value="${new Date().toISOString().slice(0,10)}"
+          style="background:var(--dark);border:1px solid var(--border);border-radius:8px;padding:9px 12px;color:var(--text);font-size:13px;width:100%;box-sizing:border-box;">
+      </div>
+      <div class="form-group" style="margin-top:10px;">
+        <label>Nível</label>
+        <select id="atvc-nivel" style="width:100%;background:var(--dark);border:1px solid var(--border);border-radius:8px;padding:9px 12px;color:var(--text);font-size:13px;">
+          ${ATV_NIVEIS.map(n => `<option>${n}</option>`).join('')}
+        </select>
+      </div>
+      <div class="form-group" style="margin-top:10px;">
+        <label>Conteúdo da aula</label>
+        <textarea id="atvc-texto" rows="4" placeholder="Descreva o que foi trabalhado na aula..."
+          style="width:100%;background:var(--dark);border:1px solid var(--border);border-radius:8px;padding:9px 12px;color:var(--text);font-size:13px;resize:vertical;box-sizing:border-box;font-family:inherit;"></textarea>
+      </div>
+      <div class="form-group" style="margin-top:10px;">
+        <label>Tags</label>
+        <div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:4px;">
+          ${ATV_TAGS.map(t => `<label style="display:flex;align-items:center;gap:4px;font-size:12px;cursor:pointer;">
+            <input type="checkbox" value="${t}" class="atvc-tag" style="accent-color:var(--gold);"> ${t}
+          </label>`).join('')}
+        </div>
+      </div>
+      <div style="display:flex;gap:8px;margin-top:14px;flex-wrap:wrap;">
+        <button class="btn btn-gold" onclick="salvarConteudo()" ${!atvAlunoAtual ? 'disabled title="Selecione um aluno"' : ''}>Salvar</button>
+        ${registros.length > 0 ? `<button class="btn btn-outline" onclick="resumoIAConteudo()">🤖 Resumo IA</button>` : ''}
+      </div>
+    </div>`;
+
+  const listaHtml = registros.length === 0
+    ? `<div class="empty-state"><div class="icon">📝</div><p>${atvAlunoAtual ? 'Nenhum registro ainda.' : 'Selecione um aluno para ver os registros.'}</p></div>`
+    : registros.map(r => {
+        const d = new Date(r.data + 'T12:00:00');
+        const dFmt = d.toLocaleDateString('pt-BR', {day:'2-digit',month:'short',year:'numeric'});
+        return `<div style="background:var(--card);border:1px solid var(--border);border-radius:12px;padding:14px;margin-bottom:10px;">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+            <span style="color:var(--gold);font-size:12px;font-weight:600;">${dFmt}</span>
+            <div style="display:flex;gap:6px;align-items:center;">
+              <span style="background:rgba(201,168,76,0.15);color:var(--gold);padding:2px 8px;border-radius:20px;font-size:11px;">${r.nivel || 'Iniciante'}</span>
+              <button onclick="excluirConteudo(${r.id})" style="background:none;border:none;color:#e74c3c;cursor:pointer;font-size:14px;padding:0 4px;">🗑</button>
+            </div>
+          </div>
+          <p style="margin:0 0 8px;font-size:13px;line-height:1.5;white-space:pre-wrap;">${r.texto}</p>
+          ${r.tags && r.tags.length ? `<div style="display:flex;flex-wrap:wrap;gap:4px;">${r.tags.map(t => `<span style="background:var(--dark);border:1px solid var(--border);border-radius:12px;padding:2px 8px;font-size:11px;color:var(--text-muted);">${t}</span>`).join('')}</div>` : ''}
+        </div>`;
+      }).join('');
+
+  c.innerHTML = formHtml + listaHtml;
+}
+
+function salvarConteudo() {
+  if (!atvAlunoAtual) { toast('Selecione um aluno'); return; }
+  const data = document.getElementById('atvc-data')?.value;
+  const texto = document.getElementById('atvc-texto')?.value.trim();
+  const nivel = document.getElementById('atvc-nivel')?.value;
+  if (!texto) { toast('Digite o conteúdo da aula'); return; }
+  const tags = [...document.querySelectorAll('.atvc-tag:checked')].map(cb => cb.value);
+  const nextId = (state.atividades.conteudo.reduce((mx, r) => Math.max(mx, r.id||0), 0)) + 1;
+  state.atividades.conteudo.push({ id: nextId, alunoId: parseInt(atvAlunoAtual), data, texto, nivel, tags });
+  saveState();
+  toast('✓ Registro salvo');
+  renderAtvConteudo();
+}
+
+function excluirConteudo(id) {
+  if (!confirm('Excluir este registro?')) return;
+  state.atividades.conteudo = state.atividades.conteudo.filter(r => r.id !== id);
+  saveState();
+  renderAtvConteudo();
+}
+
+async function resumoIAConteudo() {
+  const aId = parseInt(atvAlunoAtual);
+  const aluno = state.alunos.find(a => a.id === aId);
+  if (!aluno) return;
+  const registros = state.atividades.conteudo.filter(r => r.alunoId === aId).sort((a,b) => a.data.localeCompare(b.data));
+  if (!registros.length) { toast('Sem registros para resumir'); return; }
+
+  const exercicios = state.atividades.exercicios.filter(e => e.alunoId === aId);
+  const musicas = state.atividades.musicas.filter(m => m.alunoId === aId);
+
+  const prompt = `Você é um professor de bateria experiente. Analise o progresso do aluno abaixo e gere um relatório profissional e motivador em português.
+
+Aluno: ${aluno.nome}
+
+REGISTROS DE AULA (${registros.length} aulas):
+${registros.map(r => `[${r.data}] ${r.nivel} — ${r.texto}${r.tags?.length ? ` (Tags: ${r.tags.join(', ')})` : ''}`).join('\n')}
+
+${exercicios.length ? `EXERCÍCIOS (${exercicios.length}):
+${exercicios.map(e => `- ${e.nome}: BPM alvo ${e.bpmAlvo}, BPM atual ${e.bpmAtual || e.bpmAlvo}, Status: ${e.status}`).join('\n')}` : ''}
+
+${musicas.length ? `REPERTÓRIO (${musicas.length} músicas):
+${musicas.map(m => `- ${m.nome} (${m.artista}) — ${m.status}`).join('\n')}` : ''}
+
+Gere um relatório com: 1) Pontos fortes do aluno, 2) Áreas de desenvolvimento, 3) Conquistas recentes, 4) Próximos passos sugeridos. Use linguagem clara e positiva.`;
+
+  const WORKER_URL = 'https://lrc-api.lramosbatera.workers.dev';
+  const container = document.getElementById('atv-conteudo-container');
+  const iaDiv = document.createElement('div');
+  iaDiv.style.cssText = 'background:var(--card);border:1px solid var(--border);border-radius:12px;padding:16px;margin-bottom:14px;';
+  iaDiv.innerHTML = '<p style="color:var(--gold);font-weight:600;margin:0 0 8px;font-size:13px;">🤖 Relatório IA</p><p style="font-size:13px;color:var(--text-muted);">Gerando relatório...</p>';
+  container.insertBefore(iaDiv, container.firstChild);
+
+  try {
+    const resp = await fetch(WORKER_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: 'chat', message: prompt })
+    });
+    const data = await resp.json();
+    const texto = data.reply || data.content || data.message || 'Não foi possível gerar o relatório.';
+    iaDiv.innerHTML = `<p style="color:var(--gold);font-weight:600;margin:0 0 8px;font-size:13px;">🤖 Relatório IA — ${aluno.nome}</p>
+      <div style="font-size:13px;line-height:1.7;white-space:pre-wrap;">${texto}</div>
+      <div style="margin-top:12px;display:flex;gap:8px;">
+        <button class="btn btn-outline" onclick="compartilharRelatorioIA(${aId})" style="font-size:12px;padding:7px 14px;">📱 WhatsApp</button>
+        <button onclick="this.closest('div[style]').remove()" style="background:none;border:none;color:var(--text-muted);cursor:pointer;font-size:12px;">✕ Fechar</button>
+      </div>`;
+    iaDiv._textoIA = texto;
+    iaDiv._nomeAluno = aluno.nome;
+  } catch(e) {
+    iaDiv.innerHTML = `<p style="color:#e74c3c;font-size:13px;">Erro ao chamar IA: ${e.message}</p>`;
+  }
+}
+
+function compartilharRelatorioIA(alunoId) {
+  const aluno = state.alunos.find(a => a.id === alunoId);
+  if (!aluno) return;
+  const exercicios = state.atividades.exercicios.filter(e => e.alunoId === alunoId);
+  const musicas = state.atividades.musicas.filter(m => m.alunoId === alunoId);
+  const conteudos = state.atividades.conteudo.filter(r => r.alunoId === alunoId).sort((a,b) => b.data.localeCompare(a.data));
+  const msg = `🥁 *Relatório de Progresso — ${aluno.nome}*\n`
+    + `Instituto Nego Batera\n\n`
+    + (conteudos.length ? `📚 *${conteudos.length} aulas registradas*\nÚltima aula: ${new Date(conteudos[0].data + 'T12:00:00').toLocaleDateString('pt-BR')}\n\n` : '')
+    + (exercicios.length ? `🥁 *Exercícios (${exercicios.length})*\n${exercicios.map(e => `• ${e.nome} — ${e.bpmAtual || e.bpmAlvo} BPM — ${e.status}`).join('\n')}\n\n` : '')
+    + (musicas.length ? `🎵 *Repertório (${musicas.length} músicas)*\n${musicas.map(m => `• ${m.nome} (${m.artista}) — ${m.status}`).join('\n')}\n\n` : '')
+    + `_Instituto Nego Batera_`;
+  const tel = aluno.tel ? aluno.tel.replace(/\D/g,'') : '';
+  const url = 'https://wa.me/' + (tel ? '55' + tel : '') + '?text=' + encodeURIComponent(msg);
+  window.open(url, '_blank');
+}
+
+// ---- EXERCÍCIOS / BPM ----
+
+function renderAtvExercicios() {
+  const c = document.getElementById('atv-exercicios-container');
+  if (!c) return;
+  if (!state.atividades) state.atividades = { conteudo:[], exercicios:[], musicas:[] };
+  const aId = parseInt(atvAlunoAtual);
+  const lista = atvAlunoAtual
+    ? state.atividades.exercicios.filter(e => e.alunoId === aId).sort((a,b) => a.nome.localeCompare(b.nome))
+    : [];
+
+  const formHtml = `
+    <div style="background:var(--card);border:1px solid var(--border);border-radius:12px;padding:16px;margin-bottom:14px;">
+      <p style="color:var(--gold);font-weight:600;margin:0 0 12px;font-size:13px;">➕ Novo Exercício</p>
+      <div class="form-group">
+        <label>Nome do exercício</label>
+        <input type="text" id="atve-nome" placeholder="Ex: Paradiddle simples"
+          style="width:100%;background:var(--dark);border:1px solid var(--border);border-radius:8px;padding:9px 12px;color:var(--text);font-size:13px;box-sizing:border-box;">
+      </div>
+      <div style="display:flex;gap:10px;margin-top:10px;flex-wrap:wrap;">
+        <div style="flex:1;min-width:120px;" class="form-group">
+          <label>BPM Alvo</label>
+          <input type="number" id="atve-bpm-alvo" min="40" max="300" placeholder="120"
+            style="width:100%;background:var(--dark);border:1px solid var(--border);border-radius:8px;padding:9px 12px;color:var(--text);font-size:13px;box-sizing:border-box;">
+        </div>
+        <div style="flex:1;min-width:120px;" class="form-group">
+          <label>BPM Atual</label>
+          <input type="number" id="atve-bpm-atual" min="40" max="300" placeholder="80"
+            style="width:100%;background:var(--dark);border:1px solid var(--border);border-radius:8px;padding:9px 12px;color:var(--text);font-size:13px;box-sizing:border-box;">
+        </div>
+      </div>
+      <button class="btn btn-gold" onclick="salvarExercicio()" style="margin-top:14px;" ${!atvAlunoAtual ? 'disabled' : ''}>Salvar</button>
+    </div>`;
+
+  const listaHtml = lista.length === 0
+    ? `<div class="empty-state"><div class="icon">🥁</div><p>${atvAlunoAtual ? 'Nenhum exercício cadastrado.' : 'Selecione um aluno.'}</p></div>`
+    : lista.map(e => {
+        const pct = Math.min(100, Math.round(((e.bpmAtual || e.bpmAlvo) / e.bpmAlvo) * 100));
+        const corBarra = pct >= 100 ? '#27ae60' : pct >= 70 ? 'var(--gold)' : '#e74c3c';
+        const hist = (e.historico || []).slice(-5).reverse();
+        return `<div style="background:var(--card);border:1px solid var(--border);border-radius:12px;padding:14px;margin-bottom:10px;">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
+            <div>
+              <span style="font-size:14px;font-weight:600;">${e.nome}</span>
+              <span style="margin-left:8px;font-size:11px;background:${e.status==='Dominado'?'rgba(39,174,96,0.2)':'rgba(201,168,76,0.15)'};color:${e.status==='Dominado'?'#27ae60':'var(--gold)'};padding:2px 8px;border-radius:12px;">${e.status}</span>
+            </div>
+            <button onclick="excluirExercicio(${e.id})" style="background:none;border:none;color:#e74c3c;cursor:pointer;font-size:14px;">🗑</button>
+          </div>
+          <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px;">
+            <span style="font-size:12px;color:var(--text-muted);min-width:60px;">${e.bpmAtual || e.bpmAlvo} / ${e.bpmAlvo} BPM</span>
+            <div style="flex:1;height:8px;background:var(--dark);border-radius:4px;overflow:hidden;">
+              <div style="height:100%;width:${pct}%;background:${corBarra};border-radius:4px;transition:width 0.3s;"></div>
+            </div>
+            <span style="font-size:12px;color:${corBarra};font-weight:600;">${pct}%</span>
+          </div>
+          <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px;">
+            <input type="number" id="bpm-novo-${e.id}" min="40" max="300" placeholder="Novo BPM"
+              style="width:90px;background:var(--dark);border:1px solid var(--border);border-radius:6px;padding:5px 8px;color:var(--text);font-size:12px;">
+            <button onclick="adicionarBPM(${e.id})" style="background:var(--dark);border:1px solid var(--gold);color:var(--gold);border-radius:6px;padding:5px 10px;font-size:12px;cursor:pointer;">Atualizar BPM</button>
+            ${e.status !== 'Dominado' ? `<button onclick="marcarDominado(${e.id})" style="background:rgba(39,174,96,0.15);border:1px solid #27ae60;color:#27ae60;border-radius:6px;padding:5px 10px;font-size:12px;cursor:pointer;">✓ Marcar como dominado</button>` : ''}
+          </div>
+          ${hist.length ? `<div style="font-size:11px;color:var(--text-muted);">Histórico recente: ${hist.map(h => `${h.bpm} BPM (${new Date(h.data+'T12:00:00').toLocaleDateString('pt-BR',{day:'2-digit',month:'short'})})`).join(' · ')}</div>` : ''}
+        </div>`;
+      }).join('');
+
+  c.innerHTML = formHtml + listaHtml;
+}
+
+function salvarExercicio() {
+  if (!atvAlunoAtual) { toast('Selecione um aluno'); return; }
+  const nome = document.getElementById('atve-nome')?.value.trim();
+  const bpmAlvo = parseInt(document.getElementById('atve-bpm-alvo')?.value) || 120;
+  const bpmAtual = parseInt(document.getElementById('atve-bpm-atual')?.value) || bpmAlvo;
+  if (!nome) { toast('Digite o nome do exercício'); return; }
+  const nextId = (state.atividades.exercicios.reduce((mx, r) => Math.max(mx, r.id||0), 0)) + 1;
+  state.atividades.exercicios.push({
+    id: nextId, alunoId: parseInt(atvAlunoAtual),
+    nome, bpmAlvo, bpmAtual, status: 'Em andamento',
+    historico: [{ data: new Date().toISOString().slice(0,10), bpm: bpmAtual }]
+  });
+  saveState();
+  toast('✓ Exercício salvo');
+  renderAtvExercicios();
+}
+
+function adicionarBPM(id) {
+  const input = document.getElementById('bpm-novo-' + id);
+  const bpm = parseInt(input?.value);
+  if (!bpm || bpm < 20 || bpm > 400) { toast('BPM inválido'); return; }
+  const e = state.atividades.exercicios.find(x => x.id === id);
+  if (!e) return;
+  e.bpmAtual = bpm;
+  if (!e.historico) e.historico = [];
+  e.historico.push({ data: new Date().toISOString().slice(0,10), bpm });
+  if (bpm >= e.bpmAlvo) e.status = 'Dominado';
+  saveState();
+  toast('✓ BPM atualizado');
+  renderAtvExercicios();
+}
+
+function marcarDominado(id) {
+  const e = state.atividades.exercicios.find(x => x.id === id);
+  if (!e) return;
+  e.status = 'Dominado';
+  saveState();
+  toast('✓ Exercício marcado como dominado');
+  renderAtvExercicios();
+}
+
+function excluirExercicio(id) {
+  if (!confirm('Excluir este exercício?')) return;
+  state.atividades.exercicios = state.atividades.exercicios.filter(e => e.id !== id);
+  saveState();
+  renderAtvExercicios();
+}
+
+// ---- MÚSICAS ----
+
+function renderAtvMusicas() {
+  const c = document.getElementById('atv-musicas-container');
+  if (!c) return;
+  if (!state.atividades) state.atividades = { conteudo:[], exercicios:[], musicas:[] };
+  const aId = parseInt(atvAlunoAtual);
+  const lista = atvAlunoAtual
+    ? state.atividades.musicas.filter(m => m.alunoId === aId).sort((a,b) => a.nome.localeCompare(b.nome))
+    : [];
+
+  const formHtml = `
+    <div style="background:var(--card);border:1px solid var(--border);border-radius:12px;padding:16px;margin-bottom:14px;">
+      <p style="color:var(--gold);font-weight:600;margin:0 0 12px;font-size:13px;">➕ Nova Música</p>
+      <div class="form-group">
+        <label>Título</label>
+        <input type="text" id="atvm-nome" placeholder="Nome da música"
+          style="width:100%;background:var(--dark);border:1px solid var(--border);border-radius:8px;padding:9px 12px;color:var(--text);font-size:13px;box-sizing:border-box;">
+      </div>
+      <div style="display:flex;gap:10px;margin-top:10px;flex-wrap:wrap;">
+        <div style="flex:1;min-width:140px;" class="form-group">
+          <label>Artista</label>
+          <input type="text" id="atvm-artista" placeholder="Nome do artista"
+            style="width:100%;background:var(--dark);border:1px solid var(--border);border-radius:8px;padding:9px 12px;color:var(--text);font-size:13px;box-sizing:border-box;">
+        </div>
+        <div style="flex:1;min-width:120px;" class="form-group">
+          <label>Estilo</label>
+          <select id="atvm-estilo" style="width:100%;background:var(--dark);border:1px solid var(--border);border-radius:8px;padding:9px 12px;color:var(--text);font-size:13px;">
+            ${ATV_ESTILOS.map(e => `<option>${e}</option>`).join('')}
+          </select>
+        </div>
+      </div>
+      <div class="form-group" style="margin-top:10px;">
+        <label>Status</label>
+        <select id="atvm-status" style="width:100%;background:var(--dark);border:1px solid var(--border);border-radius:8px;padding:9px 12px;color:var(--text);font-size:13px;">
+          ${ATV_STATUS_MUSICA.map(s => `<option>${s}</option>`).join('')}
+        </select>
+      </div>
+      <button class="btn btn-gold" onclick="salvarMusica()" style="margin-top:14px;" ${!atvAlunoAtual ? 'disabled' : ''}>Salvar</button>
+    </div>`;
+
+  const corStatus = { 'Em estudo':'var(--gold)', 'Dominada':'#27ae60', 'Apresentada':'#3498db' };
+  const listaHtml = lista.length === 0
+    ? `<div class="empty-state"><div class="icon">🎵</div><p>${atvAlunoAtual ? 'Nenhuma música cadastrada.' : 'Selecione um aluno.'}</p></div>`
+    : lista.map(m => `
+      <div style="background:var(--card);border:1px solid var(--border);border-radius:12px;padding:14px;margin-bottom:10px;">
+        <div style="display:flex;justify-content:space-between;align-items:flex-start;">
+          <div>
+            <span style="font-size:14px;font-weight:600;">${m.nome}</span>
+            <span style="margin-left:6px;font-size:12px;color:var(--text-muted);">${m.artista}</span>
+          </div>
+          <div style="display:flex;gap:6px;align-items:center;">
+            <select onchange="atualizarStatusMusica(${m.id},this.value)"
+              style="background:var(--dark);border:1px solid var(--border);border-radius:6px;padding:4px 8px;color:${corStatus[m.status]||'var(--text)'};font-size:11px;cursor:pointer;">
+              ${ATV_STATUS_MUSICA.map(s => `<option value="${s}" ${s===m.status?'selected':''}>${s}</option>`).join('')}
+            </select>
+            <button onclick="excluirMusica(${m.id})" style="background:none;border:none;color:#e74c3c;cursor:pointer;font-size:14px;">🗑</button>
+          </div>
+        </div>
+        <div style="display:flex;gap:8px;margin-top:6px;flex-wrap:wrap;">
+          <span style="font-size:11px;background:var(--dark);border:1px solid var(--border);border-radius:12px;padding:2px 8px;color:var(--text-muted);">${m.estilo}</span>
+          ${m.dataInicio ? `<span style="font-size:11px;color:var(--text-muted);">Início: ${new Date(m.dataInicio+'T12:00:00').toLocaleDateString('pt-BR',{day:'2-digit',month:'short'})}</span>` : ''}
+          ${m.dataConclusao ? `<span style="font-size:11px;color:#27ae60;">Concluída: ${new Date(m.dataConclusao+'T12:00:00').toLocaleDateString('pt-BR',{day:'2-digit',month:'short'})}</span>` : ''}
+        </div>
+      </div>`).join('');
+
+  c.innerHTML = formHtml + listaHtml;
+}
+
+function salvarMusica() {
+  if (!atvAlunoAtual) { toast('Selecione um aluno'); return; }
+  const nome = document.getElementById('atvm-nome')?.value.trim();
+  const artista = document.getElementById('atvm-artista')?.value.trim() || '—';
+  const estilo = document.getElementById('atvm-estilo')?.value || 'Rock';
+  const status = document.getElementById('atvm-status')?.value || 'Em estudo';
+  if (!nome) { toast('Digite o nome da música'); return; }
+  const nextId = (state.atividades.musicas.reduce((mx, r) => Math.max(mx, r.id||0), 0)) + 1;
+  state.atividades.musicas.push({
+    id: nextId, alunoId: parseInt(atvAlunoAtual),
+    nome, artista, estilo, status,
+    dataInicio: new Date().toISOString().slice(0,10),
+    dataConclusao: null
+  });
+  saveState();
+  toast('✓ Música salva');
+  renderAtvMusicas();
+}
+
+function atualizarStatusMusica(id, novoStatus) {
+  const m = state.atividades.musicas.find(x => x.id === id);
+  if (!m) return;
+  m.status = novoStatus;
+  if (novoStatus === 'Dominada' || novoStatus === 'Apresentada') {
+    if (!m.dataConclusao) m.dataConclusao = new Date().toISOString().slice(0,10);
+  } else {
+    m.dataConclusao = null;
+  }
+  saveState();
+  renderAtvMusicas();
+}
+
+function excluirMusica(id) {
+  if (!confirm('Excluir esta música?')) return;
+  state.atividades.musicas = state.atividades.musicas.filter(m => m.id !== id);
+  saveState();
+  renderAtvMusicas();
+}
+
+// ============ CERTIFICADO ============
+
+function populateCertAlunoSelect() {
+  const sel = document.getElementById('cert-aluno-sel');
+  if (!sel) return;
+  const ativos = state.alunos.filter(a => a.status !== 'Inativo').sort((a,b) => a.nome.localeCompare(b.nome));
+  sel.innerHTML = '<option value="">— Selecione o aluno —</option>' +
+    ativos.map(a => `<option value="${a.id}">${a.nome}</option>`).join('');
+  document.getElementById('cert-container').innerHTML = '';
+}
+
+function renderCertificado(idStr) {
+  const c = document.getElementById('cert-container');
+  if (!c) return;
+  if (!idStr) { c.innerHTML = ''; return; }
+  const aId = parseInt(idStr);
+  const aluno = state.alunos.find(a => a.id === aId);
+  if (!aluno) return;
+
+  const ano = new Date().getFullYear();
+  const atv = state.atividades || { conteudo:[], exercicios:[], musicas:[] };
+
+  // Estatísticas de presença
+  const agEntries = state.agenda.filter(a => a.alunoId === aId);
+  let totalAulas = 0, presentes = 0;
+  Object.entries(state.presencas || {}).forEach(([ds, dia]) => {
+    const aKey = String(aId);
+    const val = dia[aKey];
+    if (val !== undefined) {
+      totalAulas++;
+      if (val === 'P' || val === 'R' || (typeof val === 'string' && val.startsWith('R:'))) presentes++;
+    }
+  });
+  const pctPresenca = totalAulas > 0 ? Math.round((presentes / totalAulas) * 100) : null;
+
+  // Conteúdos
+  const conteudos = atv.conteudo.filter(r => r.alunoId === aId);
+  const tagsUsadas = [...new Set(conteudos.flatMap(r => r.tags || []))];
+  const niveisUsados = [...new Set(conteudos.map(r => r.nivel).filter(Boolean))];
+
+  // Exercícios dominados
+  const exercDominados = atv.exercicios.filter(e => e.alunoId === aId && e.status === 'Dominado');
+  const exercEmAndamento = atv.exercicios.filter(e => e.alunoId === aId && e.status !== 'Dominado');
+
+  // Músicas
+  const musicasDominadas = atv.musicas.filter(m => m.alunoId === aId && (m.status === 'Dominada' || m.status === 'Apresentada'));
+  const musicasEstudo = atv.musicas.filter(m => m.alunoId === aId && m.status === 'Em estudo');
+
+  // Data formatada
+  const hoje = new Date();
+  const dataFmt = hoje.toLocaleDateString('pt-BR', { day:'2-digit', month:'long', year:'numeric' });
+
+  const card = `
+    <div id="cert-card" style="background:linear-gradient(145deg,#0d0a05,#1a1408,#0d0a05);border:2px solid var(--gold);border-radius:16px;padding:28px 22px;position:relative;overflow:hidden;box-shadow:0 0 40px rgba(201,168,76,0.2);">
+      <!-- Decoração -->
+      <div style="position:absolute;top:0;left:0;right:0;height:4px;background:linear-gradient(90deg,transparent,var(--gold),transparent);"></div>
+      <div style="position:absolute;bottom:0;left:0;right:0;height:4px;background:linear-gradient(90deg,transparent,var(--gold),transparent);"></div>
+
+      <!-- Cabeçalho -->
+      <div style="text-align:center;margin-bottom:22px;">
+        <div style="font-size:28px;margin-bottom:6px;">🥁</div>
+        <div style="font-family:'Cormorant Garamond',serif;font-size:11px;letter-spacing:4px;color:var(--gold);text-transform:uppercase;margin-bottom:4px;">Instituto Nego Batera</div>
+        <div style="font-family:'Cormorant Garamond',serif;font-size:22px;color:var(--gold);font-weight:700;letter-spacing:1px;">Relatório de Progresso</div>
+        <div style="font-size:11px;color:var(--text-muted);margin-top:4px;">${ano}</div>
+      </div>
+
+      <!-- Nome do aluno -->
+      <div style="text-align:center;border:1px solid rgba(201,168,76,0.3);border-radius:10px;padding:14px;margin-bottom:18px;background:rgba(201,168,76,0.05);">
+        <div style="font-size:11px;letter-spacing:2px;text-transform:uppercase;color:var(--text-muted);margin-bottom:4px;">Aluno</div>
+        <div style="font-family:'Cormorant Garamond',serif;font-size:24px;color:var(--text);font-weight:600;">${aluno.nome}</div>
+      </div>
+
+      <!-- KPIs -->
+      <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:18px;">
+        <div style="text-align:center;background:rgba(201,168,76,0.07);border:1px solid rgba(201,168,76,0.2);border-radius:8px;padding:10px 6px;">
+          <div style="font-size:20px;color:var(--gold);font-weight:700;">${conteudos.length}</div>
+          <div style="font-size:10px;color:var(--text-muted);margin-top:2px;">Aulas</div>
+        </div>
+        <div style="text-align:center;background:rgba(39,174,96,0.07);border:1px solid rgba(39,174,96,0.2);border-radius:8px;padding:10px 6px;">
+          <div style="font-size:20px;color:#27ae60;font-weight:700;">${pctPresenca !== null ? pctPresenca + '%' : '—'}</div>
+          <div style="font-size:10px;color:var(--text-muted);margin-top:2px;">Presença</div>
+        </div>
+        <div style="text-align:center;background:rgba(52,152,219,0.07);border:1px solid rgba(52,152,219,0.2);border-radius:8px;padding:10px 6px;">
+          <div style="font-size:20px;color:#3498db;font-weight:700;">${musicasDominadas.length + musicasEstudo.length}</div>
+          <div style="font-size:10px;color:var(--text-muted);margin-top:2px;">Músicas</div>
+        </div>
+      </div>
+
+      ${tagsUsadas.length ? `
+      <!-- Conteúdos Trabalhados -->
+      <div style="margin-bottom:14px;">
+        <div style="font-size:11px;letter-spacing:2px;text-transform:uppercase;color:var(--gold);margin-bottom:8px;">Conteúdos Trabalhados</div>
+        <div style="display:flex;flex-wrap:wrap;gap:6px;">
+          ${tagsUsadas.map(t => `<span style="background:rgba(201,168,76,0.1);border:1px solid rgba(201,168,76,0.3);border-radius:12px;padding:3px 10px;font-size:11px;color:var(--text);">${t}</span>`).join('')}
+        </div>
+      </div>` : ''}
+
+      ${exercDominados.length ? `
+      <!-- Exercícios Dominados -->
+      <div style="margin-bottom:14px;">
+        <div style="font-size:11px;letter-spacing:2px;text-transform:uppercase;color:#27ae60;margin-bottom:8px;">✓ Exercícios Dominados</div>
+        <div style="font-size:12px;color:var(--text);line-height:1.8;">
+          ${exercDominados.map(e => `• ${e.nome} (${e.bpmAtual||e.bpmAlvo} BPM)`).join('<br>')}
+        </div>
+      </div>` : ''}
+
+      ${musicasDominadas.length || musicasEstudo.length ? `
+      <!-- Repertório -->
+      <div style="margin-bottom:18px;">
+        <div style="font-size:11px;letter-spacing:2px;text-transform:uppercase;color:#3498db;margin-bottom:8px;">🎵 Repertório</div>
+        ${musicasDominadas.length ? `<div style="margin-bottom:6px;"><span style="font-size:11px;color:#27ae60;">Dominadas/Apresentadas:</span><br>${musicasDominadas.map(m => `<span style="font-size:12px;">• ${m.nome} — ${m.artista}</span>`).join('<br>')}</div>` : ''}
+        ${musicasEstudo.length ? `<div><span style="font-size:11px;color:var(--gold);">Em estudo:</span><br>${musicasEstudo.map(m => `<span style="font-size:12px;">• ${m.nome} — ${m.artista}</span>`).join('<br>')}</div>` : ''}
+      </div>` : ''}
+
+      <!-- Rodapé -->
+      <div style="border-top:1px solid rgba(201,168,76,0.2);padding-top:14px;text-align:center;">
+        <div style="font-size:11px;color:var(--text-muted);">${dataFmt}</div>
+        <div style="font-size:10px;letter-spacing:2px;text-transform:uppercase;color:rgba(201,168,76,0.5);margin-top:4px;">Instituto Nego Batera</div>
+      </div>
+    </div>
+
+    <!-- Ações -->
+    <div style="display:flex;gap:10px;margin-top:14px;flex-wrap:wrap;">
+      <button class="btn btn-gold" onclick="compartilharCertWpp(${aId})">📱 Compartilhar no WhatsApp</button>
+      <button class="btn btn-outline" onclick="gerarRelatorioIACert(${aId})">🤖 Gerar com IA</button>
+    </div>`;
+
+  c.innerHTML = card;
+}
+
+function compartilharCertWpp(alunoId) {
+  const aluno = state.alunos.find(a => a.id === alunoId);
+  if (!aluno) return;
+  const atv = state.atividades || { conteudo:[], exercicios:[], musicas:[] };
+  const ano = new Date().getFullYear();
+
+  const conteudos = atv.conteudo.filter(r => r.alunoId === alunoId);
+  const tagsUsadas = [...new Set(conteudos.flatMap(r => r.tags || []))];
+  const exercDominados = atv.exercicios.filter(e => e.alunoId === alunoId && e.status === 'Dominado');
+  const musicasDominadas = atv.musicas.filter(m => m.alunoId === alunoId && (m.status === 'Dominada' || m.status === 'Apresentada'));
+  const musicasEstudo = atv.musicas.filter(m => m.alunoId === alunoId && m.status === 'Em estudo');
+
+  let totalAulas = 0, presentes = 0;
+  Object.values(state.presencas || {}).forEach(dia => {
+    const val = dia[String(alunoId)];
+    if (val !== undefined) { totalAulas++; if (val === 'P' || (typeof val === 'string' && val.startsWith('R'))) presentes++; }
+  });
+  const pctPresenca = totalAulas > 0 ? Math.round((presentes / totalAulas) * 100) : null;
+
+  let msg = `🥁 *Relatório de Progresso ${ano}*\n`;
+  msg += `*${aluno.nome}* — Instituto Nego Batera\n\n`;
+  if (conteudos.length) msg += `📚 *Aulas realizadas:* ${conteudos.length}\n`;
+  if (pctPresenca !== null) msg += `✅ *Frequência:* ${pctPresenca}%\n`;
+  if (tagsUsadas.length) msg += `\n🎯 *Conteúdos:* ${tagsUsadas.join(', ')}\n`;
+  if (exercDominados.length) msg += `\n✓ *Exercícios dominados:*\n${exercDominados.map(e => `• ${e.nome} (${e.bpmAtual||e.bpmAlvo} BPM)`).join('\n')}\n`;
+  if (musicasDominadas.length) msg += `\n🎵 *Repertório concluído:*\n${musicasDominadas.map(m => `• ${m.nome} — ${m.artista}`).join('\n')}\n`;
+  if (musicasEstudo.length) msg += `\n📖 *Em aprendizado:*\n${musicasEstudo.map(m => `• ${m.nome} — ${m.artista}`).join('\n')}\n`;
+  msg += `\n_Instituto Nego Batera_`;
+
+  const tel = aluno.tel ? aluno.tel.replace(/\D/g,'') : '';
+  const url = 'https://wa.me/' + (tel ? '55' + tel : '') + '?text=' + encodeURIComponent(msg);
+  window.open(url, '_blank');
+}
+
+async function gerarRelatorioIACert(alunoId) {
+  const aluno = state.alunos.find(a => a.id === alunoId);
+  if (!aluno) return;
+  const WORKER_URL = 'https://lrc-api.lramosbatera.workers.dev';
+  const atv = state.atividades || { conteudo:[], exercicios:[], musicas:[] };
+  const conteudos = atv.conteudo.filter(r => r.alunoId === alunoId).sort((a,b) => a.data.localeCompare(b.data));
+  const exercicios = atv.exercicios.filter(e => e.alunoId === alunoId);
+  const musicas = atv.musicas.filter(m => m.alunoId === alunoId);
+
+  let totalAulas = 0, presentes = 0;
+  Object.values(state.presencas || {}).forEach(dia => {
+    const val = dia[String(alunoId)];
+    if (val !== undefined) { totalAulas++; if (val === 'P' || (typeof val === 'string' && val.startsWith('R'))) presentes++; }
+  });
+
+  const prompt = `Você é um professor de bateria profissional. Crie um relatório anual completo e motivador para o aluno abaixo, em formato ideal para WhatsApp (com emojis e texto bem formatado).
+
+Aluno: ${aluno.nome}
+Ano: ${new Date().getFullYear()}
+Frequência: ${totalAulas > 0 ? Math.round((presentes/totalAulas)*100) + '%' : 'não registrada'} (${presentes} de ${totalAulas} aulas)
+
+${conteudos.length ? `AULAS (${conteudos.length}):\n${conteudos.slice(-10).map(r => `[${r.data}] ${r.nivel}: ${r.texto.slice(0,150)}`).join('\n')}` : 'Sem registros de aulas.'}
+
+${exercicios.length ? `EXERCÍCIOS:\n${exercicios.map(e => `${e.nome}: ${e.bpmAtual||e.bpmAlvo}/${e.bpmAlvo} BPM — ${e.status}`).join('\n')}` : ''}
+
+${musicas.length ? `MÚSICAS:\n${musicas.map(m => `${m.nome} (${m.artista}) — ${m.status}`).join('\n')}` : ''}
+
+Crie um relatório com: destaque das conquistas, evolução técnica percebida, músicas dominadas, e uma mensagem motivacional para continuar no próximo ano.`;
+
+  const cert = document.getElementById('cert-container');
+  const iaBox = document.createElement('div');
+  iaBox.style.cssText = 'background:var(--card);border:1px solid var(--border);border-radius:12px;padding:16px;margin-top:14px;';
+  iaBox.innerHTML = '<p style="color:var(--gold);font-weight:600;margin:0 0 8px;font-size:13px;">🤖 Relatório IA</p><p style="font-size:13px;color:var(--text-muted);">Gerando...</p>';
+  cert.appendChild(iaBox);
+
+  try {
+    const resp = await fetch(WORKER_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: 'chat', message: prompt })
+    });
+    const data = await resp.json();
+    const texto = data.reply || data.content || data.message || 'Não foi possível gerar.';
+    iaBox.innerHTML = `<p style="color:var(--gold);font-weight:600;margin:0 0 8px;font-size:13px;">🤖 Relatório IA — ${aluno.nome}</p>
+      <div style="font-size:13px;line-height:1.7;white-space:pre-wrap;">${texto}</div>
+      <div style="margin-top:12px;display:flex;gap:8px;flex-wrap:wrap;">
+        <button class="btn btn-gold" onclick="enviarRelatorioIAWpp(${alunoId}, this)" style="font-size:12px;padding:7px 14px;">📱 Enviar via WhatsApp</button>
+        <button onclick="this.closest('div[style]').remove()" style="background:none;border:none;color:var(--text-muted);cursor:pointer;font-size:12px;">✕ Fechar</button>
+      </div>`;
+    iaBox._textoIA = texto;
+  } catch(e) {
+    iaBox.innerHTML = `<p style="color:#e74c3c;font-size:13px;">Erro: ${e.message}</p>`;
+  }
+}
+
+function enviarRelatorioIAWpp(alunoId, btn) {
+  const aluno = state.alunos.find(a => a.id === alunoId);
+  if (!aluno) return;
+  const box = btn.closest('div[style]');
+  const texto = box._textoIA || box.querySelector('div[style*="pre-wrap"]')?.textContent || '';
+  const tel = aluno.tel ? aluno.tel.replace(/\D/g,'') : '';
+  const url = 'https://wa.me/' + (tel ? '55' + tel : '') + '?text=' + encodeURIComponent(texto);
+  window.open(url, '_blank');
 }
 </script>
 </body>
