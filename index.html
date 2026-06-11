@@ -2109,6 +2109,7 @@ function saveState() {
       presencas: state.presencas,
       reposicoes: state.reposicoes,
       atividades: state.atividades,
+      alunosEspeciais: state.alunosEspeciais,
     }));
   } catch(e) { console.warn('Save failed', e); }
 }
@@ -2247,6 +2248,7 @@ async function dbLoad() {
   if (!state.presencas) state.presencas = {};
   if (!state.reposicoes) state.reposicoes = [];
   if (!state.atividades) state.atividades = { conteudo: [], exercicios: [], musicas: [] };
+  if (!state.alunosEspeciais) state.alunosEspeciais = [];
   migrateAgendaPresenca();
 }
 
