@@ -2227,6 +2227,8 @@ let state = {
 // ============ DB LAYER (Supabase ↔ localStorage fallback) ============
 async function dbLoad() {
   if (supabaseReady) {
+    // Carrega localStorage primeiro para preservar campos fora do Supabase
+    loadState();
     try {
       setLoading(true);
       // Load each table independently to avoid one failure blocking all
@@ -2246,6 +2248,10 @@ async function dbLoad() {
       if (!df.error && df.data) state.despesas_fixas = df.data;
       if (!gi.error && gi.data) state.gastos_inb = gi.data;
       if (!gn.error && gn.data) state.gastos_nb = gn.data;
+      if (!state.alunosEspeciais) state.alunosEspeciais = [];
+      if (!state.parceladas) state.parceladas = [];
+      if (!state.cotidiano) state.cotidiano = [];
+      if (!state.atividades) state.atividades = { conteudo: [], exercicios: [], musicas: [] };
       saveState();
       setLoading(false);
       return;
