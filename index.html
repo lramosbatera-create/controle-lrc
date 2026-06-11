@@ -7769,7 +7769,8 @@ function renderAtvMusicas() {
           ${m.dataInicio ? `<span style="font-size:11px;color:var(--text-muted);">Início: ${new Date(m.dataInicio+'T12:00:00').toLocaleDateString('pt-BR',{day:'2-digit',month:'short'})}</span>` : ''}
           ${m.dataConclusao ? `<span style="font-size:11px;color:#27ae60;">Concluída: ${new Date(m.dataConclusao+'T12:00:00').toLocaleDateString('pt-BR',{day:'2-digit',month:'short'})}</span>` : ''}
         </div>
-      </div>`).join('');
+      </div>`;
+    }).join('');
 
   c.innerHTML = formHtml + listaHtml;
 }
