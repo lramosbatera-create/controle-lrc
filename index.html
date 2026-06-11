@@ -2337,11 +2337,27 @@ function showSyncMenu() {
     <div style="font-size:11px;color:#7A7060;padding:4px 8px 8px;border-bottom:1px solid rgba(201,168,76,0.15);margin-bottom:6px">☁️ Sincronização</div>
     <button style="${btn('')}" onmouseover="this.style.background='rgba(201,168,76,0.1)'" onmouseout="this.style.background=''" onclick="dbPushAll();document.getElementById('sync-menu')?.remove()">↑ Enviar para a nuvem</button>
     <button style="${btn('')}" onmouseover="this.style.background='rgba(201,168,76,0.1)'" onmouseout="this.style.background=''" onclick="dbPullAll();document.getElementById('sync-menu')?.remove()">↓ Importar da nuvem</button>
+    <div style="border-top:1px solid rgba(201,168,76,0.15);margin:6px 0 4px"></div>
+    <button style="${btn('color:#C9A84C')}" onmouseover="this.style.background='rgba(201,168,76,0.1)'" onmouseout="this.style.background=''" onclick="forceUpdate()">🔄 Forçar atualização do app</button>
   `;
   document.body.appendChild(menu);
   setTimeout(() => document.addEventListener('click', function close(e) {
     if (!menu.contains(e.target) && e.target.id !== 'sync-dot') { menu.remove(); document.removeEventListener('click', close); }
   }), 100);
+}
+
+async function forceUpdate() {
+  document.getElementById('sync-menu')?.remove();
+  toast('🔄 Limpando cache e atualizando...');
+  try {
+    if ('serviceWorker' in navigator) {
+      const regs = await navigator.serviceWorker.getRegistrations();
+      for (const r of regs) await r.unregister();
+    }
+    const keys = await caches.keys();
+    for (const k of keys) await caches.delete(k);
+  } catch(e) {}
+  setTimeout(() => { location.href = location.href.split('?')[0] + '?v=' + Date.now(); }, 500);
 }
 
 async function dbPushAll() {
