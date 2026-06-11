@@ -709,19 +709,40 @@
     </div>
   </div>
 
-  <div class="chart-container">
-    <div class="chart-title">Composição das Despesas</div>
-    <div class="bar-chart" id="chart-composicao"></div>
+  <div class="toggle-section">
+    <div class="toggle-header" onclick="toggleSection(this)">
+      <span class="toggle-title">Composição das Despesas</span>
+      <span class="chevron">▼</span>
+    </div>
+    <div class="toggle-body">
+      <div class="chart-container" style="margin-bottom:0">
+        <div class="bar-chart" id="chart-composicao"></div>
+      </div>
+    </div>
   </div>
 
-  <div class="chart-container">
-    <div class="chart-title">Receitas vs Despesas — Mensal</div>
-    <div class="bar-chart" id="chart-mensal"></div>
+  <div class="toggle-section">
+    <div class="toggle-header" onclick="toggleSection(this)">
+      <span class="toggle-title">Receitas vs Despesas — Mensal</span>
+      <span class="chevron">▼</span>
+    </div>
+    <div class="toggle-body">
+      <div class="chart-container" style="margin-bottom:0">
+        <div class="bar-chart" id="chart-mensal"></div>
+      </div>
+    </div>
   </div>
 
-  <div class="chart-container">
-    <div class="chart-title">Receita Total por Área</div>
-    <div class="bar-chart" id="chart-areas"></div>
+  <div class="toggle-section">
+    <div class="toggle-header" onclick="toggleSection(this)">
+      <span class="toggle-title">Receita Total por Área</span>
+      <span class="chevron">▼</span>
+    </div>
+    <div class="toggle-body">
+      <div class="chart-container" style="margin-bottom:0">
+        <div class="bar-chart" id="chart-areas"></div>
+      </div>
+    </div>
   </div>
 </div>
 
