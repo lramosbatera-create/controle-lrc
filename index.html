@@ -826,70 +826,87 @@
 
 
   <div id="inb-agenda" class="inb-tab-content" style="display:none">
-    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;flex-wrap:wrap;gap:8px;">
-      <div>
-        <div style="font-size:13px;font-weight:600;color:var(--gold)">Agenda de Aulas</div>
-        <div style="font-size:11px;color:var(--muted)" id="agenda-hoje-label">Hoje</div>
-      </div>
-      <button onclick="compartilharAgendaDia()" style="
-        background:linear-gradient(135deg,#1A5C35,var(--green));
-        border:none;border-radius:8px;padding:8px 14px;
-        color:#fff;font-size:12px;font-weight:600;cursor:pointer;font-family:inherit;
-        display:flex;align-items:center;gap:6px;
-      ">📲 Enviar por WhatsApp</button>
+
+    <!-- Sub-abas da Agenda -->
+    <div style="display:flex;gap:4px;background:var(--dark);border:1px solid var(--border);border-radius:10px;padding:4px;margin-bottom:14px;">
+      <button class="inb-subtab agenda-subtab active" onclick="showAgendaSubTab('horarios',this)">📅 Horários</button>
+      <button class="inb-subtab agenda-subtab" onclick="showAgendaSubTab('presenca',this)">✅ Presença</button>
+      <button class="inb-subtab agenda-subtab" onclick="showAgendaSubTab('reposicao',this)">🔄 Reposição</button>
     </div>
 
-
-    <div class="filter-row" id="agenda-dias-filter">
-      <button class="filter-btn active" onclick="filtrarAgenda('todos',this)">Todos</button>
-      <button class="filter-btn" onclick="filtrarAgenda('Segunda',this)">Seg</button>
-      <button class="filter-btn" onclick="filtrarAgenda('Terça',this)">Ter</button>
-      <button class="filter-btn" onclick="filtrarAgenda('Quarta',this)">Qua</button>
-      <button class="filter-btn" onclick="filtrarAgenda('Quinta',this)">Qui</button>
-      <button class="filter-btn" onclick="filtrarAgenda('Sexta',this)">Sex</button>
-      <button class="filter-btn" onclick="filtrarAgenda('Sábado',this)">Sáb</button>
+    <!-- Sub-aba: Horários (conteúdo existente) -->
+    <div id="agenda-sub-horarios">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;flex-wrap:wrap;gap:8px;">
+        <div>
+          <div style="font-size:13px;font-weight:600;color:var(--gold)">Agenda de Aulas</div>
+          <div style="font-size:11px;color:var(--muted)" id="agenda-hoje-label">Hoje</div>
+        </div>
+        <button onclick="compartilharAgendaDia()" style="
+          background:linear-gradient(135deg,#1A5C35,var(--green));
+          border:none;border-radius:8px;padding:8px 14px;
+          color:#fff;font-size:12px;font-weight:600;cursor:pointer;font-family:inherit;
+          display:flex;align-items:center;gap:6px;
+        ">📲 Enviar por WhatsApp</button>
+      </div>
+      <div class="filter-row" id="agenda-dias-filter">
+        <button class="filter-btn active" onclick="filtrarAgenda('todos',this)">Todos</button>
+        <button class="filter-btn" onclick="filtrarAgenda('Segunda',this)">Seg</button>
+        <button class="filter-btn" onclick="filtrarAgenda('Terça',this)">Ter</button>
+        <button class="filter-btn" onclick="filtrarAgenda('Quarta',this)">Qua</button>
+        <button class="filter-btn" onclick="filtrarAgenda('Quinta',this)">Qui</button>
+        <button class="filter-btn" onclick="filtrarAgenda('Sexta',this)">Sex</button>
+        <button class="filter-btn" onclick="filtrarAgenda('Sábado',this)">Sáb</button>
+      </div>
+      <div id="lista-agenda"></div>
+      <div class="form-card" style="margin-top:16px;">
+        <div class="form-title">➕ Adicionar / Editar Horário</div>
+        <div class="form-grid">
+          <div class="form-group">
+            <label>Aluno</label>
+            <select id="ag-aluno">
+              <option value="VAGO">— VAGO —</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label>Dia</label>
+            <select id="ag-dia">
+              <option>Segunda</option><option>Terça</option><option>Quarta</option>
+              <option>Quinta</option><option>Sexta</option><option>Sábado</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label>Horário</label>
+            <select id="ag-hora">
+              <option>09h</option><option>10h</option><option>11h</option><option>12h</option>
+              <option>13h</option><option>14h</option><option>15h</option><option>16h</option>
+              <option>17h</option><option>18h</option><option>19h</option><option>20h</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label>Tipo</label>
+            <select id="ag-tipo"><option>Individual</option><option>Grupo</option><option>Reposição</option></select>
+          </div>
+        </div>
+        <div class="form-group" style="margin-top:10px;">
+          <label>Observação</label>
+          <input type="text" id="ag-obs" placeholder="Ex: Aula de reposição, feriado...">
+        </div>
+        <div class="form-actions">
+          <button class="btn btn-gold" onclick="adicionarAgenda()">Salvar Horário</button>
+        </div>
+      </div>
     </div>
 
-    <div id="lista-agenda"></div>
-
-
-    <div class="form-card" style="margin-top:16px;">
-      <div class="form-title">➕ Adicionar / Editar Horário</div>
-      <div class="form-grid">
-        <div class="form-group">
-          <label>Aluno</label>
-          <select id="ag-aluno">
-            <option value="VAGO">— VAGO —</option>
-          </select>
-        </div>
-        <div class="form-group">
-          <label>Dia</label>
-          <select id="ag-dia">
-            <option>Segunda</option><option>Terça</option><option>Quarta</option>
-            <option>Quinta</option><option>Sexta</option><option>Sábado</option>
-          </select>
-        </div>
-        <div class="form-group">
-          <label>Horário</label>
-          <select id="ag-hora">
-            <option>09h</option><option>10h</option><option>11h</option><option>12h</option>
-            <option>13h</option><option>14h</option><option>15h</option><option>16h</option>
-            <option>17h</option><option>18h</option><option>19h</option><option>20h</option>
-          </select>
-        </div>
-        <div class="form-group">
-          <label>Tipo</label>
-          <select id="ag-tipo"><option>Individual</option><option>Grupo</option><option>Reposição</option></select>
-        </div>
-      </div>
-      <div class="form-group" style="margin-top:10px;">
-        <label>Observação</label>
-        <input type="text" id="ag-obs" placeholder="Ex: Aula de reposição, feriado...">
-      </div>
-      <div class="form-actions">
-        <button class="btn btn-gold" onclick="adicionarAgenda()">Salvar Horário</button>
-      </div>
+    <!-- Sub-aba: Presença -->
+    <div id="agenda-sub-presenca" style="display:none">
+      <div id="agenda-presenca-container"></div>
     </div>
+
+    <!-- Sub-aba: Reposição -->
+    <div id="agenda-sub-reposicao" style="display:none">
+      <div id="agenda-reposicao-container"></div>
+    </div>
+
   </div>
 
 
@@ -2038,6 +2055,8 @@ function saveState() {
       cadastroExtra: state.cadastroExtra,
       avulsos: state.avulsos,
       pagFixas: state.pagFixas,
+      presencas: state.presencas,
+      reposicoes: state.reposicoes,
     }));
   } catch(e) { console.warn('Save failed', e); }
 }
@@ -2173,6 +2192,8 @@ async function dbLoad() {
   if (!state.recital) state.recital = {inscricoes:[],receitas:[],despesas:[],taxaPadrao:150};
   if (!state.cadastroExtra) state.cadastroExtra = {};
   if (!state.agenda) state.agenda = [];
+  if (!state.presencas) state.presencas = {};
+  if (!state.reposicoes) state.reposicoes = [];
 }
 
 async function dbSeedAlunos() {
@@ -2447,6 +2468,281 @@ function adicionarAgenda() {
   renderAgenda();
   document.getElementById('ag-obs').value = '';
   toast(`✓ ${aluno} agendado ${dia} ${hora}`);
+}
+
+// ============ AGENDA: SUB-ABAS ============
+
+function showAgendaSubTab(tab, btn) {
+  ['horarios','presenca','reposicao'].forEach(t => {
+    const el = document.getElementById('agenda-sub-' + t);
+    if (el) el.style.display = t === tab ? '' : 'none';
+  });
+  document.querySelectorAll('.agenda-subtab').forEach(b => b.classList.remove('active'));
+  if (btn) btn.classList.add('active');
+  if (tab === 'presenca') renderPresenca();
+  if (tab === 'reposicao') renderReposicoes();
+}
+
+// ============ PRESENÇA ============
+
+let presencaMes = new Date().getMonth();
+let presencaAno = new Date().getFullYear();
+
+function getAulasDatasDoMes(diaSemana, ano, mes) {
+  const jsDay = DIAS_SEMANA.indexOf(diaSemana) + 1; // 1=Seg … 6=Sáb
+  const datas = [];
+  const d = new Date(ano, mes, 1);
+  while (d.getMonth() === mes) {
+    if (d.getDay() === jsDay) datas.push(new Date(d));
+    d.setDate(d.getDate() + 1);
+  }
+  return datas;
+}
+
+function dateToStr(d) {
+  return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+}
+
+function renderPresenca() {
+  const container = document.getElementById('agenda-presenca-container');
+  if (!container) return;
+  if (!state.presencas) state.presencas = {};
+
+  const diasUsados = [...new Set(state.agenda.map(a => a.dia))]
+    .filter(d => DIAS_SEMANA.includes(d))
+    .sort((a,b) => DIAS_SEMANA.indexOf(a) - DIAS_SEMANA.indexOf(b));
+
+  const hoje = new Date(); hoje.setHours(23,59,59,999);
+  const mesLabel = MESES_FULL[presencaMes] + ' ' + presencaAno;
+
+  let html = `
+  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;">
+    <button onclick="mudarMesPresenca(-1)" style="background:none;border:1px solid var(--border);border-radius:8px;padding:6px 14px;color:var(--gold);cursor:pointer;font-size:18px;line-height:1;">‹</button>
+    <div style="font-size:14px;font-weight:600;color:var(--gold);">${mesLabel}</div>
+    <button onclick="mudarMesPresenca(1)" style="background:none;border:1px solid var(--border);border-radius:8px;padding:6px 14px;color:var(--gold);cursor:pointer;font-size:18px;line-height:1;">›</button>
+  </div>
+  <div style="display:flex;gap:14px;margin-bottom:16px;font-size:10px;color:var(--muted);">
+    <span><span style="color:var(--green);font-weight:700;">P</span> Presente</span>
+    <span><span style="color:#E74C3C;font-weight:700;">F</span> Falta</span>
+    <span><span style="color:rgba(255,255,255,0.25);font-weight:700;">·</span> Não marcado</span>
+  </div>`;
+
+  diasUsados.forEach(dia => {
+    const datas = getAulasDatasDoMes(dia, presencaAno, presencaMes);
+    if (!datas.length) return;
+    const alunosDoDia = state.agenda
+      .filter(a => a.dia === dia && a.aluno !== 'VAGO')
+      .sort((a,b) => a.hora.localeCompare(b.hora) || a.aluno.localeCompare(b.aluno));
+    if (!alunosDoDia.length) return;
+
+    html += `<div style="margin-bottom:20px;">
+      <div style="font-size:10px;color:var(--gold);letter-spacing:1.5px;text-transform:uppercase;margin-bottom:8px;font-weight:600;">📅 ${dia}</div>
+      <div style="overflow-x:auto;-webkit-overflow-scrolling:touch;">
+        <table style="width:100%;border-collapse:collapse;min-width:260px;">
+          <thead><tr>
+            <th style="text-align:left;padding:4px 6px 4px 0;font-size:10px;color:var(--muted);font-weight:400;border-bottom:1px solid var(--border);">Aluno</th>
+            ${datas.map(d => `<th style="text-align:center;padding:4px 2px;font-size:10px;color:var(--muted);font-weight:400;border-bottom:1px solid var(--border);min-width:42px;">${d.toLocaleDateString('pt-BR',{day:'2-digit',month:'2-digit'})}</th>`).join('')}
+          </tr></thead>
+          <tbody>`;
+
+    alunosDoDia.forEach(ag => {
+      html += `<tr>
+        <td style="padding:7px 6px 7px 0;font-size:12px;color:var(--text);border-bottom:1px solid rgba(255,255,255,0.04);white-space:nowrap;">
+          ${ag.aluno}<span style="font-size:9px;color:var(--muted);margin-left:4px;">${ag.hora}</span>
+        </td>`;
+      datas.forEach(d => {
+        const ds = dateToStr(d);
+        const isFuture = d > hoje;
+        const val = (state.presencas[ds] || {})[ag.aluno];
+        const label = val === 'P' ? 'P' : val === 'F' ? 'F' : '·';
+        const color = val === 'P' ? 'var(--green)' : val === 'F' ? '#E74C3C' : 'rgba(255,255,255,0.25)';
+        const bg = val === 'P' ? 'rgba(39,174,96,0.18)' : val === 'F' ? 'rgba(192,57,43,0.12)' : 'rgba(255,255,255,0.03)';
+        const border = val ? color : 'rgba(255,255,255,0.1)';
+        const click = isFuture ? '' : `togglePresenca('${ds}','${ag.aluno.replace(/'/g,"\\'")}')`;
+        html += `<td style="text-align:center;padding:4px 2px;border-bottom:1px solid rgba(255,255,255,0.04);">
+          <button onclick="${click}" style="background:${bg};border:1px solid ${border};border-radius:6px;width:38px;height:30px;color:${color};font-size:12px;font-weight:700;cursor:${isFuture?'default':'pointer'};font-family:inherit;transition:all 0.15s;">${label}</button>
+        </td>`;
+      });
+      html += '</tr>';
+    });
+
+    html += `</tbody></table></div></div>`;
+  });
+
+  if (!diasUsados.length) {
+    html += '<div class="empty-state"><div class="icon">📅</div><p>Nenhum aluno cadastrado na agenda.</p></div>';
+  }
+
+  container.innerHTML = html;
+}
+
+function mudarMesPresenca(dir) {
+  presencaMes += dir;
+  if (presencaMes < 0) { presencaMes = 11; presencaAno--; }
+  if (presencaMes > 11) { presencaMes = 0; presencaAno++; }
+  renderPresenca();
+}
+
+function togglePresenca(dateStr, alunoNome) {
+  if (!state.presencas) state.presencas = {};
+  if (!state.presencas[dateStr]) state.presencas[dateStr] = {};
+  const atual = state.presencas[dateStr][alunoNome];
+  if (!atual) state.presencas[dateStr][alunoNome] = 'P';
+  else if (atual === 'P') state.presencas[dateStr][alunoNome] = 'F';
+  else delete state.presencas[dateStr][alunoNome];
+  saveState();
+  renderPresenca();
+}
+
+// ============ REPOSIÇÃO ============
+
+function renderReposicoes() {
+  const container = document.getElementById('agenda-reposicao-container');
+  if (!container) return;
+  if (!state.reposicoes) state.reposicoes = [];
+
+  const agendadas = state.reposicoes.filter(r => r.status === 'agendada')
+    .sort((a,b) => a.dataRep.localeCompare(b.dataRep));
+  const realizadas = state.reposicoes.filter(r => r.status === 'realizada')
+    .sort((a,b) => b.dataRep.localeCompare(a.dataRep));
+
+  const nomesAtivos = state.alunos.filter(a => a.status === 'Ativo').map(a => a.nome).sort();
+  const alunosOpts = nomesAtivos.map(n => `<option>${n}</option>`).join('');
+
+  let html = `
+  <div class="form-card" style="margin-bottom:16px;">
+    <div class="form-title">🔄 Nova Reposição / Aula Extra</div>
+    <div class="form-grid">
+      <div class="form-group">
+        <label>Aluno</label>
+        <select id="rep-aluno">${alunosOpts}</select>
+      </div>
+      <div class="form-group">
+        <label>Data que faltou</label>
+        <input type="date" id="rep-datafalta">
+      </div>
+      <div class="form-group">
+        <label>Data da reposição</label>
+        <input type="date" id="rep-datarep">
+      </div>
+      <div class="form-group">
+        <label>Horário</label>
+        <input type="time" id="rep-horario">
+      </div>
+    </div>
+    <div class="form-group" style="margin-top:8px;">
+      <label>Observação (opcional)</label>
+      <input type="text" id="rep-obs" placeholder="Ex: Feriado de Corpus Christi...">
+    </div>
+    <div class="form-actions">
+      <button class="btn btn-gold" onclick="salvarReposicao()">Agendar Reposição</button>
+    </div>
+  </div>`;
+
+  if (agendadas.length) {
+    html += `<div style="font-size:10px;color:var(--gold);letter-spacing:1.5px;text-transform:uppercase;margin-bottom:8px;font-weight:600;">⏳ AGENDADAS (${agendadas.length})</div>`;
+    agendadas.forEach(r => {
+      const dataRepFmt = new Date(r.dataRep+'T12:00').toLocaleDateString('pt-BR',{weekday:'short',day:'2-digit',month:'2-digit'});
+      const dataFaltaFmt = r.dataFalta ? new Date(r.dataFalta+'T12:00').toLocaleDateString('pt-BR',{day:'2-digit',month:'2-digit'}) : '';
+      html += `
+      <div style="padding:12px 14px;background:rgba(201,168,76,0.06);border:1px solid rgba(201,168,76,0.2);border-radius:10px;margin-bottom:8px;">
+        <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:8px;">
+          <div>
+            <div style="font-size:13px;font-weight:600;color:var(--text);">${r.alunoNome}</div>
+            ${dataFaltaFmt ? `<div style="font-size:10px;color:var(--muted);">Faltou: ${dataFaltaFmt}</div>` : ''}
+            ${r.obs ? `<div style="font-size:10px;color:var(--muted);">${r.obs}</div>` : ''}
+          </div>
+          <div style="text-align:right;">
+            <div style="font-family:'Cormorant Garamond',serif;font-size:16px;color:var(--gold);font-weight:700;">${dataRepFmt}</div>
+            <div style="font-size:11px;color:var(--muted);">${r.horario ? r.horario.replace(':','h') : '—'}</div>
+          </div>
+        </div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;">
+          <button onclick="marcarReposicaoRealizada(${r.id})" style="background:rgba(39,174,96,0.1);border:1px solid rgba(39,174,96,0.3);color:var(--green);border-radius:7px;padding:6px 12px;font-size:11px;cursor:pointer;font-family:inherit;">✅ Realizada</button>
+          <button onclick="compartilharReposicaoWpp(${r.id})" style="background:rgba(39,174,96,0.1);border:1px solid rgba(39,174,96,0.3);color:var(--green);border-radius:7px;padding:6px 12px;font-size:11px;cursor:pointer;font-family:inherit;">📱 WhatsApp</button>
+          <button onclick="excluirReposicao(${r.id})" style="background:none;border:1px solid rgba(192,57,43,0.3);color:#E74C3C;border-radius:7px;padding:6px 10px;font-size:11px;cursor:pointer;font-family:inherit;">🗑️</button>
+        </div>
+      </div>`;
+    });
+  }
+
+  if (realizadas.length) {
+    html += `<div style="font-size:10px;color:var(--green);letter-spacing:1.5px;text-transform:uppercase;margin:16px 0 8px;font-weight:600;">✅ REALIZADAS (${realizadas.length})</div>`;
+    realizadas.forEach(r => {
+      const dataRepFmt = new Date(r.dataRep+'T12:00').toLocaleDateString('pt-BR',{weekday:'short',day:'2-digit',month:'2-digit'});
+      html += `
+      <div style="padding:10px 14px;background:rgba(39,174,96,0.05);border:1px solid rgba(39,174,96,0.15);border-radius:10px;margin-bottom:6px;display:flex;justify-content:space-between;align-items:center;">
+        <div>
+          <div style="font-size:12px;font-weight:500;color:var(--text);">✅ ${r.alunoNome}</div>
+          ${r.obs ? `<div style="font-size:10px;color:var(--muted);">${r.obs}</div>` : ''}
+        </div>
+        <div style="text-align:right;">
+          <div style="font-size:12px;color:var(--green);">${dataRepFmt}</div>
+          <div style="font-size:10px;color:var(--muted);">${r.horario ? r.horario.replace(':','h') : '—'}</div>
+          <button onclick="excluirReposicao(${r.id})" style="font-size:9px;background:none;border:none;color:var(--muted);cursor:pointer;padding:0;margin-top:2px;">remover</button>
+        </div>
+      </div>`;
+    });
+  }
+
+  if (!agendadas.length && !realizadas.length) {
+    html += `<div class="empty-state"><div class="icon">🔄</div><p>Nenhuma reposição cadastrada.</p></div>`;
+  }
+
+  container.innerHTML = html;
+}
+
+function salvarReposicao() {
+  if (!state.reposicoes) state.reposicoes = [];
+  const alunoNome = document.getElementById('rep-aluno')?.value;
+  const dataFalta = document.getElementById('rep-datafalta')?.value;
+  const dataRep   = document.getElementById('rep-datarep')?.value;
+  const horario   = document.getElementById('rep-horario')?.value;
+  const obs       = document.getElementById('rep-obs')?.value.trim();
+  if (!alunoNome || !dataRep) { toast('⚠️ Informe o aluno e a data de reposição'); return; }
+  const nextId = state.reposicoes.length ? Math.max(...state.reposicoes.map(r => r.id || 0)) + 1 : 1;
+  state.reposicoes.push({ id: nextId, alunoNome, dataFalta: dataFalta||'', dataRep, horario: horario||'', status: 'agendada', obs });
+  saveState();
+  document.getElementById('rep-datafalta').value = '';
+  document.getElementById('rep-datarep').value   = '';
+  document.getElementById('rep-horario').value   = '';
+  document.getElementById('rep-obs').value       = '';
+  renderReposicoes();
+  toast(`✓ Reposição de ${alunoNome} agendada!`);
+}
+
+function marcarReposicaoRealizada(id) {
+  const r = (state.reposicoes||[]).find(x => x.id === id);
+  if (!r) return;
+  r.status = 'realizada';
+  saveState();
+  renderReposicoes();
+  toast('✅ Reposição realizada!');
+}
+
+function excluirReposicao(id) {
+  if (!confirm('Remover esta reposição?')) return;
+  state.reposicoes = (state.reposicoes||[]).filter(r => r.id !== id);
+  saveState();
+  renderReposicoes();
+  toast('Reposição removida');
+}
+
+function compartilharReposicaoWpp(id) {
+  const r = (state.reposicoes||[]).find(x => x.id === id);
+  if (!r) return;
+  const aluno = state.alunos.find(a => a.nome === r.alunoNome);
+  const extra = aluno ? (state.cadastroExtra[aluno.id] || {}) : {};
+  const tel = (extra.telFinanceiro || aluno?.tel || '').replace(/\D/g,'');
+  const dataRepFmt = new Date(r.dataRep+'T12:00').toLocaleDateString('pt-BR',{weekday:'long',day:'2-digit',month:'long'});
+  let msg = `🥁 *REPOSIÇÃO DE AULA*\nInstituto NB — Nego Batera\n\n`;
+  msg += `Olá, *${r.alunoNome}*! 👋\n\nSua aula de reposição está confirmada:\n\n`;
+  msg += `📅 *Data:* ${dataRepFmt}\n`;
+  if (r.horario) msg += `⏰ *Horário:* ${r.horario.replace(':','h')}\n`;
+  if (r.obs) msg += `📝 *Obs:* ${r.obs}\n`;
+  msg += `\nConfirme sua presença! 🤜🤛\n\n_INB — Instituto Nego Batera_`;
+  const url = tel ? `https://wa.me/55${tel}?text=${encodeURIComponent(msg)}` : `https://wa.me/?text=${encodeURIComponent(msg)}`;
+  window.open(url, '_blank');
 }
 
 function compartilharAgendaDia() {
