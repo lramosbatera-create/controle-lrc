@@ -1149,12 +1149,12 @@
   <p class="section-title">Shows & Eventos</p>
   <p class="section-sub">AGENDA ARTÍSTICA · NEGO BATERA 2026</p>
 
-  <!-- KPIs -->
-  <div class="cards-grid" style="margin-bottom:16px;">
+  <!-- KPIs Realizados -->
+  <div class="cards-grid" style="margin-bottom:10px;">
     <div class="kpi-card">
-      <div class="kpi-label">Total Shows</div>
-      <div class="kpi-value" id="total-shows">4</div>
-      <div class="kpi-sub">realizados em 2026</div>
+      <div class="kpi-label">Realizados</div>
+      <div class="kpi-value green" id="total-shows">4</div>
+      <div class="kpi-sub">shows pagos em 2026</div>
     </div>
     <div class="kpi-card">
       <div class="kpi-label">Faturamento</div>
@@ -1170,6 +1170,19 @@
       <div class="kpi-label">Estados</div>
       <div class="kpi-value" id="total-estados">3</div>
       <div class="kpi-sub" id="lista-estados">MG · PR · RJ · TO</div>
+    </div>
+  </div>
+  <!-- KPIs Confirmados + Previstos -->
+  <div class="cards-grid" style="margin-bottom:16px;">
+    <div class="kpi-card" style="border-color:rgba(201,168,76,0.4);">
+      <div class="kpi-label">🟡 Confirmados</div>
+      <div class="kpi-value" style="color:var(--gold)" id="shows-conf-count">0</div>
+      <div class="kpi-sub" id="shows-conf-val">R$ 0 a receber</div>
+    </div>
+    <div class="kpi-card" style="border-color:rgba(52,152,219,0.4);">
+      <div class="kpi-label">🔵 Previstos</div>
+      <div class="kpi-value" style="color:#3498db" id="shows-prev-count">0</div>
+      <div class="kpi-sub" id="shows-prev-val">R$ 0 estimados</div>
     </div>
   </div>
 
@@ -4918,37 +4931,55 @@ function renderShows() {
     + artistas.map(a => `<button class="filter-btn ${filterShowArtista===a?'active':''}" onclick="setFilterShow('${a}',this)">${a}</button>`).join('');
 
   const lista = filterShowArtista === 'todos' ? state.shows : state.shows.filter(s => s.artista === filterShowArtista);
-  const pagos = lista.filter(s => s.status === 'pago');
-  const total = pagos.reduce((s,x) => s + (parseFloat(x.cache)||0), 0);
+
+  const normStatus = s => s.status === 'pendente' ? 'previsto' : s.status === 'parcial' ? 'confirmado' : (s.status || 'previsto');
+
+  const pagos      = lista.filter(s => normStatus(s) === 'pago');
+  const confirmados = lista.filter(s => normStatus(s) === 'confirmado');
+  const previstos  = lista.filter(s => normStatus(s) === 'previsto');
+
+  const totalPago = pagos.reduce((acc,x) => acc + (parseFloat(x.cache)||0), 0);
+  const totalConf = confirmados.reduce((acc,x) => acc + (parseFloat(x.cache)||0), 0);
+  const totalPrev = previstos.reduce((acc,x) => acc + (parseFloat(x.cache)||0), 0);
+
   const cidadesUnicas = [...new Set(pagos.filter(s=>s.cidade).map(s=>s.cidade))];
   const estadosUnicos = [...new Set(pagos.filter(s=>s.estado).map(s=>s.estado))].sort();
 
   document.getElementById('total-shows').textContent = pagos.length;
-  document.getElementById('fat-shows').textContent = fmtBRL(total);
+  document.getElementById('fat-shows').textContent = fmtBRL(totalPago);
   document.getElementById('total-cidades').textContent = cidadesUnicas.length;
   document.getElementById('total-estados').textContent = estadosUnicos.length;
   const listaEst = document.getElementById('lista-estados');
   if (listaEst) listaEst.textContent = estadosUnicos.join(' · ') || '—';
+
+  const elConfCount = document.getElementById('shows-conf-count');
+  const elConfVal   = document.getElementById('shows-conf-val');
+  const elPrevCount = document.getElementById('shows-prev-count');
+  const elPrevVal   = document.getElementById('shows-prev-val');
+  if (elConfCount) elConfCount.textContent = confirmados.length;
+  if (elConfVal)   elConfVal.textContent   = fmtBRL(totalConf) + ' a receber';
+  if (elPrevCount) elPrevCount.textContent = previstos.length;
+  if (elPrevVal)   elPrevVal.textContent   = totalPrev > 0 ? fmtBRL(totalPrev) + ' estimados' : 'sem valor definido';
 
   if (!lista.length) {
     container.innerHTML = '<div class="empty-state"><div class="icon">🎸</div><p>Nenhum show registrado ainda</p></div>';
     return;
   }
 
-  container.innerHTML = lista.sort((a,b)=>a.data>b.data?1:-1).map(s => {
+  function buildShowCard(s) {
     const dt = parseDateBR(s.data);
-    const stNorm = s.status === 'pendente' ? 'previsto' : s.status === 'parcial' ? 'confirmado' : (s.status || 'previsto');
-    const stBadge = stNorm === 'pago'
+    const st = normStatus(s);
+    const stBadge = st === 'pago'
       ? '<span class="badge badge-green">🟢 Pago</span>'
-      : stNorm === 'confirmado'
+      : st === 'confirmado'
       ? '<span class="badge badge-yellow">🟡 Confirmado</span>'
       : '<span class="badge" style="background:rgba(52,152,219,0.15);color:#3498db;border:1px solid rgba(52,152,219,0.3);">🔵 Previsto</span>';
-    const acoes = stNorm === 'previsto'
+    const acoes = st === 'previsto'
       ? `<button class="btn btn-gold" style="font-size:11px;padding:4px 12px;" onclick="confirmarShow(${s.id})">✓ Confirmar</button>`
-      : stNorm === 'confirmado'
+      : st === 'confirmado'
       ? `<button class="btn btn-gold" style="font-size:11px;padding:4px 12px;" onclick="marcarShowPago(${s.id})">💰 Marcar Pago</button>`
       : '';
-    const cacheInfo = stNorm !== 'previsto' && s.cache
+    const cacheInfo = st !== 'previsto' && s.cache
       ? `<div class="show-cache">${fmtBRL(s.cache)}</div>` : '';
     return `
     <div class="show-card">
@@ -4974,7 +5005,30 @@ function renderShows() {
         ${s.obs ? `<div style="font-size:11px;color:var(--muted);margin-top:4px;">${s.obs}</div>`:''}
       </div>
     </div>`;
-  }).join('');
+  }
+
+  function secaoHeader(label, cor, count) {
+    return `<div style="display:flex;align-items:center;gap:8px;margin:18px 0 8px;">
+      <div style="flex:1;height:1px;background:${cor};opacity:0.3;"></div>
+      <span style="font-size:11px;letter-spacing:2px;text-transform:uppercase;color:${cor};white-space:nowrap;">${label} (${count})</span>
+      <div style="flex:1;height:1px;background:${cor};opacity:0.3;"></div>
+    </div>`;
+  }
+
+  let html = '';
+  if (confirmados.length) {
+    html += secaoHeader('🟡 Confirmados', 'var(--gold)', confirmados.length);
+    html += confirmados.sort((a,b)=>a.data>b.data?1:-1).map(buildShowCard).join('');
+  }
+  if (previstos.length) {
+    html += secaoHeader('🔵 Previstos', '#3498db', previstos.length);
+    html += previstos.sort((a,b)=>a.data>b.data?1:-1).map(buildShowCard).join('');
+  }
+  if (pagos.length) {
+    html += secaoHeader('🟢 Realizados', '#27ae60', pagos.length);
+    html += pagos.sort((a,b)=>b.data>a.data?1:-1).map(buildShowCard).join('');
+  }
+  container.innerHTML = html;
 }
 
 function setFilterShow(f, btn) {
