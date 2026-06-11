@@ -2334,17 +2334,23 @@ function updateSyncStatus(ok) {
 }
 
 function showSyncMenu() {
-  if (!supabaseReady) { toast('⚠️ Supabase não conectado'); return; }
   const existing = document.getElementById('sync-menu');
   if (existing) { existing.remove(); return; }
   const menu = document.createElement('div');
   menu.id = 'sync-menu';
-  menu.style.cssText = 'position:fixed;top:36px;right:40px;background:#1C1C1C;border:1px solid rgba(201,168,76,0.4);border-radius:10px;padding:8px;z-index:1000;min-width:200px;box-shadow:0 4px 16px rgba(0,0,0,0.5)';
-  const btn = s => `display:block;width:100%;text-align:left;background:none;border:none;color:#F0E8D5;font-family:inherit;font-size:12px;padding:7px 10px;cursor:pointer;border-radius:6px;${s}`;
-  menu.innerHTML = `
-    <div style="font-size:11px;color:#7A7060;padding:4px 8px 8px;border-bottom:1px solid rgba(201,168,76,0.15);margin-bottom:6px">☁️ Sincronização</div>
+  menu.style.cssText = 'position:fixed;top:36px;right:40px;background:#1C1C1C;border:1px solid rgba(201,168,76,0.4);border-radius:10px;padding:8px;z-index:1000;min-width:220px;box-shadow:0 4px 16px rgba(0,0,0,0.5)';
+  const btn = (s,dis) => `display:block;width:100%;text-align:left;background:none;border:none;font-family:inherit;font-size:12px;padding:7px 10px;border-radius:6px;${dis?'color:#555;cursor:default;':'color:#F0E8D5;cursor:pointer;'}${s}`;
+  const sbBtns = supabaseReady ? `
     <button style="${btn('')}" onmouseover="this.style.background='rgba(201,168,76,0.1)'" onmouseout="this.style.background=''" onclick="dbPushAll();document.getElementById('sync-menu')?.remove()">↑ Enviar para a nuvem</button>
-    <button style="${btn('')}" onmouseover="this.style.background='rgba(201,168,76,0.1)'" onmouseout="this.style.background=''" onclick="dbPullAll();document.getElementById('sync-menu')?.remove()">↓ Importar da nuvem</button>
+    <button style="${btn('')}" onmouseover="this.style.background='rgba(201,168,76,0.1)'" onmouseout="this.style.background=''" onclick="dbPullAll();document.getElementById('sync-menu')?.remove()">↓ Importar da nuvem</button>` :
+    `<div style="font-size:11px;color:#555;padding:4px 10px 6px">Supabase não conectado</div>`;
+  menu.innerHTML = `
+    <div style="font-size:11px;color:#7A7060;padding:4px 8px 8px;border-bottom:1px solid rgba(201,168,76,0.15);margin-bottom:6px">☁️ Nuvem</div>
+    ${sbBtns}
+    <div style="border-top:1px solid rgba(201,168,76,0.15);margin:6px 0 4px"></div>
+    <div style="font-size:11px;color:#7A7060;padding:2px 8px 6px">📦 Backup completo</div>
+    <button style="${btn('')}" onmouseover="this.style.background='rgba(201,168,76,0.1)'" onmouseout="this.style.background=''" onclick="exportBackup();document.getElementById('sync-menu')?.remove()">📤 Exportar para arquivo</button>
+    <button style="${btn('')}" onmouseover="this.style.background='rgba(201,168,76,0.1)'" onmouseout="this.style.background=''" onclick="importBackup();document.getElementById('sync-menu')?.remove()">📥 Importar de arquivo</button>
     <div style="border-top:1px solid rgba(201,168,76,0.15);margin:6px 0 4px"></div>
     <button style="${btn('color:#C9A84C')}" onmouseover="this.style.background='rgba(201,168,76,0.1)'" onmouseout="this.style.background=''" onclick="forceUpdate()">🔄 Forçar atualização do app</button>
   `;
@@ -2352,6 +2358,39 @@ function showSyncMenu() {
   setTimeout(() => document.addEventListener('click', function close(e) {
     if (!menu.contains(e.target) && e.target.id !== 'sync-dot') { menu.remove(); document.removeEventListener('click', close); }
   }), 100);
+}
+
+function exportBackup() {
+  try {
+    const data = JSON.stringify(state);
+    const blob = new Blob([data], {type: 'application/json'});
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `lrc-backup-${new Date().toISOString().slice(0,10)}.json`;
+    a.click();
+    URL.revokeObjectURL(url);
+    toast('✓ Backup exportado!');
+  } catch(e) { toast('❌ Erro ao exportar'); }
+}
+
+function importBackup() {
+  const input = document.createElement('input');
+  input.type = 'file';
+  input.accept = '.json';
+  input.onchange = async e => {
+    const file = e.target.files[0];
+    if (!file) return;
+    try {
+      const text = await file.text();
+      const data = JSON.parse(text);
+      Object.assign(state, data);
+      saveState();
+      toast('✓ Backup importado! Recarregando...');
+      setTimeout(() => location.reload(), 1200);
+    } catch(err) { toast('❌ Arquivo inválido'); }
+  };
+  input.click();
 }
 
 async function forceUpdate() {
