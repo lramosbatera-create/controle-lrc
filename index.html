@@ -7523,10 +7523,17 @@ function renderAtvExercicios() {
   const formHtml = `
     <div style="background:var(--card);border:1px solid var(--border);border-radius:12px;padding:16px;margin-bottom:14px;">
       <p style="color:var(--gold);font-weight:600;margin:0 0 12px;font-size:13px;">➕ Novo Exercício</p>
-      <div class="form-group">
-        <label>Nome do exercício</label>
-        <input type="text" id="atve-nome" placeholder="Ex: Paradiddle simples"
-          style="width:100%;background:var(--dark);border:1px solid var(--border);border-radius:8px;padding:9px 12px;color:var(--text);font-size:13px;box-sizing:border-box;">
+      <div style="display:flex;gap:10px;flex-wrap:wrap;">
+        <div style="flex:2;min-width:160px;" class="form-group">
+          <label>Nome do exercício</label>
+          <input type="text" id="atve-nome" placeholder="Ex: Paradiddle simples"
+            style="width:100%;background:var(--dark);border:1px solid var(--border);border-radius:8px;padding:9px 12px;color:var(--text);font-size:13px;box-sizing:border-box;">
+        </div>
+        <div style="flex:1;min-width:130px;" class="form-group">
+          <label>Data de início</label>
+          <input type="date" id="atve-data" value="${new Date().toISOString().slice(0,10)}"
+            style="width:100%;background:var(--dark);border:1px solid var(--border);border-radius:8px;padding:9px 12px;color:var(--text);font-size:13px;box-sizing:border-box;">
+        </div>
       </div>
       <div style="display:flex;gap:10px;margin-top:10px;flex-wrap:wrap;">
         <div style="flex:1;min-width:120px;" class="form-group">
@@ -7563,11 +7570,17 @@ function renderAtvExercicios() {
                 <input type="number" id="edit-e-bpmAtual" value="${e.bpmAtual||e.bpmAlvo}" min="20" max="400" style="width:100%;background:var(--dark);border:1px solid var(--border);border-radius:8px;padding:8px 10px;color:var(--text);font-size:13px;box-sizing:border-box;">
               </div>
             </div>
-            <div class="form-group" style="margin-bottom:10px;">
-              <label>Status</label>
-              <select id="edit-e-status" style="width:100%;background:var(--dark);border:1px solid var(--border);border-radius:8px;padding:8px 10px;color:var(--text);font-size:13px;">
-                ${ATV_STATUS_EXERCICIO.map(s => `<option ${s===e.status?'selected':''}>${s}</option>`).join('')}
-              </select>
+            <div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:8px;">
+              <div style="flex:1;min-width:130px;" class="form-group">
+                <label>Data de início</label>
+                <input type="date" id="edit-e-data" value="${e.dataInicio||new Date().toISOString().slice(0,10)}" style="width:100%;background:var(--dark);border:1px solid var(--border);border-radius:8px;padding:8px 10px;color:var(--text);font-size:13px;box-sizing:border-box;">
+              </div>
+              <div style="flex:1;min-width:120px;" class="form-group">
+                <label>Status</label>
+                <select id="edit-e-status" style="width:100%;background:var(--dark);border:1px solid var(--border);border-radius:8px;padding:8px 10px;color:var(--text);font-size:13px;">
+                  ${ATV_STATUS_EXERCICIO.map(s => `<option ${s===e.status?'selected':''}>${s}</option>`).join('')}
+                </select>
+              </div>
             </div>
             <div style="display:flex;gap:8px;">
               <button class="btn btn-gold" onclick="salvarEdicaoExercicio(${e.id})" style="font-size:12px;padding:7px 14px;">✓ Salvar</button>
@@ -7602,7 +7615,10 @@ function renderAtvExercicios() {
             <button onclick="adicionarBPM(${e.id})" style="background:var(--dark);border:1px solid var(--gold);color:var(--gold);border-radius:6px;padding:5px 10px;font-size:12px;cursor:pointer;">Atualizar BPM</button>
             ${e.status !== 'Dominado' ? `<button onclick="marcarDominado(${e.id})" style="background:rgba(39,174,96,0.15);border:1px solid #27ae60;color:#27ae60;border-radius:6px;padding:5px 10px;font-size:12px;cursor:pointer;">✓ Marcar como dominado</button>` : ''}
           </div>
-          ${hist.length ? `<div style="font-size:11px;color:var(--text-muted);">Histórico recente: ${hist.map(h => `${h.bpm} BPM (${new Date(h.data+'T12:00:00').toLocaleDateString('pt-BR',{day:'2-digit',month:'short'})})`).join(' · ')}</div>` : ''}
+          <div style="display:flex;gap:12px;flex-wrap:wrap;margin-top:4px;">
+            ${e.dataInicio ? `<span style="font-size:11px;color:var(--text-muted);">📅 Início: ${new Date(e.dataInicio+'T12:00:00').toLocaleDateString('pt-BR',{day:'2-digit',month:'short',year:'numeric'})}</span>` : ''}
+            ${hist.length ? `<span style="font-size:11px;color:var(--text-muted);">Histórico: ${hist.map(h => `${h.bpm} BPM (${new Date(h.data+'T12:00:00').toLocaleDateString('pt-BR',{day:'2-digit',month:'short'})})`).join(' · ')}</span>` : ''}
+          </div>
         </div>`;
       }).join('');
 
@@ -7612,14 +7628,15 @@ function renderAtvExercicios() {
 function salvarExercicio() {
   if (!atvAlunoAtual) { toast('Selecione um aluno'); return; }
   const nome = document.getElementById('atve-nome')?.value.trim();
+  const dataInicio = document.getElementById('atve-data')?.value || new Date().toISOString().slice(0,10);
   const bpmAlvo = parseInt(document.getElementById('atve-bpm-alvo')?.value) || 120;
   const bpmAtual = parseInt(document.getElementById('atve-bpm-atual')?.value) || bpmAlvo;
   if (!nome) { toast('Digite o nome do exercício'); return; }
   const nextId = (state.atividades.exercicios.reduce((mx, r) => Math.max(mx, r.id||0), 0)) + 1;
   state.atividades.exercicios.push({
     id: nextId, alunoId: parseInt(atvAlunoAtual),
-    nome, bpmAlvo, bpmAtual, status: 'Em andamento',
-    historico: [{ data: new Date().toISOString().slice(0,10), bpm: bpmAtual }]
+    nome, dataInicio, bpmAlvo, bpmAtual, status: 'Em andamento',
+    historico: [{ data: dataInicio, bpm: bpmAtual }]
   });
   saveState();
   toast('✓ Exercício salvo');
@@ -7660,12 +7677,13 @@ function excluirExercicio(id) {
 function salvarEdicaoExercicio(id) {
   const e = state.atividades.exercicios.find(x => x.id === id);
   if (!e) return;
-  const nome     = document.getElementById('edit-e-nome')?.value.trim();
-  const bpmAlvo  = parseInt(document.getElementById('edit-e-bpmalvo')?.value) || e.bpmAlvo;
-  const bpmAtual = parseInt(document.getElementById('edit-e-bpmAtual')?.value) || e.bpmAtual;
-  const status   = document.getElementById('edit-e-status')?.value;
+  const nome       = document.getElementById('edit-e-nome')?.value.trim();
+  const dataInicio = document.getElementById('edit-e-data')?.value || e.dataInicio;
+  const bpmAlvo    = parseInt(document.getElementById('edit-e-bpmalvo')?.value) || e.bpmAlvo;
+  const bpmAtual   = parseInt(document.getElementById('edit-e-bpmAtual')?.value) || e.bpmAtual;
+  const status     = document.getElementById('edit-e-status')?.value;
   if (!nome) { toast('Digite o nome'); return; }
-  e.nome = nome; e.bpmAlvo = bpmAlvo; e.bpmAtual = bpmAtual; e.status = status;
+  e.nome = nome; e.dataInicio = dataInicio; e.bpmAlvo = bpmAlvo; e.bpmAtual = bpmAtual; e.status = status;
   atvEditExercicioId = null;
   saveState();
   toast('✓ Exercício atualizado');
@@ -7704,11 +7722,18 @@ function renderAtvMusicas() {
           </select>
         </div>
       </div>
-      <div class="form-group" style="margin-top:10px;">
-        <label>Status</label>
-        <select id="atvm-status" style="width:100%;background:var(--dark);border:1px solid var(--border);border-radius:8px;padding:9px 12px;color:var(--text);font-size:13px;">
-          ${ATV_STATUS_MUSICA.map(s => `<option>${s}</option>`).join('')}
-        </select>
+      <div style="display:flex;gap:10px;margin-top:10px;flex-wrap:wrap;">
+        <div style="flex:1;min-width:130px;" class="form-group">
+          <label>Status</label>
+          <select id="atvm-status" style="width:100%;background:var(--dark);border:1px solid var(--border);border-radius:8px;padding:9px 12px;color:var(--text);font-size:13px;">
+            ${ATV_STATUS_MUSICA.map(s => `<option>${s}</option>`).join('')}
+          </select>
+        </div>
+        <div style="flex:1;min-width:130px;" class="form-group">
+          <label>Data de início</label>
+          <input type="date" id="atvm-data" value="${new Date().toISOString().slice(0,10)}"
+            style="width:100%;background:var(--dark);border:1px solid var(--border);border-radius:8px;padding:9px 12px;color:var(--text);font-size:13px;box-sizing:border-box;">
+        </div>
       </div>
       <button class="btn btn-gold" onclick="salvarMusica()" style="margin-top:14px;" ${!atvAlunoAtual ? 'disabled' : ''}>Salvar</button>
     </div>`;
@@ -7736,11 +7761,17 @@ function renderAtvMusicas() {
               </select>
             </div>
           </div>
-          <div class="form-group" style="margin-bottom:10px;">
-            <label>Status</label>
-            <select id="edit-m-status" style="width:100%;background:var(--dark);border:1px solid var(--border);border-radius:8px;padding:8px 10px;color:var(--text);font-size:13px;">
-              ${ATV_STATUS_MUSICA.map(s => `<option ${s===m.status?'selected':''}>${s}</option>`).join('')}
-            </select>
+          <div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:10px;">
+            <div style="flex:1;min-width:130px;" class="form-group">
+              <label>Status</label>
+              <select id="edit-m-status" style="width:100%;background:var(--dark);border:1px solid var(--border);border-radius:8px;padding:8px 10px;color:var(--text);font-size:13px;">
+                ${ATV_STATUS_MUSICA.map(s => `<option ${s===m.status?'selected':''}>${s}</option>`).join('')}
+              </select>
+            </div>
+            <div style="flex:1;min-width:130px;" class="form-group">
+              <label>Data de início</label>
+              <input type="date" id="edit-m-data" value="${m.dataInicio||new Date().toISOString().slice(0,10)}" style="width:100%;background:var(--dark);border:1px solid var(--border);border-radius:8px;padding:8px 10px;color:var(--text);font-size:13px;box-sizing:border-box;">
+            </div>
           </div>
           <div style="display:flex;gap:8px;">
             <button class="btn btn-gold" onclick="salvarEdicaoMusica(${m.id})" style="font-size:12px;padding:7px 14px;">✓ Salvar</button>
@@ -7781,12 +7812,13 @@ function salvarMusica() {
   const artista = document.getElementById('atvm-artista')?.value.trim() || '—';
   const estilo = document.getElementById('atvm-estilo')?.value || 'Rock';
   const status = document.getElementById('atvm-status')?.value || 'Em estudo';
+  const dataInicio = document.getElementById('atvm-data')?.value || new Date().toISOString().slice(0,10);
   if (!nome) { toast('Digite o nome da música'); return; }
   const nextId = (state.atividades.musicas.reduce((mx, r) => Math.max(mx, r.id||0), 0)) + 1;
   state.atividades.musicas.push({
     id: nextId, alunoId: parseInt(atvAlunoAtual),
     nome, artista, estilo, status,
-    dataInicio: new Date().toISOString().slice(0,10),
+    dataInicio,
     dataConclusao: null
   });
   saveState();
@@ -7819,12 +7851,13 @@ function excluirMusica(id) {
 function salvarEdicaoMusica(id) {
   const m = state.atividades.musicas.find(x => x.id === id);
   if (!m) return;
-  const nome    = document.getElementById('edit-m-nome')?.value.trim();
-  const artista = document.getElementById('edit-m-artista')?.value.trim() || '—';
-  const estilo  = document.getElementById('edit-m-estilo')?.value;
-  const status  = document.getElementById('edit-m-status')?.value;
+  const nome       = document.getElementById('edit-m-nome')?.value.trim();
+  const artista    = document.getElementById('edit-m-artista')?.value.trim() || '—';
+  const estilo     = document.getElementById('edit-m-estilo')?.value;
+  const status     = document.getElementById('edit-m-status')?.value;
+  const dataInicio = document.getElementById('edit-m-data')?.value || m.dataInicio;
   if (!nome) { toast('Digite o nome da música'); return; }
-  m.nome = nome; m.artista = artista; m.estilo = estilo;
+  m.nome = nome; m.artista = artista; m.estilo = estilo; m.dataInicio = dataInicio;
   if (m.status !== status) atualizarStatusMusica(id, status);
   else { atvEditMusicaId = null; saveState(); toast('✓ Música atualizada'); renderAtvMusicas(); }
 }
