@@ -2200,6 +2200,7 @@ async function dbLoad() {
   if (!state.agenda) state.agenda = [];
   if (!state.presencas) state.presencas = {};
   if (!state.reposicoes) state.reposicoes = [];
+  migrateAgendaPresenca();
 }
 
 async function dbSeedAlunos() {
@@ -2371,6 +2372,65 @@ let agendaNextId = 34;
 const DIAS_SEMANA = ['Segunda','Terça','Quarta','Quinta','Sexta','Sábado'];
 const DIAS_MAP = {0:'Domingo',1:'Segunda',2:'Terça',3:'Quarta',4:'Quinta',5:'Sexta',6:'Sábado'};
 
+// ---- helpers: agenda sempre derivada do cadastro ----
+function getNomeAluno(id) {
+  const a = state.alunos.find(x => x.id === id);
+  return a ? a.nome : null;
+}
+function getIdAluno(nome) {
+  const a = state.alunos.find(x => x.nome === nome);
+  return a ? a.id : null;
+}
+// Nome canônico de uma entrada da agenda (sempre vem do cadastro quando possível)
+function agNome(ag) {
+  if (ag.alunoId) return getNomeAluno(ag.alunoId) || ag.aluno;
+  return ag.aluno;
+}
+// Chave usada em state.presencas: ID (string) se disponível, senão nome
+function agKey(ag) {
+  return ag.alunoId ? String(ag.alunoId) : ag.aluno;
+}
+
+// Migração única: converte agenda/presencas/reposicoes para chaves de ID
+function migrateAgendaPresenca() {
+  if (!state.alunos || !state.alunos.length) return;
+  let changed = false;
+
+  // 1. Adiciona alunoId às entradas da agenda que ainda usam só nome
+  state.agenda.forEach(ag => {
+    if (!ag.alunoId && ag.aluno && ag.aluno !== 'VAGO') {
+      const id = getIdAluno(ag.aluno);
+      if (id) { ag.alunoId = id; changed = true; }
+    }
+  });
+
+  // 2. Migra chaves de state.presencas de nome → ID
+  const newPres = {};
+  Object.entries(state.presencas || {}).forEach(([date, entries]) => {
+    newPres[date] = {};
+    Object.entries(entries).forEach(([key, val]) => {
+      if (/^\d+$/.test(key)) {
+        newPres[date][key] = val; // já é ID
+      } else {
+        const id = getIdAluno(key);
+        if (id) { newPres[date][String(id)] = val; changed = true; }
+        else newPres[date][key] = val; // fallback: sem correspondência
+      }
+    });
+  });
+  state.presencas = newPres;
+
+  // 3. Adiciona alunoId às reposições
+  (state.reposicoes || []).forEach(r => {
+    if (!r.alunoId && r.alunoNome) {
+      const id = getIdAluno(r.alunoNome);
+      if (id) { r.alunoId = id; changed = true; }
+    }
+  });
+
+  if (changed) saveState();
+}
+
 function showInbTab(tab, btn) {
   document.querySelectorAll('.inb-tab-content').forEach(el => el.style.display = 'none');
   document.querySelectorAll('.inb-subtab').forEach(b => b.classList.remove('active'));
@@ -2433,13 +2493,14 @@ function renderAgenda() {
 
 function agendaCard(a) {
   const isVago = !a.aluno || a.aluno === 'VAGO';
+  const nomeExibido = isVago ? '— Vago —' : agNome(a);
   return `
   <div style="display:flex;align-items:center;gap:10px;padding:10px 12px;background:var(--card);border:1px solid ${isVago?'rgba(255,255,255,0.05)':'var(--border)'};border-radius:10px;margin-bottom:6px;">
     <div style="background:${isVago?'rgba(255,255,255,0.04)':'var(--gold-glow)'};border:1px solid ${isVago?'transparent':'var(--border)'};border-radius:8px;padding:6px 10px;min-width:44px;text-align:center;flex-shrink:0;">
       <div style="font-family:'Cormorant Garamond',serif;font-size:16px;font-weight:700;color:${isVago?'var(--muted)':'var(--gold)'};">${a.hora}</div>
     </div>
     <div style="flex:1;">
-      <div style="font-size:13px;font-weight:${isVago?'400':'500'};color:${isVago?'var(--muted)':'var(--text)'};">${isVago?'— Vago —':a.aluno}</div>
+      <div style="font-size:13px;font-weight:${isVago?'400':'500'};color:${isVago?'var(--muted)':'var(--text)'};">${nomeExibido}</div>
       <div style="font-size:10px;color:var(--muted);margin-top:2px;">${a.tipo}${a.obs?' · '+a.obs:''}</div>
     </div>
     <button onclick="removerAgenda(${a.id})" style="background:none;border:none;color:var(--muted);cursor:pointer;font-size:14px;padding:4px;" title="Remover">✕</button>
@@ -2458,18 +2519,27 @@ function populateAgendaSelect() {
   if (!sel) return;
   const ativos = state.alunos.filter(a => a.status === 'Ativo').sort((a,b)=>a.nome.localeCompare(b.nome));
   sel.innerHTML = '<option value="VAGO">— VAGO —</option>' +
-    ativos.map(a => `<option value="${a.nome}">${a.nome}</option>`).join('');
+    ativos.map(a => `<option value="${a.id}">${a.nome}</option>`).join('');
 }
 
 function adicionarAgenda() {
-  const aluno = document.getElementById('ag-aluno').value;
-  const dia   = document.getElementById('ag-dia').value;
-  const hora  = document.getElementById('ag-hora').value;
-  const tipo  = document.getElementById('ag-tipo').value;
-  const obs   = document.getElementById('ag-obs').value.trim();
-  // Remove existing slot for same aluno+dia if exists
-  state.agenda = state.agenda.filter(a => !(a.aluno === aluno && a.dia === dia));
-  state.agenda.push({id: agendaNextId++, aluno, dia, hora, tipo, obs});
+  const val  = document.getElementById('ag-aluno').value;
+  const dia  = document.getElementById('ag-dia').value;
+  const hora = document.getElementById('ag-hora').value;
+  const tipo = document.getElementById('ag-tipo').value;
+  const obs  = document.getElementById('ag-obs').value.trim();
+  let aluno, alunoId;
+  if (val === 'VAGO') {
+    aluno = 'VAGO'; alunoId = null;
+  } else {
+    const id = parseInt(val);
+    const a  = state.alunos.find(x => x.id === id);
+    if (!a) { toast('⚠️ Aluno não encontrado'); return; }
+    aluno = a.nome; alunoId = a.id;
+  }
+  // Remove slot existente para o mesmo aluno+dia
+  state.agenda = state.agenda.filter(a => !((a.alunoId ? a.alunoId === alunoId : a.aluno === aluno) && a.dia === dia));
+  state.agenda.push({id: agendaNextId++, aluno, alunoId, dia, hora, tipo, obs});
   saveState();
   renderAgenda();
   document.getElementById('ag-obs').value = '';
@@ -2540,8 +2610,8 @@ function renderPresenca() {
     const datas = getAulasDatasDoMes(dia, presencaAno, presencaMes);
     if (!datas.length) return;
     const alunosDoDia = state.agenda
-      .filter(a => a.dia === dia && a.aluno !== 'VAGO')
-      .sort((a,b) => a.hora.localeCompare(b.hora) || a.aluno.localeCompare(b.aluno));
+      .filter(a => a.dia === dia && a.aluno !== 'VAGO' && (a.alunoId || a.aluno))
+      .sort((a,b) => a.hora.localeCompare(b.hora) || agNome(a).localeCompare(agNome(b)));
     if (!alunosDoDia.length) return;
 
     html += `<div style="margin-bottom:20px;">
@@ -2557,12 +2627,13 @@ function renderPresenca() {
     alunosDoDia.forEach(ag => {
       html += `<tr>
         <td style="padding:7px 6px 7px 0;font-size:12px;color:var(--text);border-bottom:1px solid rgba(255,255,255,0.04);white-space:nowrap;">
-          ${ag.aluno}<span style="font-size:9px;color:var(--muted);margin-left:4px;">${ag.hora}</span>
+          ${agNome(ag)}<span style="font-size:9px;color:var(--muted);margin-left:4px;">${ag.hora}</span>
         </td>`;
       datas.forEach(d => {
-        const ds = dateToStr(d);
+        const ds   = dateToStr(d);
+        const aKey = agKey(ag);
         const isFuture = d > hoje;
-        const val = (state.presencas[ds] || {})[ag.aluno];
+        const val = (state.presencas[ds] || {})[aKey];
         const isR = val && String(val).startsWith('R');
         const isH = val === 'H';
         const repDate = isR && val.includes(':') ? val.split(':')[1] : null;
@@ -2574,7 +2645,7 @@ function renderPresenca() {
         else if (isR)       { cellLabel='R'; cellColor='var(--gold)';             cellBg='rgba(201,168,76,0.15)';  cellBorder='var(--gold)'; }
         else if (isH)       { cellLabel='H'; cellColor='#7B9ED9';                 cellBg='rgba(123,158,217,0.12)'; cellBorder='#7B9ED9'; }
         else                { cellLabel='·'; cellColor='rgba(255,255,255,0.25)';  cellBg='rgba(255,255,255,0.03)'; cellBorder='rgba(255,255,255,0.1)'; }
-        const click = isFuture ? '' : `togglePresenca('${ds}','${ag.aluno.replace(/'/g,"\\'")}')`;
+        const click = isFuture ? '' : `togglePresenca('${ds}','${aKey.replace(/'/g,"\\'")}')`;
         html += `<td style="text-align:center;padding:4px 2px;border-bottom:1px solid rgba(255,255,255,0.04);">
           <button onclick="${click}" style="background:${cellBg};border:1px solid ${cellBorder};border-radius:6px;width:38px;min-height:30px;padding:3px 2px;color:${cellColor};font-size:12px;font-weight:700;cursor:${isFuture?'default':'pointer'};font-family:inherit;transition:all 0.15s;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1px;">
             <span>${cellLabel}</span>
@@ -2602,40 +2673,35 @@ function mudarMesPresenca(dir) {
   renderPresenca();
 }
 
-function togglePresenca(dateStr, alunoNome) {
+function togglePresenca(dateStr, alunoKey) {
   if (!state.presencas) state.presencas = {};
   if (!state.presencas[dateStr]) state.presencas[dateStr] = {};
-  const atual = state.presencas[dateStr][alunoNome];
+  const atual = state.presencas[dateStr][alunoKey];
+  // Nome para exibição nos prompts — deriva do cadastro quando a chave é um ID
+  const isIdKey = /^\d+$/.test(String(alunoKey));
+  const nomeDisplay = isIdKey ? (getNomeAluno(parseInt(alunoKey)) || alunoKey) : alunoKey;
   const dataAulaFmt = new Date(dateStr+'T12:00').toLocaleDateString('pt-BR',{day:'2-digit',month:'2-digit'});
 
   if (!atual) {
-    // · → P
-    state.presencas[dateStr][alunoNome] = 'P';
+    state.presencas[dateStr][alunoKey] = 'P';
   } else if (atual === 'P') {
-    // P → F
-    state.presencas[dateStr][alunoNome] = 'F';
+    state.presencas[dateStr][alunoKey] = 'F';
   } else if (atual === 'F') {
-    // F → R: pede data da reposição
-    const input = prompt(`${alunoNome} — Reposição\nAula: ${dataAulaFmt}\n\nData da reposição (DD/MM):\n(deixe em branco para definir depois)`, '');
-    if (input === null) return; // cancelou → permanece F
+    const input = prompt(`${nomeDisplay} — Reposição\nAula: ${dataAulaFmt}\n\nData da reposição (DD/MM):\n(deixe em branco para definir depois)`, '');
+    if (input === null) return;
     let stored = 'R';
     const trimmed = input.trim();
     if (trimmed) {
       const parts = trimmed.split('/');
       if (parts.length >= 2) {
-        const day   = parts[0].padStart(2,'0');
-        const month = parts[1].padStart(2,'0');
-        const ano   = new Date().getFullYear();
-        stored = `R:${ano}-${month}-${day}`;
+        stored = `R:${new Date().getFullYear()}-${parts[1].padStart(2,'0')}-${parts[0].padStart(2,'0')}`;
       }
     }
-    state.presencas[dateStr][alunoNome] = stored;
+    state.presencas[dateStr][alunoKey] = stored;
   } else if (String(atual).startsWith('R')) {
-    // R → H ou editar data (toque longo não existe em HTML, então: toque simples avança para H)
-    state.presencas[dateStr][alunoNome] = 'H';
+    state.presencas[dateStr][alunoKey] = 'H';
   } else if (atual === 'H') {
-    // H → limpa
-    delete state.presencas[dateStr][alunoNome];
+    delete state.presencas[dateStr][alunoKey];
   }
 
   saveState();
@@ -2654,8 +2720,9 @@ function renderReposicoes() {
   const realizadas = state.reposicoes.filter(r => r.status === 'realizada')
     .sort((a,b) => b.dataRep.localeCompare(a.dataRep));
 
-  const nomesAtivos = state.alunos.filter(a => a.status === 'Ativo').map(a => a.nome).sort();
-  const alunosOpts = nomesAtivos.map(n => `<option>${n}</option>`).join('');
+  const alunosOpts = state.alunos.filter(a => a.status === 'Ativo')
+    .sort((a,b) => a.nome.localeCompare(b.nome))
+    .map(a => `<option value="${a.id}">${a.nome}</option>`).join('');
 
   let html = `
   <div class="form-card" style="margin-bottom:16px;">
@@ -2690,13 +2757,14 @@ function renderReposicoes() {
   if (agendadas.length) {
     html += `<div style="font-size:10px;color:var(--gold);letter-spacing:1.5px;text-transform:uppercase;margin-bottom:8px;font-weight:600;">⏳ AGENDADAS (${agendadas.length})</div>`;
     agendadas.forEach(r => {
+      const nomeR = r.alunoId ? (getNomeAluno(r.alunoId) || r.alunoNome) : r.alunoNome;
       const dataRepFmt = new Date(r.dataRep+'T12:00').toLocaleDateString('pt-BR',{weekday:'short',day:'2-digit',month:'2-digit'});
       const dataFaltaFmt = r.dataFalta ? new Date(r.dataFalta+'T12:00').toLocaleDateString('pt-BR',{day:'2-digit',month:'2-digit'}) : '';
       html += `
       <div style="padding:12px 14px;background:rgba(201,168,76,0.06);border:1px solid rgba(201,168,76,0.2);border-radius:10px;margin-bottom:8px;">
         <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:8px;">
           <div>
-            <div style="font-size:13px;font-weight:600;color:var(--text);">${r.alunoNome}</div>
+            <div style="font-size:13px;font-weight:600;color:var(--text);">${nomeR}</div>
             ${dataFaltaFmt ? `<div style="font-size:10px;color:var(--muted);">Faltou: ${dataFaltaFmt}</div>` : ''}
             ${r.obs ? `<div style="font-size:10px;color:var(--muted);">${r.obs}</div>` : ''}
           </div>
@@ -2717,11 +2785,12 @@ function renderReposicoes() {
   if (realizadas.length) {
     html += `<div style="font-size:10px;color:var(--green);letter-spacing:1.5px;text-transform:uppercase;margin:16px 0 8px;font-weight:600;">✅ REALIZADAS (${realizadas.length})</div>`;
     realizadas.forEach(r => {
+      const nomeR = r.alunoId ? (getNomeAluno(r.alunoId) || r.alunoNome) : r.alunoNome;
       const dataRepFmt = new Date(r.dataRep+'T12:00').toLocaleDateString('pt-BR',{weekday:'short',day:'2-digit',month:'2-digit'});
       html += `
       <div style="padding:10px 14px;background:rgba(39,174,96,0.05);border:1px solid rgba(39,174,96,0.15);border-radius:10px;margin-bottom:6px;display:flex;justify-content:space-between;align-items:center;">
         <div>
-          <div style="font-size:12px;font-weight:500;color:var(--text);">✅ ${r.alunoNome}</div>
+          <div style="font-size:12px;font-weight:500;color:var(--text);">✅ ${nomeR}</div>
           ${r.obs ? `<div style="font-size:10px;color:var(--muted);">${r.obs}</div>` : ''}
         </div>
         <div style="text-align:right;">
@@ -2742,14 +2811,16 @@ function renderReposicoes() {
 
 function salvarReposicao() {
   if (!state.reposicoes) state.reposicoes = [];
-  const alunoNome = document.getElementById('rep-aluno')?.value;
+  const selVal  = document.getElementById('rep-aluno')?.value;
   const dataFalta = document.getElementById('rep-datafalta')?.value;
   const dataRep   = document.getElementById('rep-datarep')?.value;
   const horario   = document.getElementById('rep-horario')?.value;
   const obs       = document.getElementById('rep-obs')?.value.trim();
-  if (!alunoNome || !dataRep) { toast('⚠️ Informe o aluno e a data de reposição'); return; }
+  if (!selVal || !dataRep) { toast('⚠️ Informe o aluno e a data de reposição'); return; }
+  const alunoId   = parseInt(selVal);
+  const alunoNome = getNomeAluno(alunoId) || selVal;
   const nextId = state.reposicoes.length ? Math.max(...state.reposicoes.map(r => r.id || 0)) + 1 : 1;
-  state.reposicoes.push({ id: nextId, alunoNome, dataFalta: dataFalta||'', dataRep, horario: horario||'', status: 'agendada', obs });
+  state.reposicoes.push({ id: nextId, alunoId, alunoNome, dataFalta: dataFalta||'', dataRep, horario: horario||'', status: 'agendada', obs });
   saveState();
   document.getElementById('rep-datafalta').value = '';
   document.getElementById('rep-datarep').value   = '';
@@ -2779,12 +2850,13 @@ function excluirReposicao(id) {
 function compartilharReposicaoWpp(id) {
   const r = (state.reposicoes||[]).find(x => x.id === id);
   if (!r) return;
-  const aluno = state.alunos.find(a => a.nome === r.alunoNome);
+  const aluno = r.alunoId ? state.alunos.find(a => a.id === r.alunoId) : state.alunos.find(a => a.nome === r.alunoNome);
+  const nomeWpp = aluno ? aluno.nome : r.alunoNome;
   const extra = aluno ? (state.cadastroExtra[aluno.id] || {}) : {};
   const tel = (extra.telFinanceiro || aluno?.tel || '').replace(/\D/g,'');
   const dataRepFmt = new Date(r.dataRep+'T12:00').toLocaleDateString('pt-BR',{weekday:'long',day:'2-digit',month:'long'});
   let msg = `🥁 *REPOSIÇÃO DE AULA*\nInstituto NB — Nego Batera\n\n`;
-  msg += `Olá, *${r.alunoNome}*! 👋\n\nSua aula de reposição está confirmada:\n\n`;
+  msg += `Olá, *${nomeWpp}*! 👋\n\nSua aula de reposição está confirmada:\n\n`;
   msg += `📅 *Data:* ${dataRepFmt}\n`;
   if (r.horario) msg += `⏰ *Horário:* ${r.horario.replace(':','h')}\n`;
   if (r.obs) msg += `📝 *Obs:* ${r.obs}\n`;
@@ -2795,26 +2867,31 @@ function compartilharReposicaoWpp(id) {
 
 // ============ RELATÓRIOS DE PRESENÇA ============
 
-function getPresencaStatsAluno(alunoNome, ano) {
+function getPresencaStatsAluno(alunoKey, ano) {
   ano = ano || presencaAno;
-  const agEntries = state.agenda.filter(a => a.aluno === alunoNome);
+  // Aceita ID (número ou string numérica) ou nome como chave
+  const isId = /^\d+$/.test(String(alunoKey));
+  const agEntries = isId
+    ? state.agenda.filter(a => a.alunoId === parseInt(alunoKey))
+    : state.agenda.filter(a => a.aluno === alunoKey && !a.alunoId);
   if (!agEntries.length) return null;
   const hoje = new Date(); hoje.setHours(23,59,59,999);
   const stats = { total:0, P:0, F:0, R:0, H:0, nao:0, byMes:{} };
   agEntries.forEach(ag => {
+    const key = agKey(ag);
     for (let m = 0; m < 12; m++) {
       const datas = getAulasDatasDoMes(ag.dia, ano, m);
       datas.forEach(d => {
         if (d > hoje) return;
-        const ds = dateToStr(d);
-        const val = (state.presencas[ds] || {})[alunoNome];
+        const ds  = dateToStr(d);
+        const val = (state.presencas[ds] || {})[key];
         stats.total++;
         const mk = MESES[m];
         if (!stats.byMes[mk]) stats.byMes[mk] = {mesIdx:m, total:0, P:0, F:0, R:0, H:0, nao:0};
         stats.byMes[mk].total++;
-        if (val === 'P')               { stats.P++;  stats.byMes[mk].P++; }
+        if (val === 'P')                { stats.P++;  stats.byMes[mk].P++; }
         else if (val === 'F')           { stats.F++;  stats.byMes[mk].F++; }
-        else if (val&&val.startsWith('R')){ stats.R++;  stats.byMes[mk].R++; }
+        else if (val&&val.startsWith('R')){ stats.R++; stats.byMes[mk].R++; }
         else if (val === 'H')           { stats.H++;  stats.byMes[mk].H++; }
         else                            { stats.nao++; stats.byMes[mk].nao++; }
       });
@@ -2833,29 +2910,31 @@ function getPresencaStatsInstituto(ano) {
   const byMes   = {};
 
   alunos.forEach(a => {
-    const agEntries = state.agenda.filter(ag => ag.aluno === a.nome);
+    const agEntries = state.agenda.filter(ag => ag.alunoId === a.id || (!ag.alunoId && ag.aluno === a.nome));
     if (!agEntries.length) return;
-    byAluno[a.nome] = { P:0, F:0, R:0, H:0, nao:0, total:0 };
+    const nomeCanon = a.nome;
+    byAluno[nomeCanon] = { P:0, F:0, R:0, H:0, nao:0, total:0 };
     agEntries.forEach(ag => {
+      const key = agKey(ag);
       for (let m = 0; m < 12; m++) {
         const datas = getAulasDatasDoMes(ag.dia, ano, m);
         datas.forEach(d => {
           if (d > hoje) return;
           const ds  = dateToStr(d);
-          const val = (state.presencas[ds] || {})[a.nome];
-          byAluno[a.nome].total++;
+          const val = (state.presencas[ds] || {})[key];
+          byAluno[nomeCanon].total++;
           const mk = MESES[m];
           if (!byMes[mk]) byMes[mk] = {mesIdx:m, P:0, F:0, R:0, H:0, total:0};
           byMes[mk].total++;
-          if (val === 'P')                { byAluno[a.nome].P++;  byMes[mk].P++; }
-          else if (val === 'F')           { byAluno[a.nome].F++;  byMes[mk].F++; }
-          else if (val&&val.startsWith('R')){ byAluno[a.nome].R++;  byMes[mk].R++; }
-          else if (val === 'H')           { byAluno[a.nome].H++;  byMes[mk].H++; }
+          if (val === 'P')                 { byAluno[nomeCanon].P++;  byMes[mk].P++; }
+          else if (val === 'F')            { byAluno[nomeCanon].F++;  byMes[mk].F++; }
+          else if (val&&val.startsWith('R')){ byAluno[nomeCanon].R++; byMes[mk].R++; }
+          else if (val === 'H')            { byAluno[nomeCanon].H++;  byMes[mk].H++; }
         });
       }
     });
-    const den = byAluno[a.nome].P + byAluno[a.nome].F + byAluno[a.nome].R;
-    byAluno[a.nome].taxa = den > 0 ? Math.round(byAluno[a.nome].P / den * 100) : null;
+    const den = byAluno[nomeCanon].P + byAluno[nomeCanon].F + byAluno[nomeCanon].R;
+    byAluno[nomeCanon].taxa = den > 0 ? Math.round(byAluno[nomeCanon].P / den * 100) : null;
   });
 
   return { byAluno, byMes };
@@ -2875,8 +2954,15 @@ function renderRelatorios() {
   if (!container) return;
 
   const ano = presencaAno;
-  const alunosComAgenda = [...new Set(state.agenda.filter(a => a.aluno !== 'VAGO').map(a => a.aluno))].sort();
-  const opts = alunosComAgenda.map(n => `<option>${n}</option>`).join('');
+  // Alunos únicos na agenda — key = ID (preferencial) ou nome, exibe nome canônico do cadastro
+  const agUnico = new Map();
+  state.agenda.filter(a => a.aluno !== 'VAGO' && (a.alunoId || a.aluno)).forEach(a => {
+    const k = agKey(a), n = agNome(a);
+    if (!agUnico.has(k)) agUnico.set(k, n);
+  });
+  const opts = [...agUnico.entries()]
+    .sort((a,b) => a[1].localeCompare(b[1]))
+    .map(([k,n]) => `<option value="${k}">${n}</option>`).join('');
 
   const { byAluno, byMes } = getPresencaStatsInstituto(ano);
   const todosAlunos = Object.entries(byAluno).filter(([,s]) => s.total > 0);
@@ -3001,18 +3087,24 @@ function renderRelatorios() {
   container.innerHTML = html;
 }
 
-function renderRelatorioAluno(nome) {
+function renderRelatorioAluno(alunoKey) {
   const container = document.getElementById('rel-aluno-detalhe');
   if (!container) return;
-  if (!nome) { container.innerHTML = ''; return; }
+  if (!alunoKey) { container.innerHTML = ''; return; }
 
-  const s = getPresencaStatsAluno(nome, presencaAno);
+  // Resolve nome canônico
+  const isId = /^\d+$/.test(String(alunoKey));
+  const nome = isId ? (getNomeAluno(parseInt(alunoKey)) || alunoKey) : alunoKey;
+
+  const s = getPresencaStatsAluno(alunoKey, presencaAno);
   if (!s || s.total === 0) {
     container.innerHTML = `<div style="text-align:center;color:var(--muted);font-size:12px;padding:16px 0;">Nenhuma aula registrada para ${nome} em ${presencaAno}.</div>`;
     return;
   }
 
-  const ag = state.agenda.find(a => a.aluno === nome);
+  const ag = isId
+    ? state.agenda.find(a => a.alunoId === parseInt(alunoKey))
+    : state.agenda.find(a => a.aluno === alunoKey);
   const subLabel = ag ? `${ag.dia} · ${ag.hora}` : '';
   const taxaColor = s.taxa === null ? 'var(--muted)' : s.taxa >= 80 ? 'var(--green)' : s.taxa >= 60 ? 'var(--gold)' : '#E74C3C';
   const den = s.P + s.F + s.R;
