@@ -674,12 +674,6 @@
   <div class="nav-tab" onclick="showPage('relatorios')" id="tab-relatorios">
     <span class="icon">📊</span> Relatórios
   </div>
-  <div class="nav-tab" onclick="showPage('atividades')" id="tab-atividades">
-    <span class="icon">🎯</span> Atividades
-  </div>
-  <div class="nav-tab" onclick="showPage('certificado')" id="tab-certificado">
-    <span class="icon">🎓</span> Certificado
-  </div>
 </nav>
 
 <div class="page active" id="page-painel">
@@ -747,6 +741,8 @@
     <button class="inb-subtab" onclick="showInbTab('agenda',this)">📅 Agenda</button>
     <button class="inb-subtab" onclick="showInbTab('cadastro',this)">📋 Cadastro</button>
     <button class="inb-subtab" onclick="showInbTab('pagamentos',this)">💰 Pagamentos</button>
+    <button class="inb-subtab" onclick="showInbTab('atividades',this)">🎯 Atividades</button>
+    <button class="inb-subtab" onclick="showInbTab('certificado',this)">🎓 Certificado</button>
   </div>
 
 
@@ -1116,6 +1112,35 @@
       <div id="pag-inad-lista"></div>
     </div>
 
+  </div>
+
+  <!-- ATIVIDADES -->
+  <div id="inb-atividades" class="inb-tab-content" style="display:none">
+    <div style="margin-bottom:12px;">
+      <select id="atv-aluno-sel" onchange="atvAlunoChange(this.value)"
+        style="width:100%;background:var(--card);border:1px solid var(--border);border-radius:10px;padding:11px 14px;color:var(--text);font-size:13px;font-family:inherit;">
+        <option value="">— Selecione o aluno —</option>
+      </select>
+    </div>
+    <div style="display:flex;gap:4px;background:var(--dark);border:1px solid var(--border);border-radius:10px;padding:4px;margin-bottom:14px;flex-wrap:wrap;">
+      <button class="inb-subtab atv-subtab active" onclick="showAtvTab('conteudo',this)">📝 Conteúdo</button>
+      <button class="inb-subtab atv-subtab" onclick="showAtvTab('exercicios',this)">🥁 Exercícios/BPM</button>
+      <button class="inb-subtab atv-subtab" onclick="showAtvTab('musicas',this)">🎵 Músicas</button>
+    </div>
+    <div id="atv-sub-conteudo"><div id="atv-conteudo-container"></div></div>
+    <div id="atv-sub-exercicios" style="display:none"><div id="atv-exercicios-container"></div></div>
+    <div id="atv-sub-musicas" style="display:none"><div id="atv-musicas-container"></div></div>
+  </div>
+
+  <!-- CERTIFICADO -->
+  <div id="inb-certificado" class="inb-tab-content" style="display:none">
+    <div style="margin-bottom:12px;">
+      <select id="cert-aluno-sel" onchange="renderCertificado(this.value)"
+        style="width:100%;background:var(--card);border:1px solid var(--border);border-radius:10px;padding:11px 14px;color:var(--text);font-size:13px;font-family:inherit;">
+        <option value="">— Selecione o aluno —</option>
+      </select>
+    </div>
+    <div id="cert-container"></div>
   </div>
 
 </div>
@@ -1947,41 +1972,6 @@
   </div>
 </div>
 
-<!-- ======== ATIVIDADES ======== -->
-<div class="page" id="page-atividades">
-  <p class="section-title">Atividades dos Bateras</p>
-
-  <!-- Seletor de aluno (persistente) -->
-  <div style="margin-bottom:12px;">
-    <select id="atv-aluno-sel" onchange="atvAlunoChange(this.value)"
-      style="width:100%;background:var(--card);border:1px solid var(--border);border-radius:10px;padding:11px 14px;color:var(--text);font-size:13px;font-family:inherit;">
-      <option value="">— Selecione o aluno —</option>
-    </select>
-  </div>
-
-  <!-- Sub-abas -->
-  <div style="display:flex;gap:4px;background:var(--dark);border:1px solid var(--border);border-radius:10px;padding:4px;margin-bottom:14px;flex-wrap:wrap;">
-    <button class="inb-subtab atv-subtab active" onclick="showAtvTab('conteudo',this)">📝 Conteúdo</button>
-    <button class="inb-subtab atv-subtab" onclick="showAtvTab('exercicios',this)">🥁 Exercícios/BPM</button>
-    <button class="inb-subtab atv-subtab" onclick="showAtvTab('musicas',this)">🎵 Músicas</button>
-  </div>
-
-  <div id="atv-sub-conteudo"><div id="atv-conteudo-container"></div></div>
-  <div id="atv-sub-exercicios" style="display:none"><div id="atv-exercicios-container"></div></div>
-  <div id="atv-sub-musicas" style="display:none"><div id="atv-musicas-container"></div></div>
-</div>
-
-<!-- ======== CERTIFICADO ======== -->
-<div class="page" id="page-certificado">
-  <p class="section-title">Certificado / Diploma</p>
-  <div style="margin-bottom:12px;">
-    <select id="cert-aluno-sel" onchange="renderCertificado(this.value)"
-      style="width:100%;background:var(--card);border:1px solid var(--border);border-radius:10px;padding:11px 14px;color:var(--text);font-size:13px;font-family:inherit;">
-      <option value="">— Selecione o aluno —</option>
-    </select>
-  </div>
-  <div id="cert-container"></div>
-</div>
 
 <div id="install-banner" style="
   display:none; position:fixed; bottom:0; left:0; right:0; z-index:200;
@@ -2477,12 +2467,14 @@ function migrateAgendaPresenca() {
 
 function showInbTab(tab, btn) {
   document.querySelectorAll('.inb-tab-content').forEach(el => el.style.display = 'none');
-  document.querySelectorAll('.inb-subtab').forEach(b => b.classList.remove('active'));
+  document.querySelectorAll('.inb-subtab:not(.atv-subtab):not(.agenda-subtab)').forEach(b => b.classList.remove('active'));
   document.getElementById('inb-' + tab).style.display = 'block';
   btn.classList.add('active');
   if (tab === 'agenda') { renderAgenda(); populateAgendaSelect(); }
   if (tab === 'cadastro') renderCadastro();
   if (tab === 'pagamentos') { renderPagamentos(); }
+  if (tab === 'atividades') { populateAtvAlunoSelect(); renderAtvConteudo(); }
+  if (tab === 'certificado') { populateCertAlunoSelect(); }
 }
 
 // ---- AGENDA ----
@@ -4685,8 +4677,6 @@ function showPage(id) {
   if (id === 'whatsapp') renderWpp();
   if (id === 'recital') { updateRecitalKPIs(); renderRecitalInscricoes(); populateRecitalSelect(); }
   if (id === 'relatorios') { document.getElementById('rel-mes-filter').style.display='block'; }
-  if (id === 'atividades') { populateAtvAlunoSelect(); renderAtvConteudo(); }
-  if (id === 'certificado') { populateCertAlunoSelect(); }
 }
 
 // ============ TOAST ============
