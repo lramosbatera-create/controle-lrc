@@ -2176,42 +2176,42 @@ async function initSupabase() {
 
 // ============ DADOS INICIAIS (seed) ============
 const SEED_ALUNOS = [
-  {id:1,nome:'Arthur Gomes',tel:'',mensalidade:185,matricula:100,status:'Ativo',pag:{jan:0,fev:185,mar:185,abr:185,mai:185,jun:0,jul:0,ago:0,set:0,out:0,nov:0,dez:0},mat_pago:100},
-  {id:2,nome:'Benício Gomes',tel:'',mensalidade:185,matricula:100,status:'Inativo',pag:{jan:0,fev:0,mar:185,abr:0,mai:0,jun:0,jul:0,ago:0,set:0,out:0,nov:0,dez:0},mat_pago:100},
-  {id:3,nome:'Bernardo Lorençoni',tel:'',mensalidade:185,matricula:100,status:'Ativo',pag:{jan:0,fev:185,mar:185,abr:185,mai:185,jun:0,jul:0,ago:0,set:0,out:0,nov:0,dez:0},mat_pago:100},
-  {id:4,nome:'Caio Campanelli',tel:'',mensalidade:185,matricula:100,status:'Ativo',pag:{jan:0,fev:0,mar:185,abr:185,mai:185,jun:0,jul:0,ago:0,set:0,out:0,nov:0,dez:0},mat_pago:100},
-  {id:5,nome:'Carlos Eduardo',tel:'',mensalidade:185,matricula:100,status:'Ativo',pag:{jan:0,fev:185,mar:185,abr:185,mai:185,jun:0,jul:0,ago:0,set:0,out:0,nov:0,dez:0},mat_pago:100},
-  {id:6,nome:'Daniel Alexandre',tel:'',mensalidade:185,matricula:75,status:'Ativo',pag:{jan:0,fev:185,mar:185,abr:185,mai:185,jun:0,jul:0,ago:0,set:0,out:0,nov:0,dez:0},mat_pago:75},
-  {id:7,nome:'Davi Curty',tel:'',mensalidade:185,matricula:100,status:'Ativo',pag:{jan:0,fev:185,mar:185,abr:185,mai:185,jun:0,jul:0,ago:0,set:0,out:0,nov:0,dez:0},mat_pago:100},
-  {id:8,nome:'Davi Pio',tel:'',mensalidade:185,matricula:100,status:'Ativo',pag:{jan:0,fev:0,mar:0,abr:185,mai:0,jun:0,jul:0,ago:0,set:0,out:0,nov:0,dez:0},mat_pago:100},
-  {id:9,nome:'Elias Rocha',tel:'',mensalidade:185,matricula:75,status:'Ativo',pag:{jan:0,fev:185,mar:185,abr:185,mai:185,jun:0,jul:0,ago:0,set:0,out:0,nov:0,dez:0},mat_pago:75},
-  {id:10,nome:'Enzo Gomes',tel:'',mensalidade:185,matricula:75,status:'Ativo',pag:{jan:0,fev:185,mar:0,abr:185,mai:185,jun:0,jul:0,ago:0,set:0,out:0,nov:0,dez:0},mat_pago:75},
+  {id:1,nome:'Arthur Gomes',tel:'',mensalidade:185,matricula:100,status:'Ativo',pag:{jan:0,fev:185,mar:185,abr:185,mai:185,jun:185,jul:0,ago:0,set:0,out:0,nov:0,dez:0},mat_pago:100},
+  {id:2,nome:'Benício Gomes',tel:'',mensalidade:185,matricula:100,status:'Inativo',pag:{jan:0,fev:0,mar:90,abr:0,mai:0,jun:0,jul:0,ago:0,set:0,out:0,nov:0,dez:0},mat_pago:100},
+  {id:3,nome:'Bernardo Lorençoni',tel:'',mensalidade:185,matricula:100,status:'Ativo',pag:{jan:0,fev:185,mar:185,abr:185,mai:185,jun:185,jul:0,ago:0,set:0,out:0,nov:0,dez:0},mat_pago:100},
+  {id:4,nome:'Caio Campanelli',tel:'',mensalidade:185,matricula:100,status:'Ativo',pag:{jan:0,fev:0,mar:185,abr:185,mai:185,jun:185,jul:0,ago:0,set:0,out:0,nov:0,dez:0},mat_pago:100},
+  {id:5,nome:'Carlos Eduardo',tel:'',mensalidade:185,matricula:100,status:'Ativo',pag:{jan:0,fev:185,mar:185,abr:185,mai:185,jun:185,jul:0,ago:0,set:0,out:0,nov:0,dez:0},mat_pago:100},
+  {id:6,nome:'Daniel Alexandre',tel:'',mensalidade:185,matricula:75,status:'Ativo',pag:{jan:0,fev:185,mar:185,abr:185,mai:185,jun:185,jul:0,ago:0,set:0,out:0,nov:0,dez:0},mat_pago:75},
+  {id:7,nome:'Davi Curty',tel:'',mensalidade:185,matricula:100,status:'Ativo',pag:{jan:0,fev:185,mar:185,abr:185,mai:185,jun:185,jul:0,ago:0,set:0,out:0,nov:0,dez:0},mat_pago:100},
+  {id:8,nome:'Davi Pio',tel:'',mensalidade:185,matricula:100,status:'Ativo',pag:{jan:0,fev:185,mar:185,abr:185,mai:0,jun:0,jul:0,ago:0,set:0,out:0,nov:0,dez:0},mat_pago:100},
+  {id:9,nome:'Elias Rocha',tel:'',mensalidade:185,matricula:75,status:'Ativo',pag:{jan:0,fev:185,mar:185,abr:185,mai:185,jun:185,jul:0,ago:0,set:0,out:0,nov:0,dez:0},mat_pago:75},
+  {id:10,nome:'Enzo Gomes',tel:'',mensalidade:185,matricula:75,status:'Ativo',pag:{jan:0,fev:0,mar:185,abr:185,mai:185,jun:185,jul:0,ago:0,set:0,out:0,nov:0,dez:0},mat_pago:75},
   {id:11,nome:'Erinelma Santos',tel:'',mensalidade:185,matricula:75,status:'Ativo',pag:{jan:0,fev:185,mar:185,abr:185,mai:185,jun:0,jul:0,ago:0,set:0,out:0,nov:0,dez:0},mat_pago:75},
-  {id:12,nome:'Gabriel Soreano',tel:'',mensalidade:185,matricula:100,status:'Ativo',pag:{jan:0,fev:0,mar:0,abr:185,mai:185,jun:0,jul:0,ago:0,set:0,out:0,nov:0,dez:0},mat_pago:0},
+  {id:12,nome:'Gabriel Soreano',tel:'',mensalidade:185,matricula:100,status:'Ativo',pag:{jan:0,fev:0,mar:0,abr:185,mai:185,jun:0,jul:0,ago:0,set:0,out:0,nov:0,dez:0},mat_pago:100},
   {id:13,nome:'Jhon Azevedo',tel:'',mensalidade:185,matricula:100,status:'Pausado',pag:{jan:0,fev:0,mar:0,abr:0,mai:0,jun:0,jul:0,ago:0,set:0,out:0,nov:0,dez:0},mat_pago:100},
-  {id:14,nome:'João Antônio',tel:'',mensalidade:185,matricula:100,status:'Ativo',pag:{jan:0,fev:185,mar:185,abr:0,mai:0,jun:0,jul:0,ago:0,set:0,out:0,nov:0,dez:0},mat_pago:100},
-  {id:15,nome:'João Guilherme',tel:'',mensalidade:185,matricula:75,status:'Ativo',pag:{jan:0,fev:185,mar:185,abr:185,mai:185,jun:0,jul:0,ago:0,set:0,out:0,nov:0,dez:0},mat_pago:75},
+  {id:14,nome:'João Antônio',tel:'',mensalidade:185,matricula:100,status:'Ativo',pag:{jan:0,fev:185,mar:185,abr:185,mai:0,jun:0,jul:0,ago:0,set:0,out:0,nov:0,dez:0},mat_pago:100},
+  {id:15,nome:'João Guilherme',tel:'',mensalidade:185,matricula:75,status:'Ativo',pag:{jan:0,fev:185,mar:185,abr:0,mai:185,jun:185,jul:0,ago:0,set:0,out:0,nov:0,dez:0},mat_pago:75},
   {id:16,nome:'João Pedro',tel:'',mensalidade:185,matricula:100,status:'Ativo',pag:{jan:0,fev:185,mar:185,abr:185,mai:185,jun:0,jul:0,ago:0,set:0,out:0,nov:0,dez:0},mat_pago:100},
   {id:17,nome:'Larissa Caldeira',tel:'',mensalidade:185,matricula:100,status:'Ativo',pag:{jan:0,fev:0,mar:0,abr:0,mai:0,jun:0,jul:0,ago:0,set:0,out:0,nov:0,dez:0},mat_pago:100},
-  {id:18,nome:'Lourenço Russo',tel:'',mensalidade:185,matricula:75,status:'Ativo',pag:{jan:0,fev:185,mar:185,abr:185,mai:185,jun:0,jul:0,ago:0,set:0,out:0,nov:0,dez:0},mat_pago:75},
-  {id:19,nome:'Lucas Ladeira',tel:'',mensalidade:185,matricula:75,status:'Ativo',pag:{jan:0,fev:185,mar:185,abr:185,mai:185,jun:0,jul:0,ago:0,set:0,out:0,nov:0,dez:0},mat_pago:75},
+  {id:18,nome:'Lourenço Russo',tel:'',mensalidade:185,matricula:75,status:'Ativo',pag:{jan:0,fev:185,mar:185,abr:185,mai:185,jun:185,jul:0,ago:0,set:0,out:0,nov:0,dez:0},mat_pago:75},
+  {id:19,nome:'Lucas Ladeira',tel:'',mensalidade:185,matricula:75,status:'Ativo',pag:{jan:0,fev:185,mar:185,abr:185,mai:185,jun:185,jul:0,ago:0,set:0,out:0,nov:0,dez:0},mat_pago:75},
   {id:20,nome:'Luiz Felipe',tel:'',mensalidade:185,matricula:75,status:'Ativo',pag:{jan:0,fev:185,mar:185,abr:185,mai:185,jun:0,jul:0,ago:0,set:0,out:0,nov:0,dez:0},mat_pago:75},
   {id:21,nome:'Maria Fernanda',tel:'',mensalidade:95,matricula:45,status:'Ativo',pag:{jan:0,fev:95,mar:95,abr:0,mai:0,jun:0,jul:0,ago:0,set:0,out:0,nov:0,dez:0},mat_pago:45},
-  {id:22,nome:'Maria Lucília',tel:'',mensalidade:185,matricula:75,status:'Ativo',pag:{jan:0,fev:185,mar:0,abr:185,mai:185,jun:0,jul:0,ago:0,set:0,out:0,nov:0,dez:0},mat_pago:75},
-  {id:23,nome:'Maria Vares',tel:'',mensalidade:185,matricula:75,status:'Ativo',pag:{jan:0,fev:185,mar:185,abr:185,mai:185,jun:0,jul:0,ago:0,set:0,out:0,nov:0,dez:0},mat_pago:75},
+  {id:22,nome:'Maria Lucília',tel:'',mensalidade:185,matricula:75,status:'Ativo',pag:{jan:0,fev:185,mar:185,abr:185,mai:185,jun:0,jul:0,ago:0,set:0,out:0,nov:0,dez:0},mat_pago:75},
+  {id:23,nome:'Maria Vares',tel:'',mensalidade:185,matricula:75,status:'Ativo',pag:{jan:0,fev:185,mar:185,abr:185,mai:185,jun:185,jul:0,ago:0,set:0,out:0,nov:0,dez:0},mat_pago:75},
   {id:24,nome:'Mateus Lelis',tel:'',mensalidade:185,matricula:100,status:'Ativo',pag:{jan:0,fev:185,mar:185,abr:185,mai:185,jun:0,jul:0,ago:0,set:0,out:0,nov:0,dez:0},mat_pago:100},
-  {id:25,nome:'Miguel Pozes',tel:'',mensalidade:185,matricula:75,status:'Ativo',pag:{jan:0,fev:185,mar:185,abr:185,mai:185,jun:0,jul:0,ago:0,set:0,out:0,nov:0,dez:0},mat_pago:75},
-  {id:26,nome:'Nilo Castilho',tel:'',mensalidade:185,matricula:75,status:'Ativo',pag:{jan:0,fev:185,mar:185,abr:185,mai:185,jun:0,jul:0,ago:0,set:0,out:0,nov:0,dez:0},mat_pago:75},
-  {id:27,nome:'Pedro Rodrigues',tel:'',mensalidade:185,matricula:100,status:'Ativo',pag:{jan:0,fev:95,mar:185,abr:185,mai:185,jun:0,jul:0,ago:0,set:0,out:0,nov:0,dez:0},mat_pago:100},
-  {id:28,nome:'Rafael Cardozo',tel:'',mensalidade:185,matricula:75,status:'Ativo',pag:{jan:0,fev:185,mar:0,abr:185,mai:15,jun:0,jul:0,ago:0,set:0,out:0,nov:0,dez:0},mat_pago:75},
+  {id:25,nome:'Miguel Pozes',tel:'',mensalidade:185,matricula:75,status:'Ativo',pag:{jan:0,fev:185,mar:185,abr:185,mai:185,jun:185,jul:0,ago:0,set:0,out:0,nov:0,dez:0},mat_pago:75},
+  {id:26,nome:'Nilo Castilho',tel:'',mensalidade:185,matricula:75,status:'Ativo',pag:{jan:0,fev:185,mar:185,abr:185,mai:185,jun:185,jul:0,ago:0,set:0,out:0,nov:0,dez:0},mat_pago:75},
+  {id:27,nome:'Pedro Rodrigues',tel:'',mensalidade:185,matricula:100,status:'Ativo',pag:{jan:0,fev:90,mar:185,abr:185,mai:185,jun:185,jul:0,ago:0,set:0,out:0,nov:0,dez:0},mat_pago:100},
+  {id:28,nome:'Rafael Cardozo',tel:'',mensalidade:185,matricula:75,status:'Ativo',pag:{jan:0,fev:185,mar:185,abr:185,mai:15,jun:0,jul:0,ago:0,set:0,out:0,nov:0,dez:0},mat_pago:75},
   {id:29,nome:'Thiago Silva',tel:'',mensalidade:185,matricula:100,status:'Ativo',pag:{jan:0,fev:185,mar:185,abr:185,mai:185,jun:0,jul:0,ago:0,set:0,out:0,nov:0,dez:0},mat_pago:100},
-  {id:30,nome:'Vivi Monzato',tel:'',mensalidade:185,matricula:75,status:'Ativo',pag:{jan:0,fev:185,mar:185,abr:185,mai:185,jun:0,jul:0,ago:0,set:0,out:0,nov:0,dez:0},mat_pago:75},
+  {id:30,nome:'Vivi Monzato',tel:'',mensalidade:185,matricula:75,status:'Ativo',pag:{jan:0,fev:185,mar:185,abr:185,mai:185,jun:185,jul:0,ago:0,set:0,out:0,nov:0,dez:0},mat_pago:75},
   {id:31,nome:'Wakson Garcia',tel:'',mensalidade:185,matricula:75,status:'Ativo',pag:{jan:0,fev:185,mar:185,abr:185,mai:185,jun:0,jul:0,ago:0,set:0,out:0,nov:0,dez:0},mat_pago:75},
   {id:32,nome:'Yasmin Louvaim',tel:'',mensalidade:185,matricula:75,status:'Ativo',pag:{jan:0,fev:185,mar:185,abr:185,mai:185,jun:0,jul:0,ago:0,set:0,out:0,nov:0,dez:0},mat_pago:75},
-  {id:33,nome:'Davi (Marcielle)',tel:'',mensalidade:185,matricula:100,status:'Ativo',pag:{jan:0,fev:0,mar:185,abr:185,mai:185,jun:0,jul:0,ago:0,set:0,out:0,nov:0,dez:0},mat_pago:100},
+  {id:33,nome:'Davi (Marcielle)',tel:'',mensalidade:185,matricula:100,status:'Ativo',pag:{jan:0,fev:0,mar:185,abr:185,mai:185,jun:185,jul:0,ago:0,set:0,out:0,nov:0,dez:0},mat_pago:100},
   {id:34,nome:'Judinho Azevedo',tel:'',mensalidade:185,matricula:100,status:'Ativo',pag:{jan:0,fev:0,mar:0,abr:185,mai:185,jun:0,jul:0,ago:0,set:0,out:0,nov:0,dez:0},mat_pago:100},
   {id:35,nome:'William Monteiro',tel:'',mensalidade:185,matricula:100,status:'Ativo',pag:{jan:0,fev:0,mar:0,abr:0,mai:185,jun:0,jul:0,ago:0,set:0,out:0,nov:0,dez:0},mat_pago:100},
-  {id:36,nome:'Arthur Kiffer',tel:'',mensalidade:185,matricula:100,status:'Ativo',pag:{jan:0,fev:0,mar:0,abr:0,mai:185,jun:0,jul:0,ago:0,set:0,out:0,nov:0,dez:0},mat_pago:100},
+  {id:36,nome:'Arthur Kiffer',tel:'',mensalidade:185,matricula:100,status:'Ativo',pag:{jan:0,fev:0,mar:0,abr:0,mai:185,jun:185,jul:0,ago:0,set:0,out:0,nov:0,dez:0},mat_pago:100},
 ];
 
 let state = {
@@ -2266,7 +2266,7 @@ async function dbLoad() {
   if (!loadState()) {
     state.alunos         = SEED_ALUNOS;
     state.shows          = [{id:1,data:'2026-01-31',artista:'Aline Brasil',tipo:'Show',cidade:'Poço Fundo',estado:'MG',cache:1000,status:'pago',obs:''},{id:2,data:'2026-02-14',artista:'Aline Brasil',tipo:'Show',cidade:'Telêmaco Borba',estado:'PR',cache:1000,status:'pago',obs:''},{id:3,data:'2026-02-16',artista:'Aline Brasil',tipo:'Show',cidade:'Curitiba',estado:'PR',cache:1000,status:'pago',obs:''},{id:4,data:'2026-02-20',artista:'Aline Brasil',tipo:'Show',cidade:'São Miguel do Tocantins',estado:'TO',cache:1000,status:'pago',obs:''},{id:5,data:'2026-04-24',artista:'Aline Brasil',tipo:'Show',cidade:'São Fidélis',estado:'RJ',cache:1000,status:'pago',obs:''}];
-    state.despesas_fixas = [{nome:'Dízimo',vencimento:'10',valor:200},{nome:'Internet',vencimento:'15',valor:60},{nome:'Vivo',vencimento:'20',valor:125},{nome:'Luz',vencimento:'10',valor:350},{nome:'Spotify',vencimento:'10',valor:25},{nome:'Plano Saúde',vencimento:'10',valor:50},{nome:'Arquiteta',vencimento:'12',valor:450},{nome:'Vanessa',vencimento:'10',valor:250},{nome:'Patrimônio',vencimento:'10',valor:100},{nome:'Cartão Nubank',vencimento:'03',valor:250},{nome:'Cartão Itaú',vencimento:'03',valor:250},{nome:'Cartão ML',vencimento:'03',valor:250},{nome:'Beco (1/6–3/8)',vencimento:'20',valor:138},{nome:'Sev. Curt. (4/10–12/7)',vencimento:'10',valor:113},{nome:'South',vencimento:'05',valor:112}];
+    state.despesas_fixas = [{nome:'Dízimo',vencimento:'10',valor:200},{nome:'Internet',vencimento:'15',valor:60},{nome:'Vivo',vencimento:'20',valor:125},{nome:'Luz',vencimento:'10',valor:350},{nome:'Spotify',vencimento:'10',valor:25},{nome:'Plano Saúde',vencimento:'10',valor:50},{nome:'Arquiteta',vencimento:'12',valor:450},{nome:'Vanessa',vencimento:'10',valor:250},{nome:'Patrimônio',vencimento:'10',valor:100},{nome:'Cartão Nubank',vencimento:'03',valor:250},{nome:'Cartão Itaú',vencimento:'03',valor:250},{nome:'Cartão ML',vencimento:'03',valor:250},{nome:'Beco (1/6–3/8)',vencimento:'20',valor:138},{nome:'Brum',vencimento:'15',valor:156},{nome:'Sev. Curt. (4/10–12/7)',vencimento:'10',valor:113},{nome:'South',vencimento:'05',valor:112}];
     state.gastos_inb     = [{nome:'Pratos',mes:'jan',valor:450},{nome:'Piso Borracha',mes:'fev',valor:60},{nome:'Porta Copo',mes:'fev',valor:55},{nome:'Cabos de Fone',mes:'fev',valor:60},{nome:'Canetas',mes:'fev',valor:84},{nome:'Piso Borracha',mes:'mar',valor:60},{nome:'Relógio Digital',mes:'mar',valor:198},{nome:'Painel / Logo NB',mes:'mar',valor:829},{nome:'Cabos de Fone',mes:'mai',valor:33},{nome:'Canetas',mes:'mai',valor:25},{nome:'Fita Elétrica',mes:'mai',valor:33},{nome:'Baquetas',mes:'mai',valor:27}];
     state.gastos_nb      = [{nome:'Baquetas',mes:'fev',valor:180},{nome:'Cabos do Fone',mes:'fev',valor:49},{nome:'Joyo',mes:'fev',valor:195},{nome:'Adaptador de Fone',mes:'fev',valor:20},{nome:'Pés do BB',mes:'fev',valor:300},{nome:'Peles Mudas',mes:'fev',valor:368},{nome:'Adaptador de Fone',mes:'mar',valor:20},{nome:'Pés do SD',mes:'mar',valor:140},{nome:'Cabos do Fone',mes:'mai',valor:46}];
     saveState();
@@ -2281,6 +2281,8 @@ async function dbLoad() {
   if (!state.alunosEspeciais) state.alunosEspeciais = [];
   migrateCotidianoMaiJun();
   migrateAgendaPresenca();
+  migrateAlunosExcel2026();
+  migrateFixasExcel2026();
 }
 
 async function dbSeedAlunos() {
@@ -6090,6 +6092,88 @@ function migrateCotidianoMaiJun() {
   saveState();
 }
 
+function migrateAlunosExcel2026() {
+  if (state._migAlunosExcel26) return;
+  const excel = {
+    'Arthur Gomes':       {mat:100,jan:0,fev:185,mar:185,abr:185,mai:185,jun:185},
+    'Benício Gomes':      {mat:100,jan:0,fev:0,  mar:90, abr:0,  mai:0,  jun:0},
+    'Bernardo Lorençoni': {mat:100,jan:0,fev:185,mar:185,abr:185,mai:185,jun:185},
+    'Caio Campanelli':    {mat:100,jan:0,fev:0,  mar:185,abr:185,mai:185,jun:185},
+    'Carlos Eduardo':     {mat:100,jan:0,fev:185,mar:185,abr:185,mai:185,jun:185},
+    'Daniel Alexandre':   {mat:75, jan:0,fev:185,mar:185,abr:185,mai:185,jun:185},
+    'Davi Curty':         {mat:100,jan:0,fev:185,mar:185,abr:185,mai:185,jun:185},
+    'Davi Pio':           {mat:100,jan:0,fev:185,mar:185,abr:185,mai:0,  jun:0},
+    'Elias Rocha':        {mat:75, jan:0,fev:185,mar:185,abr:185,mai:185,jun:185},
+    'Enzo Gomes':         {mat:75, jan:0,fev:0,  mar:185,abr:185,mai:185,jun:185},
+    'Erinelma Santos':    {mat:75, jan:0,fev:185,mar:185,abr:185,mai:185,jun:0},
+    'Gabriel Soreano':    {mat:100,jan:0,fev:0,  mar:0,  abr:185,mai:185,jun:0},
+    'Jhon Azevedo':       {mat:100,jan:0,fev:0,  mar:0,  abr:0,  mai:0,  jun:0},
+    'João Antônio':       {mat:100,jan:0,fev:185,mar:185,abr:185,mai:0,  jun:0},
+    'João Guilherme':     {mat:75, jan:0,fev:185,mar:185,abr:0,  mai:185,jun:185},
+    'João Pedro':         {mat:100,jan:0,fev:185,mar:185,abr:185,mai:185,jun:0},
+    'Larissa Caldeira':   {mat:100,jan:0,fev:0,  mar:0,  abr:0,  mai:0,  jun:0},
+    'Lourenço Russo':     {mat:75, jan:0,fev:185,mar:185,abr:185,mai:185,jun:185},
+    'Lucas Ladeira':      {mat:75, jan:0,fev:185,mar:185,abr:185,mai:185,jun:185},
+    'Luiz Felipe':        {mat:75, jan:0,fev:185,mar:185,abr:185,mai:185,jun:0},
+    'Maria Fernanda':     {mat:45, jan:0,fev:95, mar:95, abr:0,  mai:0,  jun:0},
+    'Maria Lucília':      {mat:75, jan:0,fev:185,mar:185,abr:185,mai:185,jun:0},
+    'Maria Vares':        {mat:75, jan:0,fev:185,mar:185,abr:185,mai:185,jun:185},
+    'Mateus Lelis':       {mat:100,jan:0,fev:185,mar:185,abr:185,mai:185,jun:0},
+    'Miguel Pozes':       {mat:75, jan:0,fev:185,mar:185,abr:185,mai:185,jun:185},
+    'Nilo Castilho':      {mat:75, jan:0,fev:185,mar:185,abr:185,mai:185,jun:185},
+    'Pedro Rodrigues':    {mat:100,jan:0,fev:90, mar:185,abr:185,mai:185,jun:185},
+    'Rafael Cardozo':     {mat:75, jan:0,fev:185,mar:185,abr:185,mai:15, jun:0},
+    'Thiago Silva':       {mat:100,jan:0,fev:185,mar:185,abr:185,mai:185,jun:0},
+    'Vivi Monzato':       {mat:75, jan:0,fev:185,mar:185,abr:185,mai:185,jun:185},
+    'Wakson Garcia':      {mat:75, jan:0,fev:185,mar:185,abr:185,mai:185,jun:0},
+    'Yasmin Louvaim':     {mat:75, jan:0,fev:185,mar:185,abr:185,mai:185,jun:0},
+    'Davi (Marcielle)':   {mat:100,jan:0,fev:0,  mar:185,abr:185,mai:185,jun:185},
+    'Judinho Azevedo':    {mat:100,jan:0,fev:0,  mar:0,  abr:185,mai:185,jun:0},
+    'William Monteiro':   {mat:100,jan:0,fev:0,  mar:0,  abr:0,  mai:185,jun:0},
+    'Arthur Kiffer':      {mat:100,jan:0,fev:0,  mar:0,  abr:0,  mai:185,jun:185},
+  };
+  (state.alunos||[]).forEach(a => {
+    const d = excel[a.nome.trim()];
+    if (!d) return;
+    a.mat_pago = d.mat;
+    ['jan','fev','mar','abr','mai','jun'].forEach(m => { if (!a.pag) a.pag = {}; a.pag[m] = d[m]; });
+  });
+  state._migAlunosExcel26 = true;
+  saveState();
+}
+
+function migrateFixasExcel2026() {
+  if (state._migFixasExcel26) return;
+  if (!state.pagFixas) state.pagFixas = {};
+  const dados = {
+    'Dízimo':                  {jan:0,  fev:0,  mar:0,  abr:0,  mai:0,  jun:0},
+    'Internet':                {jan:60, fev:60, mar:60, abr:60, mai:60, jun:60},
+    'Vivo':                    {jan:125,fev:121,mar:124,abr:134,mai:134,jun:0},
+    'Luz':                     {jan:350,fev:326,mar:388,abr:397,mai:0,  jun:0},
+    'Spotify':                 {jan:25, fev:25, mar:25, abr:25, mai:25, jun:0},
+    'Plano Saúde':             {jan:0,  fev:0,  mar:0,  abr:40, mai:48, jun:48},
+    'Arquiteta':               {jan:450,fev:450,mar:450,abr:450,mai:450,jun:0},
+    'Vanessa':                 {jan:250,fev:250,mar:250,abr:250,mai:250,jun:0},
+    'Patrimônio':              {jan:100,fev:100,mar:100,abr:100,mai:100,jun:100},
+    'Cartão Nubank':           {jan:99, fev:321,mar:416,abr:426,mai:322,jun:197},
+    'Cartão Itaú':             {jan:147,fev:552,mar:172,abr:538,mai:196,jun:298},
+    'Cartão ML':               {jan:0,  fev:130,mar:300,abr:210,mai:200,jun:400},
+    'Beco (1/6–3/8)':          {jan:0,  fev:0,  mar:209,abr:138,mai:138,jun:138},
+    'Brum':                    {jan:156,fev:156,mar:156,abr:156,mai:0,  jun:0},
+    'Sev. Curt. (4/10–12/7)':  {jan:113,fev:113,mar:113,abr:113,mai:101,jun:113},
+    'South':                   {jan:112,fev:112,mar:112,abr:112,mai:112,jun:112},
+  };
+  Object.assign(state.pagFixas, dados);
+  if (!state.despesas_fixas.find(d => d.nome === 'Brum')) {
+    const idx = state.despesas_fixas.findIndex(d => d.nome === 'Beco (1/6–3/8)');
+    const brum = {nome:'Brum', vencimento:'15', valor:156};
+    if (idx >= 0) state.despesas_fixas.splice(idx + 1, 0, brum);
+    else state.despesas_fixas.push(brum);
+  }
+  state._migFixasExcel26 = true;
+  saveState();
+}
+
 function getMesDaCot(item) {
   if (item.mes) return item.mes;
   if (item.data) {
@@ -6904,7 +6988,12 @@ function updatePainel() {
   const recShows = state.shows.filter(s=>s.status==='pago').reduce((s,x)=>s+(parseFloat(x.cache)||0),0);
   const recShowsConf = state.shows.filter(s=>s.status==='confirmado').reduce((s,x)=>s+(parseFloat(x.cache)||0),0);
   const recTotal = recINB + recShows;
-  const despFixas = state.despesas_fixas.reduce((s,d)=>s+d.valor,0);
+  const despFixas = state.despesas_fixas.reduce((s,d) =>
+    s + MESES.reduce((ss,m) => {
+      const pf = state.pagFixas && state.pagFixas[d.nome] ? state.pagFixas[d.nome] : {};
+      const v = pf[m];
+      return ss + (v === true ? d.valor : (v || 0));
+    }, 0), 0);
   const despINB = state.gastos_inb.reduce((s,d)=>s+d.valor,0);
   const despNB = state.gastos_nb.reduce((s,d)=>s+d.valor,0);
   const despCot = (state.cotidiano||[]).reduce((s,d)=>s+d.valor,0);
@@ -7347,7 +7436,7 @@ function toggleMic() {
   if (!state.alunos?.length) {
     state.alunos = SEED_ALUNOS;
     state.shows = [{id:1,data:'2026-01-31',artista:'Aline Brasil',tipo:'Show',cidade:'Poço Fundo',estado:'MG',cache:1000,status:'pago',obs:''},{id:2,data:'2026-02-14',artista:'Aline Brasil',tipo:'Show',cidade:'Telêmaco Borba',estado:'PR',cache:1000,status:'pago',obs:''},{id:3,data:'2026-02-16',artista:'Aline Brasil',tipo:'Show',cidade:'Curitiba',estado:'PR',cache:1000,status:'pago',obs:''},{id:4,data:'2026-02-20',artista:'Aline Brasil',tipo:'Show',cidade:'São Miguel do Tocantins',estado:'TO',cache:1000,status:'pago',obs:''},{id:5,data:'2026-04-24',artista:'Aline Brasil',tipo:'Show',cidade:'São Fidélis',estado:'RJ',cache:1000,status:'pago',obs:''}];
-    state.despesas_fixas = [{nome:'Dízimo',vencimento:'10',valor:200},{nome:'Internet',vencimento:'15',valor:60},{nome:'Vivo',vencimento:'20',valor:125},{nome:'Luz',vencimento:'10',valor:350},{nome:'Spotify',vencimento:'10',valor:25},{nome:'Plano Saúde',vencimento:'10',valor:50},{nome:'Arquiteta',vencimento:'12',valor:450},{nome:'Vanessa',vencimento:'10',valor:250},{nome:'Patrimônio',vencimento:'10',valor:100},{nome:'Cartão Nubank',vencimento:'03',valor:250},{nome:'Cartão Itaú',vencimento:'03',valor:250},{nome:'Cartão ML',vencimento:'03',valor:250},{nome:'Beco (1/6–3/8)',vencimento:'20',valor:138},{nome:'Sev. Curt. (4/10–12/7)',vencimento:'10',valor:113},{nome:'South',vencimento:'05',valor:112}];
+    state.despesas_fixas = [{nome:'Dízimo',vencimento:'10',valor:200},{nome:'Internet',vencimento:'15',valor:60},{nome:'Vivo',vencimento:'20',valor:125},{nome:'Luz',vencimento:'10',valor:350},{nome:'Spotify',vencimento:'10',valor:25},{nome:'Plano Saúde',vencimento:'10',valor:50},{nome:'Arquiteta',vencimento:'12',valor:450},{nome:'Vanessa',vencimento:'10',valor:250},{nome:'Patrimônio',vencimento:'10',valor:100},{nome:'Cartão Nubank',vencimento:'03',valor:250},{nome:'Cartão Itaú',vencimento:'03',valor:250},{nome:'Cartão ML',vencimento:'03',valor:250},{nome:'Beco (1/6–3/8)',vencimento:'20',valor:138},{nome:'Brum',vencimento:'15',valor:156},{nome:'Sev. Curt. (4/10–12/7)',vencimento:'10',valor:113},{nome:'South',vencimento:'05',valor:112}];
     state.gastos_inb = [{nome:'Pratos',mes:'jan',valor:450},{nome:'Piso Borracha',mes:'fev',valor:60},{nome:'Porta Copo',mes:'fev',valor:55},{nome:'Cabos de Fone',mes:'fev',valor:60},{nome:'Canetas',mes:'fev',valor:84},{nome:'Piso Borracha',mes:'mar',valor:60},{nome:'Relógio Digital',mes:'mar',valor:198},{nome:'Painel / Logo NB',mes:'mar',valor:829},{nome:'Cabos de Fone',mes:'mai',valor:33},{nome:'Canetas',mes:'mai',valor:25},{nome:'Fita Elétrica',mes:'mai',valor:33},{nome:'Baquetas',mes:'mai',valor:27}];
     state.gastos_nb = [{nome:'Baquetas',mes:'fev',valor:180},{nome:'Cabos do Fone',mes:'fev',valor:49},{nome:'Joyo',mes:'fev',valor:195},{nome:'Adaptador de Fone',mes:'fev',valor:20},{nome:'Pés do BB',mes:'fev',valor:300},{nome:'Peles Mudas',mes:'fev',valor:368},{nome:'Adaptador de Fone',mes:'mar',valor:20},{nome:'Pés do SD',mes:'mar',valor:140},{nome:'Cabos do Fone',mes:'mai',valor:46}];
   }
@@ -7356,6 +7445,10 @@ function toggleMic() {
   if (!state.agenda || !state.agenda.length) state.agenda = [];
   if (!state.parceladas) state.parceladas = [];
   if (!state.avulsos) state.avulsos = [];
+  try { migrateCotidianoMaiJun(); } catch(e) {}
+  try { migrateAgendaPresenca(); } catch(e) {}
+  try { migrateAlunosExcel2026(); } catch(e) {}
+  try { migrateFixasExcel2026(); } catch(e) {}
 
   // 2. Renderiza UI imediatamente
   try { renderAlunos(); } catch(e) { console.warn(e); }
