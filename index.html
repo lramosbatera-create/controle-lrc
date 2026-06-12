@@ -2357,7 +2357,7 @@ function showSyncMenu() {
     <button style="${btn('')}" onmouseover="this.style.background='rgba(201,168,76,0.1)'" onmouseout="this.style.background=''" onclick="importBackup();document.getElementById('sync-menu')?.remove()">📥 Importar de arquivo</button>
     <div style="border-top:1px solid rgba(201,168,76,0.15);margin:6px 0 4px"></div>
     <button style="${btn('color:#C9A84C')}" onmouseover="this.style.background='rgba(201,168,76,0.1)'" onmouseout="this.style.background=''" onclick="forceUpdate()">🔄 Forçar atualização do app</button>
-    <button style="${btn('color:#e74c3c')}" onmouseover="this.style.background='rgba(231,76,60,0.1)'" onmouseout="this.style.background=''" onclick="document.getElementById('sync-menu')?.remove();confirmarResetDados()">🗑️ Limpar dados (manter shows)</button>
+    <button style="${btn('color:#e74c3c')}" onmouseover="this.style.background='rgba(231,76,60,0.1)'" onmouseout="this.style.background=''" onclick="document.getElementById('sync-menu')?.remove();confirmarResetDados()">🗑️ Limpar despesas (manter INB e shows)</button>
   `;
   document.body.appendChild(menu);
   setTimeout(() => document.addEventListener('click', function close(e) {
@@ -2422,40 +2422,22 @@ function confirmarResetDados() {
   modal.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.75);z-index:9999;display:flex;align-items:center;justify-content:center;padding:20px;';
   modal.innerHTML = `
     <div style="background:#1C1C1C;border:1px solid rgba(231,76,60,0.5);border-radius:14px;padding:24px;max-width:380px;width:100%;">
-      <div style="font-size:15px;font-weight:600;color:#e74c3c;margin-bottom:10px;">⚠️ Limpar todos os dados?</div>
+      <div style="font-size:15px;font-weight:600;color:#e74c3c;margin-bottom:10px;">⚠️ Limpar todas as despesas?</div>
       <div style="font-size:13px;color:#B0A090;line-height:1.6;margin-bottom:20px;">
-        Isso vai apagar <strong style="color:#F0E8D5">todos os lançamentos</strong>: pagamentos dos alunos, despesas fixas, gastos, cotidiano, parceladas e avulsos.<br><br>
-        <strong style="color:#C9A84C">Os shows serão preservados.</strong><br><br>
+        Isso vai apagar <strong style="color:#F0E8D5">todas as despesas</strong>: despesas fixas (pagFixas), gastos INB/NB, cotidiano, parceladas e avulsos.<br><br>
+        <strong style="color:#C9A84C">Shows e pagamentos do INB serão preservados.</strong><br><br>
         Esta ação não pode ser desfeita.
       </div>
       <div style="display:flex;gap:10px;">
         <button onclick="this.closest('div[style]').remove()" style="flex:1;background:none;border:1px solid rgba(201,168,76,0.3);color:#B0A090;border-radius:8px;padding:10px;cursor:pointer;font-family:inherit;font-size:13px;">Cancelar</button>
-        <button onclick="this.closest('div[style]').remove();resetParaEstadoLimpo()" style="flex:1;background:#e74c3c;border:none;color:#fff;border-radius:8px;padding:10px;cursor:pointer;font-family:inherit;font-size:13px;font-weight:600;">Limpar tudo</button>
+        <button onclick="this.closest('div[style]').remove();resetParaEstadoLimpo()" style="flex:1;background:#e74c3c;border:none;color:#fff;border-radius:8px;padding:10px;cursor:pointer;font-family:inherit;font-size:13px;font-weight:600;">Limpar despesas</button>
       </div>
     </div>`;
   document.body.appendChild(modal);
 }
 
 function resetParaEstadoLimpo() {
-  const showsPreservados = JSON.parse(JSON.stringify(state.shows || []));
-  const alunosLimpos = SEED_ALUNOS.map(a => ({
-    ...a,
-    pag: {jan:0,fev:0,mar:0,abr:0,mai:0,jun:0,jul:0,ago:0,set:0,out:0,nov:0,dez:0},
-    mat_pago: 0
-  }));
-  // Preserva campos de cadastro (tel, mensalidade, status, etc.) se o aluno já existia
-  (state.alunos||[]).forEach(sa => {
-    const aluno = alunosLimpos.find(a => a.nome === sa.nome);
-    if (!aluno) return;
-    if (sa.tel) aluno.tel = sa.tel;
-    if (sa.mensalidade) aluno.mensalidade = sa.mensalidade;
-    if (sa.matricula) aluno.matricula = sa.matricula;
-    if (sa.status) aluno.status = sa.status;
-    if (sa.tipo) aluno.tipo = sa.tipo;
-    if (sa.aniversario) aluno.aniversario = sa.aniversario;
-  });
-  state.alunos = alunosLimpos;
-  state.shows = showsPreservados;
+  // Preserva shows e alunos (com todos os pagamentos intactos)
   state.despesas_fixas = [
     {nome:'Dízimo',vencimento:'10',valor:200},{nome:'Internet',vencimento:'15',valor:60},
     {nome:'Vivo',vencimento:'20',valor:125},{nome:'Luz',vencimento:'10',valor:350},
@@ -2466,22 +2448,18 @@ function resetParaEstadoLimpo() {
     {nome:'Beco (1/6–3/8)',vencimento:'20',valor:138},{nome:'Brum',vencimento:'15',valor:156},
     {nome:'Sev. Curt. (4/10–12/7)',vencimento:'10',valor:113},{nome:'South',vencimento:'05',valor:112}
   ];
+  state.pagFixas = {};
   state.gastos_inb = [];
   state.gastos_nb = [];
   state.parceladas = [];
   state.cotidiano = [];
-  state.avulsos = [];
-  state.pagFixas = {};
   state.recital = {inscricoes:[],receitas:[],despesas:[],taxaPadrao:150};
-  delete state._migAlunosExcel26;
   delete state._migFixasExcel26;
-  delete state._migCotidianoMaiJun;
   saveState();
-  try { renderAlunos(); } catch(e) {}
   try { updatePainel(); } catch(e) {}
   try { renderDespesas(); } catch(e) {}
   try { renderParceladas(); } catch(e) {}
-  toast('✓ Dados limpos — shows preservados!');
+  toast('✓ Despesas limpas — shows e INB preservados!');
 }
 
 async function dbPushAll() {
