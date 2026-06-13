@@ -2265,7 +2265,7 @@ async function dbLoad() {
   // Fallback: localStorage
   if (!loadState()) {
     state.alunos         = SEED_ALUNOS;
-    state.shows          = [{id:1,data:'2026-01-31',artista:'Aline Brasil',tipo:'Show',cidade:'Poço Fundo',estado:'MG',cache:1000,status:'pago',obs:''},{id:2,data:'2026-02-14',artista:'Aline Brasil',tipo:'Show',cidade:'Telêmaco Borba',estado:'PR',cache:1000,status:'pago',obs:''},{id:3,data:'2026-02-16',artista:'Aline Brasil',tipo:'Show',cidade:'Curitiba',estado:'PR',cache:1000,status:'pago',obs:''},{id:4,data:'2026-02-20',artista:'Aline Brasil',tipo:'Show',cidade:'São Miguel do Tocantins',estado:'TO',cache:1000,status:'pago',obs:''},{id:5,data:'2026-04-24',artista:'Aline Brasil',tipo:'Show',cidade:'São Fidélis',estado:'RJ',cache:1000,status:'pago',obs:''}];
+    state.shows          = [{id:1,data:'2026-01-31',artista:'Aline Brasil',tipo:'Show',cidade:'Poço Fundo',estado:'MG',cache:1000,status:'pago',obs:''},{id:2,data:'2026-02-14',artista:'Aline Brasil',tipo:'Show',cidade:'Telêmaco Borba',estado:'PR',cache:1000,status:'pago',obs:''},{id:3,data:'2026-02-16',artista:'Aline Brasil',tipo:'Show',cidade:'Curitiba',estado:'PR',cache:1000,status:'pago',obs:''},{id:4,data:'2026-02-20',artista:'Aline Brasil',tipo:'Show',cidade:'São Miguel do Tocantins',estado:'TO',cache:1000,status:'pago',obs:''},{id:5,data:'2026-04-24',artista:'Aline Brasil',tipo:'Show',cidade:'São Fidélis',estado:'RJ',cache:1000,status:'pago',obs:''},{id:6,data:'2026-06-04',artista:'Aline Brasil',tipo:'Show',cidade:'Palestina do Pará',estado:'PA',cache:600,status:'pago',obs:''},{id:7,data:'2026-06-12',artista:'Aline Brasil',tipo:'Show',cidade:'Passos de Camaragibe',estado:'AL',cache:1000,status:'confirmado',obs:''},{id:8,data:'2026-06-21',artista:'Aline Brasil',tipo:'Show',cidade:'Cocal dos Alves',estado:'PI',cache:1000,status:'confirmado',obs:''},{id:9,data:'2026-06-23',artista:'Aline Brasil',tipo:'Show',cidade:'Canutama',estado:'AM',cache:1000,status:'confirmado',obs:''},{id:10,data:'2026-06-29',artista:'Aline Brasil',tipo:'Show',cidade:'Concórdia do Pará',estado:'PA',cache:1000,status:'confirmado',obs:''},{id:11,data:'2026-07-11',artista:'Aline Brasil',tipo:'Show',cidade:'Novo Cruzeiro',estado:'MG',cache:1000,status:'confirmado',obs:''},{id:12,data:'2026-07-25',artista:'Aline Brasil',tipo:'Show',cidade:'São Luís dos Montes Belos',estado:'GO',cache:1000,status:'confirmado',obs:''},{id:13,data:'2026-07-26',artista:'Aline Brasil',tipo:'Show',cidade:'Pirapetinga',estado:'MG',cache:1000,status:'confirmado',obs:''},{id:14,data:'2026-08-15',artista:'Aline Brasil',tipo:'Show',cidade:'Lago do Barro',estado:'PI',cache:1000,status:'confirmado',obs:''},{id:15,data:'2026-09-24',artista:'Aline Brasil',tipo:'Show',cidade:'Porto Walter',estado:'AC',cache:1000,status:'confirmado',obs:''}];
     state.despesas_fixas = [{nome:'Dízimo',vencimento:'10',valor:200},{nome:'Internet',vencimento:'15',valor:60},{nome:'Vivo',vencimento:'20',valor:125},{nome:'Luz',vencimento:'10',valor:350},{nome:'Spotify',vencimento:'10',valor:25},{nome:'Plano Saúde',vencimento:'10',valor:50},{nome:'Arquiteta',vencimento:'12',valor:450},{nome:'Vanessa',vencimento:'10',valor:250},{nome:'Patrimônio',vencimento:'10',valor:100},{nome:'Cartão Nubank',vencimento:'03',valor:250},{nome:'Cartão Itaú',vencimento:'03',valor:250},{nome:'Cartão ML',vencimento:'03',valor:250},{nome:'Beco (1/6–3/8)',vencimento:'20',valor:138},{nome:'Brum',vencimento:'15',valor:156},{nome:'Sev. Curt. (4/10–12/7)',vencimento:'10',valor:113},{nome:'South',vencimento:'05',valor:112}];
     state.gastos_inb     = [{nome:'Pratos',mes:'jan',valor:450},{nome:'Piso Borracha',mes:'fev',valor:60},{nome:'Porta Copo',mes:'fev',valor:55},{nome:'Cabos de Fone',mes:'fev',valor:60},{nome:'Canetas',mes:'fev',valor:84},{nome:'Piso Borracha',mes:'mar',valor:60},{nome:'Relógio Digital',mes:'mar',valor:198},{nome:'Painel / Logo NB',mes:'mar',valor:829},{nome:'Cabos de Fone',mes:'mai',valor:33},{nome:'Canetas',mes:'mai',valor:25},{nome:'Fita Elétrica',mes:'mai',valor:33},{nome:'Baquetas',mes:'mai',valor:27}];
     state.gastos_nb      = [{nome:'Baquetas',mes:'fev',valor:180},{nome:'Cabos do Fone',mes:'fev',valor:49},{nome:'Joyo',mes:'fev',valor:195},{nome:'Adaptador de Fone',mes:'fev',valor:20},{nome:'Pés do BB',mes:'fev',valor:300},{nome:'Peles Mudas',mes:'fev',valor:368},{nome:'Adaptador de Fone',mes:'mar',valor:20},{nome:'Pés do SD',mes:'mar',valor:140},{nome:'Cabos do Fone',mes:'mai',valor:46}];
@@ -2284,6 +2284,7 @@ async function dbLoad() {
   migrateAlunosExcel2026();
   migrateFixasExcel2026();
   migrateGastosExcel2026();
+  migrateShowsExcel2026();
 }
 
 async function dbSeedAlunos() {
@@ -6258,6 +6259,33 @@ function migrateGastosExcel2026() {
   saveState();
 }
 
+function migrateShowsExcel2026() {
+  if (state._migShowsExcel26) return;
+  const novos = [
+    {id:6,  data:'2026-06-04', artista:'Aline Brasil', tipo:'Show', cidade:'Palestina do Pará',         estado:'PA', cache:600,  status:'pago',       obs:''},
+    {id:7,  data:'2026-06-12', artista:'Aline Brasil', tipo:'Show', cidade:'Passos de Camaragibe',       estado:'AL', cache:1000, status:'confirmado', obs:''},
+    {id:8,  data:'2026-06-21', artista:'Aline Brasil', tipo:'Show', cidade:'Cocal dos Alves',           estado:'PI', cache:1000, status:'confirmado', obs:''},
+    {id:9,  data:'2026-06-23', artista:'Aline Brasil', tipo:'Show', cidade:'Canutama',                  estado:'AM', cache:1000, status:'confirmado', obs:''},
+    {id:10, data:'2026-06-29', artista:'Aline Brasil', tipo:'Show', cidade:'Concórdia do Pará',         estado:'PA', cache:1000, status:'confirmado', obs:''},
+    {id:11, data:'2026-07-11', artista:'Aline Brasil', tipo:'Show', cidade:'Novo Cruzeiro',             estado:'MG', cache:1000, status:'confirmado', obs:''},
+    {id:12, data:'2026-07-25', artista:'Aline Brasil', tipo:'Show', cidade:'São Luís dos Montes Belos', estado:'GO', cache:1000, status:'confirmado', obs:''},
+    {id:13, data:'2026-07-26', artista:'Aline Brasil', tipo:'Show', cidade:'Pirapetinga',               estado:'MG', cache:1000, status:'confirmado', obs:''},
+    {id:14, data:'2026-08-15', artista:'Aline Brasil', tipo:'Show', cidade:'Lago do Barro',             estado:'PI', cache:1000, status:'confirmado', obs:''},
+    {id:15, data:'2026-09-24', artista:'Aline Brasil', tipo:'Show', cidade:'Porto Walter',              estado:'AC', cache:1000, status:'confirmado', obs:''},
+  ];
+  if (!state.shows) state.shows = [];
+  const existentes = new Set(state.shows.map(s => s.data + '|' + s.cidade));
+  const maxId = state.shows.reduce((m,s) => Math.max(m, s.id||0), 0);
+  let nextId = maxId + 1;
+  novos.forEach(s => {
+    if (!existentes.has(s.data + '|' + s.cidade)) {
+      state.shows.push({...s, id: nextId++});
+    }
+  });
+  state._migShowsExcel26 = true;
+  saveState();
+}
+
 function getMesDaCot(item) {
   if (item.mes) return item.mes;
   if (item.data) {
@@ -7519,7 +7547,7 @@ function toggleMic() {
   try { loadState(); } catch(e) {}
   if (!state.alunos?.length) {
     state.alunos = SEED_ALUNOS;
-    state.shows = [{id:1,data:'2026-01-31',artista:'Aline Brasil',tipo:'Show',cidade:'Poço Fundo',estado:'MG',cache:1000,status:'pago',obs:''},{id:2,data:'2026-02-14',artista:'Aline Brasil',tipo:'Show',cidade:'Telêmaco Borba',estado:'PR',cache:1000,status:'pago',obs:''},{id:3,data:'2026-02-16',artista:'Aline Brasil',tipo:'Show',cidade:'Curitiba',estado:'PR',cache:1000,status:'pago',obs:''},{id:4,data:'2026-02-20',artista:'Aline Brasil',tipo:'Show',cidade:'São Miguel do Tocantins',estado:'TO',cache:1000,status:'pago',obs:''},{id:5,data:'2026-04-24',artista:'Aline Brasil',tipo:'Show',cidade:'São Fidélis',estado:'RJ',cache:1000,status:'pago',obs:''}];
+    state.shows = [{id:1,data:'2026-01-31',artista:'Aline Brasil',tipo:'Show',cidade:'Poço Fundo',estado:'MG',cache:1000,status:'pago',obs:''},{id:2,data:'2026-02-14',artista:'Aline Brasil',tipo:'Show',cidade:'Telêmaco Borba',estado:'PR',cache:1000,status:'pago',obs:''},{id:3,data:'2026-02-16',artista:'Aline Brasil',tipo:'Show',cidade:'Curitiba',estado:'PR',cache:1000,status:'pago',obs:''},{id:4,data:'2026-02-20',artista:'Aline Brasil',tipo:'Show',cidade:'São Miguel do Tocantins',estado:'TO',cache:1000,status:'pago',obs:''},{id:5,data:'2026-04-24',artista:'Aline Brasil',tipo:'Show',cidade:'São Fidélis',estado:'RJ',cache:1000,status:'pago',obs:''},{id:6,data:'2026-06-04',artista:'Aline Brasil',tipo:'Show',cidade:'Palestina do Pará',estado:'PA',cache:600,status:'pago',obs:''},{id:7,data:'2026-06-12',artista:'Aline Brasil',tipo:'Show',cidade:'Passos de Camaragibe',estado:'AL',cache:1000,status:'confirmado',obs:''},{id:8,data:'2026-06-21',artista:'Aline Brasil',tipo:'Show',cidade:'Cocal dos Alves',estado:'PI',cache:1000,status:'confirmado',obs:''},{id:9,data:'2026-06-23',artista:'Aline Brasil',tipo:'Show',cidade:'Canutama',estado:'AM',cache:1000,status:'confirmado',obs:''},{id:10,data:'2026-06-29',artista:'Aline Brasil',tipo:'Show',cidade:'Concórdia do Pará',estado:'PA',cache:1000,status:'confirmado',obs:''},{id:11,data:'2026-07-11',artista:'Aline Brasil',tipo:'Show',cidade:'Novo Cruzeiro',estado:'MG',cache:1000,status:'confirmado',obs:''},{id:12,data:'2026-07-25',artista:'Aline Brasil',tipo:'Show',cidade:'São Luís dos Montes Belos',estado:'GO',cache:1000,status:'confirmado',obs:''},{id:13,data:'2026-07-26',artista:'Aline Brasil',tipo:'Show',cidade:'Pirapetinga',estado:'MG',cache:1000,status:'confirmado',obs:''},{id:14,data:'2026-08-15',artista:'Aline Brasil',tipo:'Show',cidade:'Lago do Barro',estado:'PI',cache:1000,status:'confirmado',obs:''},{id:15,data:'2026-09-24',artista:'Aline Brasil',tipo:'Show',cidade:'Porto Walter',estado:'AC',cache:1000,status:'confirmado',obs:''}];
     state.despesas_fixas = [{nome:'Dízimo',vencimento:'10',valor:200},{nome:'Internet',vencimento:'15',valor:60},{nome:'Vivo',vencimento:'20',valor:125},{nome:'Luz',vencimento:'10',valor:350},{nome:'Spotify',vencimento:'10',valor:25},{nome:'Plano Saúde',vencimento:'10',valor:50},{nome:'Arquiteta',vencimento:'12',valor:450},{nome:'Vanessa',vencimento:'10',valor:250},{nome:'Patrimônio',vencimento:'10',valor:100},{nome:'Cartão Nubank',vencimento:'03',valor:250},{nome:'Cartão Itaú',vencimento:'03',valor:250},{nome:'Cartão ML',vencimento:'03',valor:250},{nome:'Beco (1/6–3/8)',vencimento:'20',valor:138},{nome:'Brum',vencimento:'15',valor:156},{nome:'Sev. Curt. (4/10–12/7)',vencimento:'10',valor:113},{nome:'South',vencimento:'05',valor:112}];
     state.gastos_inb = [{nome:'Pratos',mes:'jan',valor:450},{nome:'Piso Borracha',mes:'fev',valor:60},{nome:'Porta Copo',mes:'fev',valor:55},{nome:'Cabos de Fone',mes:'fev',valor:60},{nome:'Canetas',mes:'fev',valor:84},{nome:'Piso Borracha',mes:'mar',valor:60},{nome:'Relógio Digital',mes:'mar',valor:198},{nome:'Painel / Logo NB',mes:'mar',valor:829},{nome:'Cabos de Fone',mes:'mai',valor:33},{nome:'Canetas',mes:'mai',valor:25},{nome:'Fita Elétrica',mes:'mai',valor:33},{nome:'Baquetas',mes:'mai',valor:27}];
     state.gastos_nb = [{nome:'Baquetas',mes:'fev',valor:180},{nome:'Cabos do Fone',mes:'fev',valor:49},{nome:'Joyo',mes:'fev',valor:195},{nome:'Adaptador de Fone',mes:'fev',valor:20},{nome:'Pés do BB',mes:'fev',valor:300},{nome:'Peles Mudas',mes:'fev',valor:368},{nome:'Adaptador de Fone',mes:'mar',valor:20},{nome:'Pés do SD',mes:'mar',valor:140},{nome:'Cabos do Fone',mes:'mai',valor:46}];
@@ -7534,6 +7562,7 @@ function toggleMic() {
   try { migrateAlunosExcel2026(); } catch(e) {}
   try { migrateFixasExcel2026(); } catch(e) {}
   try { migrateGastosExcel2026(); } catch(e) {}
+  try { migrateShowsExcel2026(); } catch(e) {}
 
   // 2. Renderiza UI imediatamente
   try { renderAlunos(); } catch(e) { console.warn(e); }
