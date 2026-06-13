@@ -2232,12 +2232,13 @@ async function dbLoad() {
     try {
       setLoading(true);
       // Load each table independently to avoid one failure blocking all
-      const [a, s, df, gi, gn] = await Promise.all([
+      const [a, s, df, gi, gn, meta] = await Promise.all([
         sb.from('alunos').select('*').order('nome').catch(()=>({data:null,error:true})),
         sb.from('shows').select('*').order('data').catch(()=>({data:null,error:true})),
         sb.from('despesas_fixas').select('*').catch(()=>({data:null,error:true})),
         sb.from('gastos_inb').select('*').catch(()=>({data:null,error:true})),
         sb.from('gastos_nb').select('*').catch(()=>({data:null,error:true})),
+        sb.from('app_meta').select('*').eq('key','extra').single().catch(()=>({data:null,error:true})),
       ]);
       // Only use Supabase data if alunos loaded successfully
       if (!a.error && a.data) {
@@ -2248,6 +2249,20 @@ async function dbLoad() {
       if (!df.error && df.data) state.despesas_fixas = df.data;
       if (!gi.error && gi.data) state.gastos_inb = gi.data;
       if (!gn.error && gn.data) state.gastos_nb = gn.data;
+      if (!meta.error && meta.data?.value) {
+        const ex = meta.data.value;
+        if (ex.cadastroExtra)   state.cadastroExtra   = ex.cadastroExtra;
+        if (ex.alunosEspeciais) state.alunosEspeciais = ex.alunosEspeciais;
+        if (ex.agenda)          state.agenda          = ex.agenda;
+        if (ex.presencas)       state.presencas       = ex.presencas;
+        if (ex.reposicoes)      state.reposicoes      = ex.reposicoes;
+        if (ex.pagFixas)        state.pagFixas        = ex.pagFixas;
+        if (ex.avulsos)         state.avulsos         = ex.avulsos;
+        if (ex.atividades)      state.atividades      = ex.atividades;
+        if (ex.recital)         state.recital         = ex.recital;
+        if (ex.parceladas)      state.parceladas      = ex.parceladas;
+        if (ex.cotidiano)       state.cotidiano       = ex.cotidiano;
+      }
       if (!state.alunosEspeciais) state.alunosEspeciais = [];
       if (!state.parceladas) state.parceladas = [];
       if (!state.cotidiano) state.cotidiano = [];
@@ -2470,13 +2485,26 @@ async function dbPushAll() {
   if (!supabaseReady) { toast('⚠️ Supabase não conectado'); return; }
   setLoading(true);
   try {
-    const ops = [];
+    const extraState = {
+      cadastroExtra:   state.cadastroExtra   || {},
+      alunosEspeciais: state.alunosEspeciais || [],
+      agenda:          state.agenda          || [],
+      presencas:       state.presencas       || {},
+      reposicoes:      state.reposicoes      || [],
+      pagFixas:        state.pagFixas        || {},
+      avulsos:         state.avulsos         || [],
+      atividades:      state.atividades      || {},
+      recital:         state.recital         || {},
+      parceladas:      state.parceladas      || [],
+      cotidiano:       state.cotidiano       || [],
+    };
     const results = await Promise.all([
-      state.alunos?.length        ? sb.from('alunos').upsert(state.alunos)         : null,
-      state.shows?.length         ? sb.from('shows').upsert(state.shows)           : null,
-      state.despesas_fixas?.length? sb.from('despesas_fixas').upsert(state.despesas_fixas) : null,
-      state.gastos_inb?.length    ? sb.from('gastos_inb').upsert(state.gastos_inb) : null,
-      state.gastos_nb?.length     ? sb.from('gastos_nb').upsert(state.gastos_nb)   : null,
+      state.alunos?.length         ? sb.from('alunos').upsert(state.alunos)                              : null,
+      state.shows?.length          ? sb.from('shows').upsert(state.shows)                                : null,
+      state.despesas_fixas?.length ? sb.from('despesas_fixas').upsert(state.despesas_fixas)              : null,
+      state.gastos_inb?.length     ? sb.from('gastos_inb').upsert(state.gastos_inb)                     : null,
+      state.gastos_nb?.length      ? sb.from('gastos_nb').upsert(state.gastos_nb)                       : null,
+      sb.from('app_meta').upsert({key:'extra', value: extraState}).catch(()=>({error:{message:'app_meta indisponível'}})),
     ]);
     const erros = results.filter(r => r?.error).map(r => r.error.message);
     if (erros.length) toast('⚠️ Parcial — erros: ' + erros.join(', '));
@@ -2494,18 +2522,33 @@ async function dbPullAll() {
   setLoading(true);
   try {
     const qry = q => Promise.resolve(q).catch(() => ({data:null,error:true}));
-    const [a, s, df, gi, gn] = await Promise.all([
+    const [a, s, df, gi, gn, meta] = await Promise.all([
       qry(sb.from('alunos').select('*').order('nome')),
       qry(sb.from('shows').select('*').order('data')),
       qry(sb.from('despesas_fixas').select('*')),
       qry(sb.from('gastos_inb').select('*')),
       qry(sb.from('gastos_nb').select('*')),
+      qry(sb.from('app_meta').select('*').eq('key','extra').single()),
     ]);
     if (!a.error && a.data && a.data.length) state.alunos = a.data.map(r=>({...r, pag: r.pag||{}}));
     if (!s.error && s.data && s.data.length) state.shows = s.data;
     if (!df.error && df.data && df.data.length) state.despesas_fixas = df.data;
     if (!gi.error && gi.data && gi.data.length) state.gastos_inb = gi.data;
     if (!gn.error && gn.data && gn.data.length) state.gastos_nb = gn.data;
+    if (!meta.error && meta.data?.value) {
+      const ex = meta.data.value;
+      if (ex.cadastroExtra)   state.cadastroExtra   = ex.cadastroExtra;
+      if (ex.alunosEspeciais) state.alunosEspeciais = ex.alunosEspeciais;
+      if (ex.agenda)          state.agenda          = ex.agenda;
+      if (ex.presencas)       state.presencas       = ex.presencas;
+      if (ex.reposicoes)      state.reposicoes      = ex.reposicoes;
+      if (ex.pagFixas)        state.pagFixas        = ex.pagFixas;
+      if (ex.avulsos)         state.avulsos         = ex.avulsos;
+      if (ex.atividades)      state.atividades      = ex.atividades;
+      if (ex.recital)         state.recital         = ex.recital;
+      if (ex.parceladas)      state.parceladas      = ex.parceladas;
+      if (ex.cotidiano)       state.cotidiano       = ex.cotidiano;
+    }
     saveState();
     try { renderAlunos(); updatePainel(); } catch(e) {}
     toast('✓ Dados importados da nuvem!');
