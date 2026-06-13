@@ -2498,11 +2498,15 @@ async function dbPushAll() {
       parceladas:     state.parceladas     || [],
       cotidiano:      state.cotidiano      || [],
     };
-    const [r1, r2] = await Promise.all([
-      state.alunos?.length ? sb.from('alunos').upsert(state.alunos).catch(e=>({error:e})) : Promise.resolve(null),
-      sb.from('app_meta').upsert({key:'full_state', value: blob}).catch(e=>({error:e})),
-    ]);
-    const erros = [r1,r2].filter(r => r?.error).map(r => r.error.message || String(r.error));
+    const erros = [];
+    if (state.alunos?.length) {
+      const {error} = await sb.from('alunos').upsert(state.alunos);
+      if (error) erros.push('alunos: ' + error.message);
+    }
+    {
+      const {error} = await sb.from('app_meta').upsert({key:'full_state', value: blob});
+      if (error) erros.push('full_state: ' + error.message);
+    }
     if (erros.length) toast('⚠️ Parcial — erros: ' + erros.join(', '));
     else toast('✓ Todos os dados enviados para a nuvem!');
   } catch(e) {
