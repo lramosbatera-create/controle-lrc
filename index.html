@@ -2636,6 +2636,20 @@ function migrateAgendaPresenca() {
   if (!state.alunos || !state.alunos.length) return;
   let changed = false;
 
+  // Fix direcionado: desfaz links errados criados pelo fallback de primeiro nome
+  // (ex: "Miguel Paes" agenda id:24 foi vinculado incorretamente a Miguel Pozes id:25)
+  const WRONG_LINKS = {
+    24: {alunoId: null, nome: 'Miguel Paes'}, // especial — não tem ID numérico
+  };
+  state.agenda.forEach(ag => {
+    const fix = ag.id != null ? WRONG_LINKS[ag.id] : null;
+    if (fix && (ag.alunoId !== fix.alunoId || ag.aluno !== fix.nome)) {
+      ag.alunoId = fix.alunoId;
+      ag.aluno   = fix.nome;
+      changed = true;
+    }
+  });
+
   // Tabela de nomes parentéticos do seed → seed ID fixo do aluno
   // Necessário quando há múltiplos alunos com mesmo primeiro nome e o nome foi alterado no Cadastro
   const SEED_PARENTHETICAL = {
@@ -2645,6 +2659,9 @@ function migrateAgendaPresenca() {
   // 1. Vincula por nome (se alunoId ausente) E mantém ag.aluno sempre em dia com Cadastro
   state.agenda.forEach(ag => {
     if (ag.aluno === 'VAGO') return;
+    // Pula entradas com fix direcionado (já tratadas acima)
+    if (ag.id != null && WRONG_LINKS[ag.id]) return;
+
     if (!ag.alunoId) {
       let id = null;
 
@@ -2658,10 +2675,20 @@ function migrateAgendaPresenca() {
       // Tentativa 2: match exato de nome
       if (!id) id = getIdAluno(ag.aluno);
 
-      // Tentativa 3: match por primeiro nome — só vincula se houver 1 candidato único
+      // Tentativa 3: match por primeiro nome — exige 2 primeiros chars da segunda palavra iguais
+      // (evita linkar "Miguel Paes" a "Miguel Pozes" — "Pa" ≠ "Po")
       if (!id) {
-        const primeiroNome = ag.aluno.split(' ')[0];
-        const candidatos = state.alunos.filter(a => a.nome.split(' ')[0] === primeiroNome);
+        const partes = ag.aluno.split(' ');
+        const pNome  = partes[0];
+        const pSec   = (partes[1] || '').toLowerCase().slice(0, 2);
+        const candidatos = state.alunos.filter(a => {
+          if (a.nome.split(' ')[0] !== pNome) return false;
+          if (pSec) {
+            const cSec = (a.nome.split(' ')[1] || '').toLowerCase().slice(0, 2);
+            if (cSec && cSec !== pSec) return false;
+          }
+          return true;
+        });
         if (candidatos.length === 1) { id = candidatos[0].id; ag.aluno = candidatos[0].nome; }
       }
 
@@ -2789,8 +2816,12 @@ function populateAgendaSelect() {
   const sel = document.getElementById('ag-aluno');
   if (!sel) return;
   const ativos = state.alunos.filter(a => a.status === 'Ativo').sort((a,b)=>a.nome.localeCompare(b.nome));
+  const especiais = (state.alunosEspeciais || []).sort((a,b)=>a.nome.localeCompare(b.nome));
   sel.innerHTML = '<option value="VAGO">— VAGO —</option>' +
-    ativos.map(a => `<option value="${a.id}">${a.nome}</option>`).join('');
+    ativos.map(a => `<option value="${a.id}">${a.nome}</option>`).join('') +
+    (especiais.length
+      ? `<optgroup label="★ Especiais">${especiais.map(e=>`<option value="ESP:${e.nome}">${e.nome} ★</option>`).join('')}</optgroup>`
+      : '');
 }
 
 function adicionarAgenda() {
@@ -2802,6 +2833,8 @@ function adicionarAgenda() {
   let aluno, alunoId;
   if (val === 'VAGO') {
     aluno = 'VAGO'; alunoId = null;
+  } else if (val.startsWith('ESP:')) {
+    aluno = val.slice(4); alunoId = null; // aluno especial — sem ID numérico
   } else {
     const id = parseInt(val);
     const a  = state.alunos.find(x => x.id === id);
@@ -4775,13 +4808,16 @@ function relLinha(label, valor, cor) {
 }
 
 function gerarRelMensal(mes, mesNome) {
+  const mesIdx = MESES.indexOf(mes);
   const recINB = state.alunos.reduce((s,a) => s + (a.pag[mes]||0), 0);
   const recShows = state.shows.filter(s=>s.status==='pago'&&s.data&&MESES[new Date(s.data+'T12:00:00').getMonth()]===mes).reduce((s,x)=>s+(parseFloat(x.cache)||0),0);
   const despFixas = state.despesas_fixas.reduce((s,d)=>s+d.valor,0);
   const despINB = state.gastos_inb.filter(g=>g.mes===mes).reduce((s,d)=>s+d.valor,0);
   const despNB = state.gastos_nb.filter(g=>g.mes===mes).reduce((s,d)=>s+d.valor,0);
   const despCot = (state.cotidiano||[]).filter(d=>getMesDaCot(d)===mes).reduce((s,d)=>s+d.valor,0);
-  const inadimplentes = state.alunos.filter(isInadimplente);
+  // Inadimplentes até este mês (mesma lógica da aba INB)
+  const inadimplentes = state.alunos.filter(a => a.status==='Ativo' && calcDevedorNoMes(a, mesIdx) > 0);
+  const totalInad = inadimplentes.reduce((s,a) => s + calcDevedorNoMes(a, mesIdx), 0);
 
   return relHeader(`Relatório Mensal — ${mesNome}`, `Gerado em ${new Date().toLocaleDateString('pt-BR')}`) +
     `<div style="margin-bottom:16px;"><div style="font-size:11px;color:var(--gold);letter-spacing:1px;text-transform:uppercase;margin-bottom:8px;">RECEITAS</div>` +
@@ -4794,9 +4830,15 @@ function gerarRelMensal(mes, mesNome) {
     relLinha('Gastos NB', fmtBRL(despNB), '#E74C3C') +
     relLinha('Cotidiano', fmtBRL(despCot), '#E74C3C') +
     relLinha('Total Despesas', fmtBRL(despFixas+despINB+despNB+despCot), '#E74C3C') + `</div>` +
-    `<div style="margin-bottom:16px;"><div style="font-size:11px;color:var(--gold);letter-spacing:1px;text-transform:uppercase;margin-bottom:8px;">INADIMPLÊNCIA</div>` +
+    `<div style="margin-bottom:16px;"><div style="font-size:11px;color:var(--gold);letter-spacing:1px;text-transform:uppercase;margin-bottom:8px;">INADIMPLÊNCIA ACUMULADA ATÉ ${mesNome.toUpperCase()}</div>` +
     relLinha('Alunos em atraso', inadimplentes.length + ' alunos', inadimplentes.length>0?'#E74C3C':'var(--green)') +
-    inadimplentes.map(a => relLinha(a.nome, fmtBRL(calcDevedor(a)), '#E74C3C')).join('') + `</div>`;
+    inadimplentes.map(a => relLinha(a.nome, fmtBRL(calcDevedorNoMes(a, mesIdx)), '#E74C3C')).join('') +
+    (inadimplentes.length > 0
+      ? `<div style="display:flex;justify-content:space-between;padding:10px 0;margin-top:6px;border-top:1px solid var(--border);">
+          <span style="font-size:13px;font-weight:700;color:#E74C3C;">Total a receber</span>
+          <span style="font-family:'Cormorant Garamond',serif;font-size:18px;font-weight:700;color:#E74C3C;">${fmtBRL(totalInad)}</span>
+        </div>`
+      : '') + `</div>`;
 }
 
 function gerarRelAnual() {
