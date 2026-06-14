@@ -3042,9 +3042,15 @@ function renderReposicoes() {
   const realizadas = state.reposicoes.filter(r => r.status === 'realizada')
     .sort((a,b) => b.dataRep.localeCompare(a.dataRep));
 
-  const alunosOpts = state.alunos.filter(a => a.status === 'Ativo')
-    .sort((a,b) => a.nome.localeCompare(b.nome))
-    .map(a => `<option value="${a.id}">${a.nome}</option>`).join('');
+  // Referência definitiva ao Cadastro (Ativo + dentro do período de aulas)
+  const mesAtualRepIdx = new Date().getMonth();
+  const ativosRep = state.alunos.filter(a => a.status === 'Ativo' && getMesSaidaIdx(a) >= mesAtualRepIdx)
+    .sort((a,b) => a.nome.localeCompare(b.nome));
+  const especiaisRep = (state.alunosEspeciais || []).sort((a,b) => a.nome.localeCompare(b.nome));
+  const alunosOpts = ativosRep.map(a => `<option value="${a.id}">${a.nome}</option>`).join('') +
+    (especiaisRep.length
+      ? `<optgroup label="★ Especiais">${especiaisRep.map(e => `<option value="ESP:${e.nome}">${e.nome} ★</option>`).join('')}</optgroup>`
+      : '');
 
   let html = `
   <div class="form-card" style="margin-bottom:16px;">
@@ -3139,8 +3145,9 @@ function salvarReposicao() {
   const horario   = document.getElementById('rep-horario')?.value;
   const obs       = document.getElementById('rep-obs')?.value.trim();
   if (!selVal || !dataRep) { toast('⚠️ Informe o aluno e a data de reposição'); return; }
-  const alunoId   = parseInt(selVal);
-  const alunoNome = getNomeAluno(alunoId) || selVal;
+  const isEspRep  = selVal.startsWith('ESP:');
+  const alunoId   = isEspRep ? null : parseInt(selVal);
+  const alunoNome = isEspRep ? selVal.slice(4) : (getNomeAluno(alunoId) || selVal);
   const nextId = state.reposicoes.length ? Math.max(...state.reposicoes.map(r => r.id || 0)) + 1 : 1;
   state.reposicoes.push({ id: nextId, alunoId, alunoNome, dataFalta: dataFalta||'', dataRep, horario: horario||'', status: 'agendada', obs });
   saveState();
@@ -3304,15 +3311,16 @@ function renderRelatorios() {
   if (!container) return;
 
   const ano = presencaAno;
-  // Alunos únicos na agenda — key = ID (preferencial) ou nome, exibe nome canônico do cadastro
-  const agUnico = new Map();
-  state.agenda.filter(a => a.aluno !== 'VAGO' && (a.alunoId || a.aluno)).forEach(a => {
-    const k = agKey(a), n = agNome(a);
-    if (!agUnico.has(k)) agUnico.set(k, n);
-  });
-  const opts = [...agUnico.entries()]
-    .sort((a,b) => a[1].localeCompare(b[1]))
-    .map(([k,n]) => `<option value="${k}">${n}</option>`).join('');
+  // Selector por aluno — referência definitiva ao Cadastro (status Ativo + dentro do período de aulas)
+  const mesAtualRelIdx = new Date().getMonth();
+  const ativosRel = state.alunos
+    .filter(a => a.status === 'Ativo' && getMesSaidaIdx(a) >= mesAtualRelIdx)
+    .sort((a,b) => a.nome.localeCompare(b.nome));
+  const especiaisRel = (state.alunosEspeciais || []).sort((a,b) => a.nome.localeCompare(b.nome));
+  const opts = ativosRel.map(a => `<option value="${a.id}">${a.nome}</option>`).join('') +
+    (especiaisRel.length
+      ? `<optgroup label="★ Especiais">${especiaisRel.map(e => `<option value="${e.nome}">${e.nome} ★</option>`).join('')}</optgroup>`
+      : '');
 
   const { byAluno, byMes } = getPresencaStatsInstituto(ano);
   const todosAlunos = Object.entries(byAluno).filter(([,s]) => s.total > 0);
@@ -8278,7 +8286,9 @@ function atvEspNome() {
 function populateAtvAlunoSelect() {
   const sel = document.getElementById('atv-aluno-sel');
   if (!sel) return;
-  const ativos = state.alunos.filter(a => a.status !== 'Inativo').sort((a,b) => a.nome.localeCompare(b.nome));
+  // Referência definitiva ao Cadastro (Ativo + dentro do período de aulas)
+  const mesAtualAtvIdx = new Date().getMonth();
+  const ativos = state.alunos.filter(a => a.status === 'Ativo' && getMesSaidaIdx(a) >= mesAtualAtvIdx).sort((a,b) => a.nome.localeCompare(b.nome));
   const especiais = (state.alunosEspeciais || []).sort((a,b) => a.nome.localeCompare(b.nome));
   sel.innerHTML = '<option value="">— Selecione o aluno —</option>' +
     ativos.map(a => `<option value="${a.id}"${String(a.id) === String(atvAlunoAtual) ? ' selected':''}>${a.nome}</option>`).join('') +
