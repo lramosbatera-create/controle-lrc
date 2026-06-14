@@ -4772,24 +4772,62 @@ function gerarRelAnual() {
 }
 
 function gerarRelINB(mes, mesNome) {
-  const ativos = state.alunos.filter(a=>a.status==='Ativo');
-  const inadimplentes = state.alunos.filter(isInadimplente);
-  const recMes = state.alunos.reduce((s,a)=>s+(a.pag[mes]||0),0);
+  const mesIdx = MESES.indexOf(mes);
+  const ativos = state.alunos.filter(a => a.status === 'Ativo');
+
+  // Alunos matriculados neste mês específico
+  const matriculadosNoMes = ativos.filter(a =>
+    getMesInicioIdx(a) <= mesIdx && getMesSaidaIdx(a) >= mesIdx
+  );
+
+  // Quem pagou neste mês
+  const pagaramNoMes = matriculadosNoMes.filter(a => (a.pag[mes]||0) > 0);
+  // Quem deveria ter pago mas não pagou neste mês (apenas este mês, mesIdx>0 pois jan é matrícula)
+  const naoPageMes = mesIdx > 0
+    ? matriculadosNoMes.filter(a => (a.pag[mes]||0) === 0)
+    : [];
+
+  const recMes = state.alunos.reduce((s,a) => s + (a.pag[mes]||0), 0);
+
+  // Inadimplentes ACUMULADO até este mês (não usa new Date, usa mesIdx)
+  const inadNoMes = ativos.filter(a => calcDevedorNoMes(a, mesIdx) > 0);
+  const totalDevido = inadNoMes.reduce((s,a) => s + calcDevedorNoMes(a, mesIdx), 0);
+
+  const secPagamentos = pagaramNoMes.length
+    ? pagaramNoMes.map(a => relLinha(a.nome, fmtBRL(a.pag[mes]||0), 'var(--green)')).join('')
+    : '<div style="font-size:13px;color:var(--muted);padding:8px 0;">Nenhum pagamento registrado.</div>';
+
+  const secNaoPagou = naoPageMes.length
+    ? naoPageMes.map(a => relLinha(a.nome, 'não pagou', '#E0A800')).join('')
+    : mesIdx > 0
+      ? '<div style="font-size:13px;color:var(--green);padding:8px 0;">✅ Todos pagaram!</div>'
+      : '';
+
+  const secInadimplentes = inadNoMes.length
+    ? inadNoMes.map(a => relLinha(a.nome, fmtBRL(calcDevedorNoMes(a, mesIdx)), '#E74C3C')).join('') +
+      `<div style="display:flex;justify-content:space-between;padding:10px 0;margin-top:6px;border-top:1px solid var(--border);">
+        <span style="font-size:13px;font-weight:700;color:#E74C3C;">Total a receber acumulado</span>
+        <span style="font-family:'Cormorant Garamond',serif;font-size:18px;font-weight:700;color:#E74C3C;">${fmtBRL(totalDevido)}</span>
+      </div>`
+    : '<div style="font-size:13px;color:var(--green);padding:8px 0;">✅ Nenhum inadimplente até ' + mesNome + '!</div>';
 
   return relHeader(`Relatório INB — ${mesNome}`, `Instituto Nego Batera · ${new Date().toLocaleDateString('pt-BR')}`) +
     `<div style="margin-bottom:16px;"><div style="font-size:11px;color:var(--gold);letter-spacing:1px;text-transform:uppercase;margin-bottom:8px;">RESUMO</div>` +
     relLinha('Alunos ativos', ativos.length + ' alunos') +
-    relLinha('Inadimplentes', inadimplentes.length + ' alunos', inadimplentes.length>0?'#E74C3C':'var(--green)') +
+    relLinha(`Matriculados em ${mesNome}`, matriculadosNoMes.length + ' alunos') +
+    relLinha(`Pagaram em ${mesNome}`, pagaramNoMes.length + ' alunos', pagaramNoMes.length>0?'var(--green)':'var(--muted)') +
+    (mesIdx > 0 ? relLinha(`Não pagaram em ${mesNome}`, naoPageMes.length + ' alunos', naoPageMes.length>0?'#E0A800':'var(--green)') : '') +
+    relLinha(`Inadimplentes acumulado até ${mesNome}`, inadNoMes.length + ' alunos', inadNoMes.length>0?'#E74C3C':'var(--green)') +
     relLinha(`Receita ${mesNome}`, fmtBRL(recMes), 'var(--green)') + `</div>` +
-    `<div><div style="font-size:11px;color:var(--gold);letter-spacing:1px;text-transform:uppercase;margin-bottom:8px;">INADIMPLENTES</div>` +
-    (inadimplentes.length
-      ? inadimplentes.map(a => relLinha(a.nome, fmtBRL(calcDevedor(a)), '#E74C3C')).join('') +
-        `<div style="display:flex;justify-content:space-between;padding:10px 0;margin-top:6px;border-top:1px solid var(--border);">
-          <span style="font-size:13px;font-weight:700;color:#E74C3C;">Total a receber (${mesNome})</span>
-          <span style="font-family:'Cormorant Garamond',serif;font-size:18px;font-weight:700;color:#E74C3C;">${fmtBRL(inadimplentes.reduce((s,a)=>s+calcDevedor(a),0))}</span>
-        </div>`
-      : '<div style="font-size:13px;color:var(--green);padding:8px 0;">✅ Nenhum inadimplente!</div>'
-    ) + `</div>`;
+
+    `<div style="margin-bottom:16px;"><div style="font-size:11px;color:var(--green);letter-spacing:1px;text-transform:uppercase;margin-bottom:8px;">✅ PAGAMENTOS DE ${mesNome.toUpperCase()} (${pagaramNoMes.length})</div>` +
+    secPagamentos + `</div>` +
+
+    (mesIdx > 0 ? `<div style="margin-bottom:16px;"><div style="font-size:11px;color:#E0A800;letter-spacing:1px;text-transform:uppercase;margin-bottom:8px;">⚠️ NÃO PAGARAM EM ${mesNome.toUpperCase()} (${naoPageMes.length})</div>` +
+    secNaoPagou + `</div>` : '') +
+
+    `<div><div style="font-size:11px;color:#E74C3C;letter-spacing:1px;text-transform:uppercase;margin-bottom:8px;">🔴 INADIMPLENTES ACUMULADO ATÉ ${mesNome.toUpperCase()} (${inadNoMes.length})</div>` +
+    secInadimplentes + `</div>`;
 }
 
 function gerarRelShows() {
@@ -5132,6 +5170,21 @@ function calcDevedor(aluno) {
 function isInadimplente(aluno) {
   if (aluno.status !== 'Ativo') return false;
   return calcDevedor(aluno) > 0;
+}
+
+// Como calcDevedor, mas limitado ao mesIdx indicado (para relatórios por mês)
+function calcDevedorNoMes(aluno, mesIdx) {
+  if (aluno.status !== 'Ativo') return 0;
+  const startIdx = getMesInicioIdx(aluno);
+  const saidaIdx = getMesSaidaIdx(aluno);
+  const limiteIdx = Math.min(mesIdx, saidaIdx);
+  if (startIdx > limiteIdx) return 0;
+  let devido = (aluno.mat_pago || 0) > 0 ? 0 : (aluno.matricula || 0);
+  for (let i = startIdx; i <= limiteIdx; i++) {
+    if (i === 0) continue;
+    if ((aluno.pag[MESES[i]] || 0) === 0) devido += aluno.mensalidade;
+  }
+  return devido;
 }
 
 function renderAlunos() {
