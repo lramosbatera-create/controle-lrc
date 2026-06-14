@@ -2631,16 +2631,21 @@ function agKey(ag) {
   return ag.alunoId ? String(ag.alunoId) : ag.aluno;
 }
 
-// Migração única: converte agenda/presencas/reposicoes para chaves de ID
+// Mantém agenda/presencas/reposicoes sempre sincronizados com state.alunos
 function migrateAgendaPresenca() {
   if (!state.alunos || !state.alunos.length) return;
   let changed = false;
 
-  // 1. Adiciona alunoId às entradas da agenda que ainda usam só nome
+  // 1. Vincula por nome (se alunoId ausente) E mantém ag.aluno sempre em dia com Cadastro
   state.agenda.forEach(ag => {
-    if (!ag.alunoId && ag.aluno && ag.aluno !== 'VAGO') {
+    if (ag.aluno === 'VAGO') return;
+    if (!ag.alunoId) {
       const id = getIdAluno(ag.aluno);
       if (id) { ag.alunoId = id; changed = true; }
+    } else {
+      // alunoId já está definido — sincroniza ag.aluno com o nome atual do Cadastro
+      const nomeAtual = getNomeAluno(ag.alunoId);
+      if (nomeAtual && nomeAtual !== ag.aluno) { ag.aluno = nomeAtual; changed = true; }
     }
   });
 
@@ -3604,6 +3609,8 @@ function salvarCadastro(id) {
   if (!a) return;
   const get = (sid) => document.getElementById(sid);
 
+  const oldNome = a.nome; // captura antes de alterar
+
   // Update aluno main fields
   const novoNome = get(`cad-nome-${id}`)?.value.trim();
   if (novoNome) a.nome = novoNome;
@@ -3633,6 +3640,27 @@ function salvarCadastro(id) {
     a.mat_pago = a.matricula;
     dbSave('alunos', {...a});
   }
+
+  // Sincroniza agenda: vincula por alunoId e por nome antigo; mantém ag.aluno sempre atual
+  state.agenda.forEach(ag => {
+    if (ag.alunoId === id) {
+      ag.aluno = a.nome; // atualiza nome backup
+    } else if (!ag.alunoId && ag.aluno === oldNome) {
+      ag.alunoId = id;  // vincula definitivamente pelo nome antigo
+      ag.aluno   = a.nome;
+    }
+  });
+
+  // Migra chaves de presencas de nome → id (caso ainda estejam como string de nome)
+  const newPres = {};
+  Object.entries(state.presencas || {}).forEach(([date, entries]) => {
+    newPres[date] = {};
+    Object.entries(entries).forEach(([key, val]) => {
+      if (key === oldNome || key === a.nome) newPres[date][String(id)] = val;
+      else newPres[date][key] = val;
+    });
+  });
+  state.presencas = newPres;
 
   saveState();
   renderAlunos();
