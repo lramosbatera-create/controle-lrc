@@ -6699,10 +6699,11 @@ function migrateParceladasFim2026() {
   cfg.forEach(c => {
     const existing = state.parceladas.find(p => p.id === c.id);
     if (existing) {
-      // Atualiza com dados corretos (fim/anoFim/nome)
-      Object.assign(existing, c);
+      // Só preenche campos ausentes — nunca sobrescreve edições do usuário
+      Object.keys(c).forEach(k => {
+        if (existing[k] === undefined || existing[k] === null || existing[k] === '') existing[k] = c[k];
+      });
     } else {
-      // Insere se não existia
       state.parceladas.push({...c});
     }
   });
