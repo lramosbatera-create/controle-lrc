@@ -2636,22 +2636,35 @@ function migrateAgendaPresenca() {
   if (!state.alunos || !state.alunos.length) return;
   let changed = false;
 
+  // Tabela de nomes parentéticos do seed → seed ID fixo do aluno
+  // Necessário quando há múltiplos alunos com mesmo primeiro nome e o nome foi alterado no Cadastro
+  const SEED_PARENTHETICAL = {
+    'Davi (Marcielle)': 33, // renomeado para Davi Neves — id 33 imutável
+  };
+
   // 1. Vincula por nome (se alunoId ausente) E mantém ag.aluno sempre em dia com Cadastro
   state.agenda.forEach(ag => {
     if (ag.aluno === 'VAGO') return;
     if (!ag.alunoId) {
-      // Tentativa 1: match exato de nome
-      let id = getIdAluno(ag.aluno);
+      let id = null;
+
+      // Tentativa 1: nome parentético com seed ID conhecido (ex: "Davi (Marcielle)")
+      if (SEED_PARENTHETICAL[ag.aluno]) {
+        const seedId = SEED_PARENTHETICAL[ag.aluno];
+        const a = state.alunos.find(x => x.id === seedId);
+        if (a) { id = a.id; ag.aluno = a.nome; }
+      }
+
+      // Tentativa 2: match exato de nome
+      if (!id) id = getIdAluno(ag.aluno);
+
+      // Tentativa 3: match por primeiro nome — só vincula se houver 1 candidato único
       if (!id) {
-        // Tentativa 2: match por primeiro nome (fallback quando aluno foi renomeado)
-        // Só vincula se houver exatamente 1 candidato com o mesmo primeiro nome
         const primeiroNome = ag.aluno.split(' ')[0];
         const candidatos = state.alunos.filter(a => a.nome.split(' ')[0] === primeiroNome);
-        if (candidatos.length === 1) {
-          id = candidatos[0].id;
-          ag.aluno = candidatos[0].nome; // corrige o nome backup
-        }
+        if (candidatos.length === 1) { id = candidatos[0].id; ag.aluno = candidatos[0].nome; }
       }
+
       if (id) { ag.alunoId = id; changed = true; }
     } else {
       // alunoId já definido — sincroniza ag.aluno com o nome atual do Cadastro
@@ -2870,12 +2883,13 @@ function renderPresenca() {
     const alunosDoDia = state.agenda
       .filter(ag => {
         if (ag.dia !== dia || ag.aluno === 'VAGO' || !(ag.alunoId || ag.aluno)) return false;
-        // Respeita período de aulas do Cadastro (mesInicio / mesSaida)
-        const aluno = ag.alunoId ? state.alunos.find(a => a.id === ag.alunoId) : null;
-        if (!aluno) return true; // entrada sem vínculo — exibe mesmo assim
-        const inicioIdx = getMesInicioIdx(aluno);
-        const saidaIdx  = getMesSaidaIdx(aluno);
-        return presencaMes >= inicioIdx && presencaMes <= saidaIdx;
+        // Busca o aluno: 1) por alunoId, 2) fallback por nome exato (caso sem vínculo)
+        const aluno = ag.alunoId
+          ? state.alunos.find(a => a.id === ag.alunoId)
+          : state.alunos.find(a => a.nome === ag.aluno);
+        if (!aluno) return true; // não encontrado — exibe sem filtrar
+        // Respeita período de aulas definido no Cadastro (mesInicio / mesSaida)
+        return presencaMes >= getMesInicioIdx(aluno) && presencaMes <= getMesSaidaIdx(aluno);
       })
       .sort((a,b) => a.hora.localeCompare(b.hora) || agNome(a).localeCompare(agNome(b)));
     if (!alunosDoDia.length) return;
@@ -7761,6 +7775,12 @@ Para marcar show como PAGO (cachê recebido):
 Para CORRIGIR/REMOVER show (cancelar, remover, corrigi):
 {"acao":"cancelar_show","artista":"Aline Brasil","cidade":"Curitiba","data":"2026-07-15","confirmacao":"✅ Show de Aline Brasil em Curitiba removido!"}
 
+Para marcar presença / aulas dadas (marcar quem foi à aula):
+{"acao":"marcar_presenca","alunos":["Nome1","Nome2"],"data":"2026-06-14","confirmacao":"✅ 2 aula(s) marcada(s) em 14/06 — Nome1, Nome2!"}
+- Se não informar data, usa hoje
+- "data" sempre no formato YYYY-MM-DD
+- Detecta: "aula dada", "deu aula", "teve aula", "aulas de hoje", nomes + data
+
 Para novo aluno:
 {"acao":"novo_aluno","nome":"Nome Completo","mensalidade":185,"matricula":100,"confirmacao":"✅ Aluno Pedro Silva cadastrado com mensalidade R$185!"}
 
@@ -7952,6 +7972,32 @@ async function executarAcao(parsed) {
     }
     updatePainel();
     addMessage(parsed.confirmacao, 'success');
+  }
+
+  else if (acao === 'marcar_presenca') {
+    const data = parsed.data || new Date().toISOString().split('T')[0];
+    if (!state.presencas) state.presencas = {};
+    if (!state.presencas[data]) state.presencas[data] = {};
+    const marcados = [], naoEncontrados = [];
+    (parsed.alunos || []).forEach(nomeChat => {
+      const aluno = state.alunos.find(a =>
+        a.nome.toLowerCase().includes(nomeChat.toLowerCase()) ||
+        nomeChat.toLowerCase().includes(a.nome.toLowerCase().split(' ')[0])
+      );
+      if (aluno) {
+        // Usa ID como chave (padrão atual do sistema de presenças)
+        state.presencas[data][String(aluno.id)] = 'P';
+        marcados.push(aluno.nome);
+      } else {
+        naoEncontrados.push(nomeChat);
+      }
+    });
+    saveState();
+    // Atualiza a tela de presenças se estiver visível
+    if (document.getElementById('agenda-sub-presenca')?.style.display !== 'none') renderPresenca();
+    let msg = parsed.confirmacao || `✅ ${marcados.length} presença(s) marcada(s) em ${new Date(data+'T12:00').toLocaleDateString('pt-BR')}!`;
+    if (naoEncontrados.length) msg += `\n⚠️ Não encontrado(s): ${naoEncontrados.join(', ')}`;
+    addMessage(msg, 'success');
   }
 
   else if (acao === 'novo_aluno') {
