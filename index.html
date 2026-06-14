@@ -2640,10 +2640,21 @@ function migrateAgendaPresenca() {
   state.agenda.forEach(ag => {
     if (ag.aluno === 'VAGO') return;
     if (!ag.alunoId) {
-      const id = getIdAluno(ag.aluno);
+      // Tentativa 1: match exato de nome
+      let id = getIdAluno(ag.aluno);
+      if (!id) {
+        // Tentativa 2: match por primeiro nome (fallback quando aluno foi renomeado)
+        // Só vincula se houver exatamente 1 candidato com o mesmo primeiro nome
+        const primeiroNome = ag.aluno.split(' ')[0];
+        const candidatos = state.alunos.filter(a => a.nome.split(' ')[0] === primeiroNome);
+        if (candidatos.length === 1) {
+          id = candidatos[0].id;
+          ag.aluno = candidatos[0].nome; // corrige o nome backup
+        }
+      }
       if (id) { ag.alunoId = id; changed = true; }
     } else {
-      // alunoId já está definido — sincroniza ag.aluno com o nome atual do Cadastro
+      // alunoId já definido — sincroniza ag.aluno com o nome atual do Cadastro
       const nomeAtual = getNomeAluno(ag.alunoId);
       if (nomeAtual && nomeAtual !== ag.aluno) { ag.aluno = nomeAtual; changed = true; }
     }
@@ -2857,7 +2868,15 @@ function renderPresenca() {
     const datas = getAulasDatasDoMes(dia, presencaAno, presencaMes);
     if (!datas.length) return;
     const alunosDoDia = state.agenda
-      .filter(a => a.dia === dia && a.aluno !== 'VAGO' && (a.alunoId || a.aluno))
+      .filter(ag => {
+        if (ag.dia !== dia || ag.aluno === 'VAGO' || !(ag.alunoId || ag.aluno)) return false;
+        // Respeita período de aulas do Cadastro (mesInicio / mesSaida)
+        const aluno = ag.alunoId ? state.alunos.find(a => a.id === ag.alunoId) : null;
+        if (!aluno) return true; // entrada sem vínculo — exibe mesmo assim
+        const inicioIdx = getMesInicioIdx(aluno);
+        const saidaIdx  = getMesSaidaIdx(aluno);
+        return presencaMes >= inicioIdx && presencaMes <= saidaIdx;
+      })
       .sort((a,b) => a.hora.localeCompare(b.hora) || agNome(a).localeCompare(agNome(b)));
     if (!alunosDoDia.length) return;
 
