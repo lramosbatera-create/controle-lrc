@@ -2300,6 +2300,7 @@ async function dbLoad() {
   if (!state.alunosEspeciais) state.alunosEspeciais = [];
   migrateCotidianoCompleto2026();
   migrateCotidianoMaiJun();
+  migrateEspeciaisSeed();
   migrateAgendaPresenca();
   migrateAlunosExcel2026();
   migrateFixasExcel2026();
@@ -2629,6 +2630,23 @@ function agNome(ag) {
 // Chave usada em state.presencas: ID (string) se disponível, senão nome
 function agKey(ag) {
   return ag.alunoId ? String(ag.alunoId) : ag.aluno;
+}
+
+// Garante que os alunos especiais conhecidos existam em state.alunosEspeciais
+function migrateEspeciaisSeed() {
+  if (!state.alunosEspeciais) state.alunosEspeciais = [];
+  const seed = [
+    { nome: 'Maria Valentina', tipo: 'cortesia', tel: '', obs: '', status: 'Ativo' },
+    { nome: 'Miguel Paes',     tipo: 'cortesia', tel: '', obs: '', status: 'Ativo' },
+  ];
+  let changed = false;
+  seed.forEach(esp => {
+    if (!state.alunosEspeciais.find(e => e.nome === esp.nome)) {
+      state.alunosEspeciais.push(esp);
+      changed = true;
+    }
+  });
+  if (changed) saveState();
 }
 
 // Mantém agenda/presencas/reposicoes sempre sincronizados com state.alunos
@@ -8170,6 +8188,7 @@ function toggleMic() {
   if (!state.avulsos) state.avulsos = [];
   try { migrateCotidianoCompleto2026(); } catch(e) {}
   try { migrateCotidianoMaiJun(); } catch(e) {}
+  try { migrateEspeciaisSeed(); } catch(e) {}
   try { migrateAgendaPresenca(); } catch(e) {}
   try { migrateAlunosExcel2026(); } catch(e) {}
   try { migrateFixasExcel2026(); } catch(e) {}
