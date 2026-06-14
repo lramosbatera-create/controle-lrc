@@ -4780,21 +4780,39 @@ function gerarRelINB(mes, mesNome) {
 }
 
 function gerarRelShows() {
-  const total = state.shows.reduce((s,x)=>s+(parseFloat(x.cache)||0),0);
-  const pagos = state.shows.filter(s=>s.status==='pago').reduce((s,x)=>s+(parseFloat(x.cache)||0),0);
-  const pendentes = state.shows.filter(s=>s.status!=='pago').reduce((s,x)=>s+(parseFloat(x.cache)||0),0);
+  const normSt = s => s.status==='pendente'?'previsto':s.status==='parcial'?'confirmado':(s.status||'previsto');
+  const ordenados = [...state.shows].sort((a,b)=>(a.data||'')>(b.data||'')?1:-1);
+  const realizados  = ordenados.filter(s=>normSt(s)==='pago');
+  const confirmados = ordenados.filter(s=>normSt(s)==='confirmado');
+  const previstos   = ordenados.filter(s=>normSt(s)==='previsto');
+  const totReal  = realizados.reduce((s,x) =>s+(parseFloat(x.cache)||0),0);
+  const totConf  = confirmados.reduce((s,x)=>s+(parseFloat(x.cache)||0),0);
+  const totPrev  = previstos.reduce((s,x)  =>s+(parseFloat(x.cache)||0),0);
+  const totGeral = totReal + totConf + totPrev;
+
+  const listaShows = (lista, cor) => lista.map(s =>
+    relLinha(
+      `${s.data?new Date(s.data+'T12:00:00').toLocaleDateString('pt-BR'):'—'} · ${s.artista} · ${s.cidade}/${s.estado}`,
+      fmtBRL(s.cache), cor
+    )
+  ).join('');
 
   return relHeader('Relatório Shows 2026', `Nego Batera · ${new Date().toLocaleDateString('pt-BR')}`) +
-    `<div style="margin-bottom:16px;"><div style="font-size:11px;color:var(--gold);letter-spacing:1px;text-transform:uppercase;margin-bottom:8px;">RESUMO</div>` +
+    `<div style="margin-bottom:16px;"><div style="font-size:11px;color:var(--gold);letter-spacing:1px;text-transform:uppercase;margin-bottom:8px;">RESUMO GERAL</div>` +
     relLinha('Total de shows', state.shows.length + ' shows') +
-    relLinha('Cachês recebidos', fmtBRL(pagos), 'var(--green)') +
-    relLinha('Cachês pendentes', fmtBRL(pendentes), pendentes>0?'#E74C3C':'var(--muted)') +
-    relLinha('Total geral', fmtBRL(total), 'var(--gold)') + `</div>` +
-    `<div><div style="font-size:11px;color:var(--gold);letter-spacing:1px;text-transform:uppercase;margin-bottom:8px;">SHOWS</div>` +
-    state.shows.sort((a,b)=>a.data>b.data?1:-1).map(s =>
-      relLinha(`${s.data ? new Date(s.data+'T12:00:00').toLocaleDateString('pt-BR') : '—'} · ${s.artista} · ${s.cidade}/${s.estado}`,
-        fmtBRL(s.cache), s.status==='pago'?'var(--green)':'#E74C3C')
-    ).join('') + `</div>`;
+    relLinha(`✅ Realizados (${realizados.length})`, fmtBRL(totReal), 'var(--green)') +
+    relLinha(`📋 Confirmados (${confirmados.length})`, fmtBRL(totConf), 'var(--gold)') +
+    relLinha(`🔮 Previstos (${previstos.length})`, fmtBRL(totPrev), 'var(--muted)') +
+    relLinha('Total geral', fmtBRL(totGeral), 'var(--gold)') + `</div>` +
+
+    (realizados.length ? `<div style="margin-bottom:16px;"><div style="font-size:11px;color:var(--green);letter-spacing:1px;text-transform:uppercase;margin-bottom:8px;">✅ REALIZADOS — ${fmtBRL(totReal)}</div>` +
+    listaShows(realizados, 'var(--green)') + `</div>` : '') +
+
+    (confirmados.length ? `<div style="margin-bottom:16px;"><div style="font-size:11px;color:var(--gold);letter-spacing:1px;text-transform:uppercase;margin-bottom:8px;">📋 CONFIRMADOS — ${fmtBRL(totConf)}</div>` +
+    listaShows(confirmados, 'var(--gold)') + `</div>` : '') +
+
+    (previstos.length ? `<div><div style="font-size:11px;color:var(--muted);letter-spacing:1px;text-transform:uppercase;margin-bottom:8px;">🔮 PREVISTOS — ${fmtBRL(totPrev)}</div>` +
+    listaShows(previstos, 'var(--muted)') + `</div>` : '');
 }
 
 function gerarRelRecital() {
@@ -5737,7 +5755,13 @@ function parcTotalParcelas(p) {
   const fim = (p.anoFim||p.anoInicio||p.ano||2026)*12 + MESES.indexOf(p.fim||'dez');
   return Math.max(1, fim - ini + 1);
 }
+function parcMesKey(p, k) {
+  const iniAbs = (p.anoInicio||p.ano||2026)*12 + MESES.indexOf(p.inicio||'jan');
+  const mAbs = iniAbs + k;
+  return MESES[mAbs%12]+'/'+Math.floor(mAbs/12);
+}
 function parcPagas(p) {
+  if (p.pagos) return p.pagos.length;
   const hoje = new Date();
   const mesAtualAbs = hoje.getFullYear()*12 + hoje.getMonth();
   const ini = (p.anoInicio||p.ano||2026)*12 + MESES.indexOf(p.inicio||'jan');
@@ -6082,23 +6106,38 @@ function renderParceladas() {
     const pct = Math.round((pagas/total)*100);
     const inicioLabel = MESES_LABEL[MESES.indexOf(p.inicio||'jan')];
     const fimLabel = MESES_LABEL[MESES.indexOf(p.fim||'dez')];
+    const proximaIdx = (() => {
+      if (!p.pagos) return pagas;
+      for (let k=0; k<total; k++) { if (!p.pagos.includes(parcMesKey(p,k))) return k; }
+      return total;
+    })();
     const bolhas = Array.from({length:total},(_,k)=>{
-      const pago = k < pagas;
-      const proxima = k === pagas;
+      const mk = parcMesKey(p,k);
+      const pago = p.pagos ? p.pagos.includes(mk) : k < pagas;
+      const proxima = k === proximaIdx;
       const mesAbsK = MESES.indexOf(p.inicio||'jan') + k;
       const mIdx = mesAbsK % 12;
       const mAno = anoInicio + Math.floor(mesAbsK/12);
       const label = MESES[mIdx].slice(0,3).toUpperCase();
-      return `<div title="${label}/${mAno}" style="
+      const clickable = p.pagos && pago;
+      return `<div ${clickable?`onclick="despagarParcela(${i},'${mk}')"`:''} title="${label}/${mAno}${clickable?' — clique para desfazer':''}" style="
         width:22px;height:22px;border-radius:50%;flex-shrink:0;
         display:flex;align-items:center;justify-content:center;
         font-size:7px;font-weight:700;letter-spacing:0;
+        cursor:${clickable?'pointer':'default'};
         background:${pago?'var(--green-dim)':proxima?'rgba(201,168,76,0.2)':'rgba(255,255,255,0.04)'};
         border:1px solid ${pago?'rgba(39,174,96,0.4)':proxima?'rgba(201,168,76,0.5)':'rgba(255,255,255,0.08)'};
         color:${pago?'var(--green)':proxima?'var(--gold)':'var(--muted)'};
         box-shadow:${proxima?'0 0 6px rgba(201,168,76,0.3)':'none'};
       ">${pago?'✓':proxima?'▶':k+1}</div>`;
     }).join('');
+    const pendentes = Array.from({length:total},(_,k)=>k)
+      .filter(k => !(p.pagos ? p.pagos.includes(parcMesKey(p,k)) : k < pagas))
+      .map(k => {
+        const mk = parcMesKey(p,k);
+        const [m,a] = mk.split('/');
+        return {mk, label: MESES_LABEL[MESES.indexOf(m)]+'/'+a.slice(2)};
+      });
     return `
     <div style="background:var(--card);border:1px solid var(--border);border-radius:12px;padding:16px;margin-bottom:10px;position:relative;overflow:hidden;">
       <div style="position:absolute;top:0;left:0;width:${pct}%;height:2px;background:linear-gradient(90deg,var(--gold-dim),var(--gold));"></div>
@@ -6117,6 +6156,15 @@ function renderParceladas() {
       <div style="display:flex;justify-content:space-between;font-size:11px;color:var(--muted);margin-bottom:10px;">
         <span>✓ Pago: <strong style="color:var(--green)">${fmtBRL(totalPago)}</strong></span>
         <span>Restante: <strong style="color:var(--red)">${fmtBRL(totalRest)}</strong> (${restantes}x)</span>
+      </div>
+      <div style="border-top:1px solid rgba(255,255,255,0.06);padding-top:10px;margin-bottom:10px;">
+        <div style="font-size:10px;color:var(--muted);letter-spacing:0.5px;margin-bottom:7px;">Pagar parcela:</div>
+        <div style="display:flex;gap:6px;flex-wrap:wrap;">
+          ${pendentes.length
+            ? pendentes.map(({mk,label})=>`<button onclick="pagarParcela(${i},'${mk}')" style="background:rgba(201,168,76,0.1);border:1px solid rgba(201,168,76,0.35);color:var(--gold);border-radius:20px;padding:5px 13px;font-size:11px;cursor:pointer;font-family:inherit;font-weight:600;">💳 ${label}</button>`).join('')
+            : '<span style="font-size:11px;color:var(--green);">✓ Todos os meses pagos!</span>'
+          }
+        </div>
       </div>
       <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
         <button onclick="editarParcelada(${i})" style="background:var(--gold-glow);border:1px solid var(--border);color:var(--gold);border-radius:8px;padding:7px 12px;font-size:11px;cursor:pointer;">✏️ Editar</button>
@@ -6144,19 +6192,26 @@ function renderParceladas() {
   }).join('')}` : ''}`;
 }
 
-function marcarParcelaPaga(i) {
-  const p = state.parceladas[i];
+function pagarParcela(parcIdx, mesKey) {
+  const p = state.parceladas[parcIdx];
   if (!p) return;
-  if (p.pagas >= p.parcelas) { toast('Todas as parcelas já foram pagas!'); return; }
-  p.pagas++;
+  if (!p.pagos) {
+    p.pagos = [];
+    const iniAbs = (p.anoInicio||p.ano||2026)*12 + MESES.indexOf(p.inicio||'jan');
+    const hoje = new Date();
+    const autoN = Math.min(parcTotalParcelas(p), Math.max(0, hoje.getFullYear()*12+hoje.getMonth() - iniAbs));
+    for (let k=0; k<autoN; k++) { const mAbs=iniAbs+k; p.pagos.push(MESES[mAbs%12]+'/'+Math.floor(mAbs/12)); }
+  }
+  if (!p.pagos.includes(mesKey)) p.pagos.push(mesKey);
   saveState(); renderParceladas(); updatePainel();
-  toast(`✓ Parcela ${p.pagas}/${p.parcelas} de ${p.nome} paga!`);
+  const [m] = mesKey.split('/'); toast(`✓ ${MESES_LABEL[MESES.indexOf(m)]} de ${p.nome} marcado como pago`);
 }
-function desfazerParcelaPaga(i) {
-  const p = state.parceladas[i];
-  if (!p || p.pagas <= 0) return;
-  p.pagas--;
-  saveState(); renderParceladas(); updatePainel(); toast('Parcela desfeita');
+function despagarParcela(parcIdx, mesKey) {
+  const p = state.parceladas[parcIdx];
+  if (!p || !p.pagos) return;
+  p.pagos = p.pagos.filter(k => k !== mesKey);
+  if (!p.pagos.length) delete p.pagos;
+  saveState(); renderParceladas(); updatePainel(); toast('Pagamento desfeito');
 }
 function removerParcelada(i) {
   state.parceladas.splice(i,1);
