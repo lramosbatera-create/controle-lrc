@@ -4872,13 +4872,77 @@ function gerarRelDespesas() {
     </div>`;
   }).join('');
 
-  // COTIDIANO — por mês
-  const linhasCot = MESES.map(m => {
-    const itens = (state.cotidiano||[]).filter(d=>getMesDaCot(d)===m);
+  // COTIDIANO — por categoria e mês
+  const cotAll = state.cotidiano || [];
+  const totalCotAnual = cotAll.reduce((s,d)=>s+d.valor,0);
+  const recTotal2 = state.alunos.reduce((s,a)=>s+calcPago(a),0)
+    + (state.avulsos||[]).reduce((s,av)=>s+av.valor,0)
+    + state.shows.filter(s=>s.status==='pago').reduce((s,x)=>s+(parseFloat(x.cache)||0),0);
+
+  // Agrupa por categoria (cat unificado)
+  const catMap = {};
+  cotAll.forEach(d => {
+    const k = d.cat || '(sem descrição)';
+    if (!catMap[k]) catMap[k] = {total:0, meses:{}};
+    catMap[k].total += d.valor;
+    const m = getMesDaCot(d);
+    catMap[k].meses[m] = (catMap[k].meses[m]||0) + d.valor;
+  });
+  const catsOrdenadas = Object.entries(catMap).sort((a,b)=>b[1].total-a[1].total);
+
+  // Tabela resumo anual por categoria
+  const tabelaCats = catsOrdenadas.length ? `
+  <div style="overflow-x:auto;margin-bottom:16px;">
+    <table style="width:100%;border-collapse:collapse;min-width:400px;font-size:12px;">
+      <thead><tr style="border-bottom:1px solid var(--border);">
+        <th style="padding:6px 8px;text-align:left;font-size:10px;color:var(--gold);">DESCRIÇÃO</th>
+        <th style="padding:6px 8px;text-align:right;font-size:10px;color:var(--gold);">TOTAL</th>
+        <th style="padding:6px 8px;text-align:right;font-size:10px;color:var(--muted);">% COT.</th>
+        <th style="padding:6px 8px;text-align:right;font-size:10px;color:var(--muted);">% DESP.</th>
+        <th style="padding:6px 8px;text-align:right;font-size:10px;color:var(--muted);">% REC.</th>
+      </tr></thead>
+      <tbody>
+        ${catsOrdenadas.map(([nome,d])=>{
+          const pCot  = totalCotAnual>0?(d.total/totalCotAnual*100).toFixed(1):0;
+          const pDesp = totalGeral>0?(d.total/totalGeral*100).toFixed(1):0;
+          const pRec  = recTotal2>0?(d.total/recTotal2*100).toFixed(1):0;
+          return `<tr style="border-bottom:1px solid rgba(255,255,255,0.04);">
+            <td style="padding:6px 8px;color:var(--text);">${nome}</td>
+            <td style="padding:6px 8px;text-align:right;color:var(--gold);font-family:'Cormorant Garamond',serif;">${fmtBRL(d.total)}</td>
+            <td style="padding:6px 8px;text-align:right;color:var(--muted);">${pCot}%</td>
+            <td style="padding:6px 8px;text-align:right;color:var(--muted);">${pDesp}%</td>
+            <td style="padding:6px 8px;text-align:right;color:var(--muted);">${pRec}%</td>
+          </tr>`;
+        }).join('')}
+        <tr style="border-top:2px solid var(--border);">
+          <td style="padding:8px;font-weight:700;color:var(--gold);font-size:11px;">TOTAL</td>
+          <td style="padding:8px;text-align:right;font-family:'Cormorant Garamond',serif;font-size:15px;color:var(--gold);">${fmtBRL(totalCotAnual)}</td>
+          <td style="padding:8px;text-align:right;color:var(--muted);font-size:10px;">100%</td>
+          <td style="padding:8px;text-align:right;color:var(--muted);font-size:10px;">${totalGeral>0?(totalCotAnual/totalGeral*100).toFixed(1):0}%</td>
+          <td style="padding:8px;text-align:right;color:var(--muted);font-size:10px;">${recTotal2>0?(totalCotAnual/recTotal2*100).toFixed(1):0}%</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+  <div style="font-size:10px;color:var(--muted);margin-bottom:16px;">% COT. = % do total cotidiano · % DESP. = % do total de despesas · % REC. = % da receita total</div>` : '';
+
+  // Por mês: categorias ordenadas por valor
+  const linhasCotMeses = MESES.map((m,mi) => {
+    const itens = cotAll.filter(d=>getMesDaCot(d)===m);
     if (!itens.length) return '';
-    const tot = itens.reduce((s,d)=>s+d.valor,0);
-    return relLinha(MESES_FULL[MESES.indexOf(m)], fmtBRL(tot), 'var(--muted)');
+    const totMes = itens.reduce((s,d)=>s+d.valor,0);
+    const catsMes = {};
+    itens.forEach(d=>{ const k=d.cat||'—'; catsMes[k]=(catsMes[k]||0)+d.valor; });
+    const sorted = Object.entries(catsMes).sort((a,b)=>b[1]-a[1]);
+    return `<div style="margin-bottom:12px;">
+      <div style="font-size:11px;color:var(--gold);font-weight:700;margin-bottom:6px;padding-bottom:4px;border-bottom:1px solid var(--border);">${MESES_FULL[mi]} — ${fmtBRL(totMes)}</div>
+      ${sorted.map(([k,v])=>{
+        const pct = totMes>0?(v/totMes*100).toFixed(0):0;
+        return relLinha(k, `${fmtBRL(v)} <span style="color:var(--muted);font-size:10px;">(${pct}%)</span>`, '#E74C3C');
+      }).join('')}
+    </div>`;
   }).join('');
+  const linhasCot = tabelaCats + (linhasCotMeses ? `<div style="font-size:11px;color:var(--muted);letter-spacing:1px;text-transform:uppercase;margin-bottom:10px;font-weight:600;">POR MÊS</div>${linhasCotMeses}` : '');
 
   const sec = (titulo, cor, corpo) =>
     `<div style="margin-bottom:16px;"><div style="font-size:11px;color:${cor};letter-spacing:1px;text-transform:uppercase;margin-bottom:8px;">${titulo}</div>${corpo}</div>`;
@@ -6707,11 +6771,13 @@ function removerCotidiano(id) {
 function editarCotidiano(id) {
   const item = (state.cotidiano||[]).find(d=>d.id===id);
   if (!item) return;
-  const novoValor = parseFloat(prompt('Novo valor (R$):', item.valor));
+  const novaDesc = prompt('Descrição:', item.cat + (item.desc && item.desc !== item.cat ? ' — ' + item.desc : ''));
+  if (novaDesc === null) return;
+  const novoValor = parseFloat(prompt('Valor (R$):', item.valor));
   if (!novoValor) return;
-  const novaDesc = prompt('Descrição:', item.desc||'');
+  item.cat = novaDesc.trim() || item.cat;
+  item.desc = '';
   item.valor = novoValor;
-  item.desc = novaDesc || '';
   saveState();
   renderCotMesCard(item.mes);
   updateDespesasKPIs();
@@ -6758,28 +6824,23 @@ function catSelect(sufixo) {
 }
 
 function buildCotBody(mes, items, total, i) {
+  const s = 'background:var(--card2);border:1px solid rgba(201,168,76,0.25);border-radius:8px;color:var(--text);font-family:inherit;font-size:12px;padding:7px;outline:none;width:100%;';
   return `
   <div style="background:rgba(201,168,76,0.05);border:1px dashed rgba(201,168,76,0.2);border-radius:8px;padding:12px;margin-bottom:12px;">
     <div style="font-size:10px;color:var(--gold);letter-spacing:1px;text-transform:uppercase;margin-bottom:8px;">+ Novo lançamento em ${MESES_LABEL[MESES.indexOf(mes)]}</div>
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px;">
+    <div style="display:grid;grid-template-columns:120px 1fr 100px;gap:8px;margin-bottom:8px;align-items:end;">
       <div>
         <div style="font-size:10px;color:var(--muted);margin-bottom:3px;">Data</div>
-        <input type="date" id="cot-data-${mes}" value="${new Date().getFullYear()}-${String(MESES.indexOf(mes)+1).padStart(2,'0')}-01"
-          style="background:var(--card2);border:1px solid rgba(201,168,76,0.25);border-radius:8px;color:var(--text);font-family:inherit;font-size:12px;padding:7px;outline:none;width:100%;">
-      </div>
-      <div>
-        <div style="font-size:10px;color:var(--muted);margin-bottom:3px;">Categoria</div>
-        ${catSelect(mes)}
+        <input type="date" id="cot-data-${mes}" value="${new Date().getFullYear()}-${String(MESES.indexOf(mes)+1).padStart(2,'0')}-01" style="${s}">
       </div>
       <div>
         <div style="font-size:10px;color:var(--muted);margin-bottom:3px;">Descrição</div>
-        <input type="text" id="cot-desc-${mes}" placeholder="Opcional..."
-          style="background:var(--card2);border:1px solid rgba(201,168,76,0.25);border-radius:8px;color:var(--text);font-family:inherit;font-size:12px;padding:7px;outline:none;width:100%;">
+        <input type="text" id="cot-cat-${mes}" placeholder="Ex: Padaria, Almoço, Mercado..." style="${s}" list="cot-sugestoes">
+        <datalist id="cot-sugestoes">${CAT_OPTIONS.map(c=>`<option value="${c}">`).join('')}</datalist>
       </div>
       <div>
         <div style="font-size:10px;color:var(--muted);margin-bottom:3px;">Valor (R$)</div>
-        <input type="number" id="cot-valor-${mes}" placeholder="0"
-          style="background:var(--card2);border:1px solid rgba(201,168,76,0.25);border-radius:8px;color:var(--text);font-family:inherit;font-size:12px;padding:7px;outline:none;width:100%;">
+        <input type="number" id="cot-valor-${mes}" placeholder="0" style="${s}">
       </div>
     </div>
     <button onclick="addCotidiano('${mes}')" class="btn btn-gold" style="font-size:12px;padding:8px 16px;">+ Lançar</button>
@@ -6788,27 +6849,27 @@ function buildCotBody(mes, items, total, i) {
   <table style="width:100%;border-collapse:collapse;font-size:12px;">
     <thead><tr>
       <th style="padding:6px 8px;text-align:left;color:var(--gold);font-size:10px;border-bottom:1px solid var(--border);">DATA</th>
-      <th style="padding:6px 8px;text-align:left;color:var(--gold);font-size:10px;border-bottom:1px solid var(--border);">CATEGORIA</th>
-      <th style="padding:6px 8px;text-align:left;color:var(--gold);font-size:10px;border-bottom:1px solid var(--border);">DESC.</th>
+      <th style="padding:6px 8px;text-align:left;color:var(--gold);font-size:10px;border-bottom:1px solid var(--border);">DESCRIÇÃO</th>
       <th style="padding:6px 8px;text-align:right;color:var(--gold);font-size:10px;border-bottom:1px solid var(--border);">VALOR</th>
       <th style="border-bottom:1px solid var(--border);"></th>
     </tr></thead>
     <tbody>
-      ${items.sort((a,b)=>(a.data||'').localeCompare(b.data||'')).map(d=>`
+      ${items.sort((a,b)=>(a.data||'').localeCompare(b.data||'')).map(d=>{
+        const desc = d.cat + (d.desc && d.desc !== d.cat ? ' — ' + d.desc : '');
+        return `
       <tr style="border-bottom:1px solid rgba(255,255,255,0.04);">
-        <td style="padding:7px 8px;color:var(--muted);">${d.data?new Date(d.data+'T12:00:00').toLocaleDateString('pt-BR',{day:'2-digit',month:'short'}):'—'}</td>
-        <td style="padding:7px 8px;color:var(--text);font-weight:500;">${d.cat}</td>
-        <td style="padding:7px 8px;color:var(--muted);">${d.desc||'—'}</td>
+        <td style="padding:7px 8px;color:var(--muted);white-space:nowrap;">${d.data?new Date(d.data+'T12:00:00').toLocaleDateString('pt-BR',{day:'2-digit',month:'short'}):'—'}</td>
+        <td style="padding:7px 8px;color:var(--text);font-weight:500;">${desc}</td>
         <td style="padding:7px 8px;text-align:right;font-family:'Cormorant Garamond',serif;font-size:15px;color:var(--gold);">${fmtBRL(d.valor)}</td>
-        <td style="padding:7px 8px;">
+        <td style="padding:7px 4px;">
           <div style="display:flex;gap:4px;">
             <button onclick="editarCotidiano(${d.id})" style="background:var(--gold-glow);border:1px solid var(--border);color:var(--gold);border-radius:5px;padding:3px 8px;font-size:10px;cursor:pointer;">✏️</button>
             <button onclick="removerCotidiano(${d.id})" class="despesa-delete">✕</button>
           </div>
         </td>
-      </tr>`).join('')}
+      </tr>`;}).join('')}
       <tr style="border-top:2px solid var(--border);">
-        <td colspan="3" style="padding:8px;font-weight:700;color:var(--gold);font-size:11px;">${items.length} lançamentos</td>
+        <td colspan="2" style="padding:8px;font-weight:700;color:var(--gold);font-size:11px;">${items.length} lançamentos</td>
         <td style="padding:8px;text-align:right;font-family:'Cormorant Garamond',serif;font-size:18px;color:var(--gold);font-weight:700;">${fmtBRL(total)}</td>
         <td></td>
       </tr>
@@ -7377,7 +7438,7 @@ function adicionarDespesa() {
     else if (cat==='cotidiano') {
       const data = new Date().toISOString().split('T')[0];
       state.cotidiano = state.cotidiano||[];
-      state.cotidiano.push({id:cotNextId++, data, cat:'Outros', desc:nome, mes, valor});
+      state.cotidiano.push({id:cotNextId++, data, cat:nome, desc:'', mes, valor});
       saveState();
     }
     toast(`✓ ${nome}: ${fmtBRL(valor)}`);
