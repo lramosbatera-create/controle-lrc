@@ -1333,7 +1333,7 @@
         <div><span id="desp-kpi-parc-count" style="font-size:12px;color:var(--muted);">0 parcelamentos</span></div>
       </div>
     </div>
-    <button onclick="document.querySelector('#page-despesas .toggle-section:nth-of-type(4) .toggle-header').click();document.querySelector('#page-despesas .toggle-section:nth-of-type(4)').scrollIntoView({behavior:'smooth'})" style="background:linear-gradient(135deg,#8B7035,#C9A84C);border:none;border-radius:8px;padding:9px 16px;font-size:12px;font-weight:700;color:#000;cursor:pointer;font-family:inherit;">Ver Parcelamentos →</button>
+    <button onclick="document.getElementById('toggle-parceladas').querySelector('.toggle-header').click();document.getElementById('toggle-parceladas').scrollIntoView({behavior:'smooth'})" style="background:linear-gradient(135deg,#8B7035,#C9A84C);border:none;border-radius:8px;padding:9px 16px;font-size:12px;font-weight:700;color:#000;cursor:pointer;font-family:inherit;">Ver Parcelamentos →</button>
   </div>
 
   <!-- Despesas Fixas -->
@@ -6411,22 +6411,34 @@ function migrateShowsExcel2026() {
 
 function migrateParceladasFim2026() {
   if (state._migParceladasFim2026) return;
+  // Remove itens parcelados das despesas_fixas
   const remover = new Set(['South','Brum','Arquiteta','Vanessa','Patrimônio',
     'Beco (1/6–3/8)','Sev. Curt. (4/10–12/7)']);
   state.despesas_fixas = (state.despesas_fixas||[]).filter(d => !remover.has(d.nome));
-  const cfg = {
-    1:{nome:'Beco da Moda',  inicio:'mar',anoInicio:2026,fim:'ago',anoFim:2026},
-    2:{nome:'Brum',          inicio:'jan',anoInicio:2026,fim:'ago',anoFim:2026},
-    3:{nome:'Severo Curtume',inicio:'out',anoInicio:2025,fim:'jul',anoFim:2026},
-    4:{nome:'South',         inicio:'jan',anoInicio:2026,fim:'dez',anoFim:2026},
-    5:{nome:'Arquiteta',     inicio:'jan',anoInicio:2026,fim:'dez',anoFim:2026},
-    6:{nome:'Vanessa',       inicio:'jan',anoInicio:2026,fim:'dez',anoFim:2026},
-    7:{nome:'Patrimônio',    inicio:'jan',anoInicio:2026,fim:'dez',anoFim:2026},
-  };
-  (state.parceladas||[]).forEach(p => {
-    const c = cfg[p.id];
-    if (c) { Object.assign(p, c); }
-    else {
+  // Configura/insere os 7 parcelamentos base (por id)
+  if (!state.parceladas) state.parceladas = [];
+  const cfg = [
+    {id:1,nome:'Beco da Moda',  cat:'Beco da Moda',  valorParcela:138,inicio:'mar',anoInicio:2026,fim:'ago',anoFim:2026,obs:''},
+    {id:2,nome:'Brum',          cat:'Brum',           valorParcela:156,inicio:'jan',anoInicio:2026,fim:'ago',anoFim:2026,obs:''},
+    {id:3,nome:'Severo Curtume',cat:'Severo Curtume', valorParcela:113,inicio:'out',anoInicio:2025,fim:'jul',anoFim:2026,obs:''},
+    {id:4,nome:'South',         cat:'South',          valorParcela:112,inicio:'jan',anoInicio:2026,fim:'dez',anoFim:2026,obs:''},
+    {id:5,nome:'Arquiteta',     cat:'Arquiteta',      valorParcela:450,inicio:'jan',anoInicio:2026,fim:'dez',anoFim:2026,obs:''},
+    {id:6,nome:'Vanessa',       cat:'Vanessa',        valorParcela:250,inicio:'jan',anoInicio:2026,fim:'dez',anoFim:2026,obs:''},
+    {id:7,nome:'Patrimônio',    cat:'Patrimônio',     valorParcela:100,inicio:'jan',anoInicio:2026,fim:'dez',anoFim:2026,obs:''},
+  ];
+  cfg.forEach(c => {
+    const existing = state.parceladas.find(p => p.id === c.id);
+    if (existing) {
+      // Atualiza com dados corretos (fim/anoFim/nome)
+      Object.assign(existing, c);
+    } else {
+      // Insere se não existia
+      state.parceladas.push({...c});
+    }
+  });
+  // Garante anoInicio/fim nos itens extras (id > 7)
+  state.parceladas.forEach(p => {
+    if (p.id > 7) {
       if (!p.anoInicio) p.anoInicio = p.ano||2026;
       if (!p.fim) p.fim = 'dez';
       if (!p.anoFim) p.anoFim = p.anoInicio||2026;
@@ -7259,8 +7271,7 @@ function updatePainel() {
   const despINB = state.gastos_inb.reduce((s,d)=>s+d.valor,0);
   const despNB = state.gastos_nb.reduce((s,d)=>s+d.valor,0);
   const despCot = (state.cotidiano||[]).reduce((s,d)=>s+d.valor,0);
-  const hoje = new Date();
-  const despParc = (state.parceladas||[]).filter(p=>parcAtivaNaMes(p,hoje.getMonth(),hoje.getFullYear())).reduce((s,p)=>s+p.valorParcela,0);
+  const despParc = (state.parceladas||[]).reduce((s,p)=>s+parcPagas(p)*p.valorParcela,0);
   const despTotal = despFixas + despParc + despINB + despNB + despCot;
   const saldoAnterior = 3600;
   const saldo = saldoAnterior + recTotal - despTotal;
