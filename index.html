@@ -700,7 +700,7 @@
     <div class="kpi-card">
       <div class="kpi-label">Despesas Totais</div>
       <div class="kpi-value red" id="kpi-desp">R$ 31.205</div>
-      <div class="kpi-sub">Fixas + Cotidiano + NB/INB</div>
+      <div class="kpi-sub" id="kpi-desp-sub">Fixas + Parceladas + Cotidiano + NB/INB</div>
     </div>
     <div class="kpi-card">
       <div class="kpi-label">A Receber INB</div>
@@ -1300,11 +1300,16 @@
   <p class="section-sub">CONTROLE FINANCEIRO PESSOAL · 2026</p>
 
   <!-- KPIs dinâmicos -->
-  <div class="cards-grid four" style="margin-bottom:12px;">
+  <div class="cards-grid" style="margin-bottom:12px;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));">
     <div class="kpi-card">
       <div class="kpi-label">Despesas Fixas</div>
       <div class="kpi-value red" id="desp-kpi-fixas">R$ 0</div>
       <div class="kpi-sub">acumulado 2026</div>
+    </div>
+    <div class="kpi-card">
+      <div class="kpi-label">Parceladas</div>
+      <div class="kpi-value red" id="desp-kpi-parc-anual">R$ 0</div>
+      <div class="kpi-sub">pagas acumulado</div>
     </div>
     <div class="kpi-card">
       <div class="kpi-label">Cotidiano</div>
@@ -1973,6 +1978,7 @@
     <button class="filter-btn" onclick="setRelTab('anual',this)">📆 Anual</button>
     <button class="filter-btn" onclick="setRelTab('inb',this)">🥁 INB</button>
     <button class="filter-btn" onclick="setRelTab('shows',this)">🎸 Shows</button>
+    <button class="filter-btn" onclick="setRelTab('despesas',this)">💸 Despesas</button>
     <button class="filter-btn" onclick="setRelTab('recital',this)">🎪 Recital</button>
   </div>
 
@@ -4667,11 +4673,12 @@ function gerarRelatorio() {
   const mesNome = MESES_FULL[MESES.indexOf(mes)];
   const container = document.getElementById('rel-content');
   let html = '';
-  if (relTabAtual === 'mensal')  html = gerarRelMensal(mes, mesNome);
-  else if (relTabAtual === 'anual')   html = gerarRelAnual();
-  else if (relTabAtual === 'inb')     html = gerarRelINB(mes, mesNome);
-  else if (relTabAtual === 'shows')   html = gerarRelShows();
-  else if (relTabAtual === 'recital') html = gerarRelRecital();
+  if (relTabAtual === 'mensal')      html = gerarRelMensal(mes, mesNome);
+  else if (relTabAtual === 'anual')      html = gerarRelAnual();
+  else if (relTabAtual === 'inb')        html = gerarRelINB(mes, mesNome);
+  else if (relTabAtual === 'shows')      html = gerarRelShows();
+  else if (relTabAtual === 'despesas')   html = gerarRelDespesas();
+  else if (relTabAtual === 'recital')    html = gerarRelRecital();
   container.innerHTML = html;
   document.getElementById('btn-pdf').style.display = 'inline-block';
   document.getElementById('btn-wpp-rel').style.display = 'inline-block';
@@ -4775,8 +4782,14 @@ function gerarRelINB(mes, mesNome) {
     relLinha('Inadimplentes', inadimplentes.length + ' alunos', inadimplentes.length>0?'#E74C3C':'var(--green)') +
     relLinha(`Receita ${mesNome}`, fmtBRL(recMes), 'var(--green)') + `</div>` +
     `<div><div style="font-size:11px;color:var(--gold);letter-spacing:1px;text-transform:uppercase;margin-bottom:8px;">INADIMPLENTES</div>` +
-    (inadimplentes.length ? inadimplentes.map(a => relLinha(a.nome, fmtBRL(calcDevedor(a)), '#E74C3C')).join('') :
-    '<div style="font-size:13px;color:var(--green);padding:8px 0;">✅ Nenhum inadimplente!</div>') + `</div>`;
+    (inadimplentes.length
+      ? inadimplentes.map(a => relLinha(a.nome, fmtBRL(calcDevedor(a)), '#E74C3C')).join('') +
+        `<div style="display:flex;justify-content:space-between;padding:10px 0;margin-top:6px;border-top:1px solid var(--border);">
+          <span style="font-size:13px;font-weight:700;color:#E74C3C;">Total a receber (${mesNome})</span>
+          <span style="font-family:'Cormorant Garamond',serif;font-size:18px;font-weight:700;color:#E74C3C;">${fmtBRL(inadimplentes.reduce((s,a)=>s+calcDevedor(a),0))}</span>
+        </div>`
+      : '<div style="font-size:13px;color:var(--green);padding:8px 0;">✅ Nenhum inadimplente!</div>'
+    ) + `</div>`;
 }
 
 function gerarRelShows() {
@@ -4813,6 +4826,80 @@ function gerarRelShows() {
 
     (previstos.length ? `<div><div style="font-size:11px;color:var(--muted);letter-spacing:1px;text-transform:uppercase;margin-bottom:8px;">🔮 PREVISTOS — ${fmtBRL(totPrev)}</div>` +
     listaShows(previstos, 'var(--muted)') + `</div>` : '');
+}
+
+function gerarRelDespesas() {
+  const {totalFixas, totalParc, totalINB, totalNB, totalCot} = calcDespesasKPIs();
+  const totalGeral = totalFixas + totalParc + totalINB + totalNB + totalCot;
+
+  // DESPESAS FIXAS — por item
+  const linhasFixas = state.despesas_fixas.map(d => {
+    const pago = MESES.reduce((s,m)=>{
+      const v = state.pagFixas?.[d.nome]?.[m];
+      return s + (v===true?d.valor:(v||0));
+    },0);
+    return relLinha(d.nome, fmtBRL(pago), '#E74C3C');
+  }).join('');
+
+  // PARCELADAS — por item
+  const linhasParc = (state.parceladas||[]).map(p => {
+    const tot = parcTotalParcelas(p); const pagas = parcPagas(p);
+    return relLinha(
+      `${p.nome} (${pagas}/${tot}x)`,
+      fmtBRL(pagas*p.valorParcela), '#E74C3C'
+    );
+  }).join('');
+
+  // GASTOS INB — por item (agrupado por mês)
+  const linhasINB = MESES.map(m => {
+    const itens = state.gastos_inb.filter(g=>g.mes===m);
+    if (!itens.length) return '';
+    const tot = itens.reduce((s,g)=>s+g.valor,0);
+    return `<div style="padding:4px 0;border-bottom:1px solid rgba(255,255,255,0.04);">
+      <div style="display:flex;justify-content:space-between;font-size:12px;color:var(--gold);margin-bottom:2px;"><span>${MESES_FULL[MESES.indexOf(m)]}</span><span>${fmtBRL(tot)}</span></div>
+      ${itens.map(g=>`<div style="display:flex;justify-content:space-between;padding:2px 8px;font-size:11px;color:var(--muted);"><span>${g.descricao||g.cat||'—'}</span><span>${fmtBRL(g.valor)}</span></div>`).join('')}
+    </div>`;
+  }).join('');
+
+  // GASTOS NB — por item
+  const linhasNB = MESES.map(m => {
+    const itens = state.gastos_nb.filter(g=>g.mes===m);
+    if (!itens.length) return '';
+    const tot = itens.reduce((s,g)=>s+g.valor,0);
+    return `<div style="padding:4px 0;border-bottom:1px solid rgba(255,255,255,0.04);">
+      <div style="display:flex;justify-content:space-between;font-size:12px;color:var(--gold);margin-bottom:2px;"><span>${MESES_FULL[MESES.indexOf(m)]}</span><span>${fmtBRL(tot)}</span></div>
+      ${itens.map(g=>`<div style="display:flex;justify-content:space-between;padding:2px 8px;font-size:11px;color:var(--muted);"><span>${g.descricao||g.cat||'—'}</span><span>${fmtBRL(g.valor)}</span></div>`).join('')}
+    </div>`;
+  }).join('');
+
+  // COTIDIANO — por mês
+  const linhasCot = MESES.map(m => {
+    const itens = (state.cotidiano||[]).filter(d=>getMesDaCot(d)===m);
+    if (!itens.length) return '';
+    const tot = itens.reduce((s,d)=>s+d.valor,0);
+    return relLinha(MESES_FULL[MESES.indexOf(m)], fmtBRL(tot), 'var(--muted)');
+  }).join('');
+
+  const sec = (titulo, cor, corpo) =>
+    `<div style="margin-bottom:16px;"><div style="font-size:11px;color:${cor};letter-spacing:1px;text-transform:uppercase;margin-bottom:8px;">${titulo}</div>${corpo}</div>`;
+
+  return relHeader('Relatório Despesas 2026', `Nego Batera · ${new Date().toLocaleDateString('pt-BR')}`) +
+    sec('RESUMO GERAL', 'var(--gold)',
+      relLinha('Despesas Fixas (acumulado)', fmtBRL(totalFixas), '#E74C3C') +
+      relLinha('Parcelamentos (pagas)', fmtBRL(totalParc), '#E74C3C') +
+      relLinha('Gastos INB', fmtBRL(totalINB), 'var(--gold)') +
+      relLinha('Gastos NB', fmtBRL(totalNB), 'var(--gold)') +
+      relLinha('Cotidiano', fmtBRL(totalCot), '#E74C3C') +
+      `<div style="display:flex;justify-content:space-between;padding:10px 0;margin-top:4px;border-top:1px solid var(--border);">
+        <span style="font-size:14px;font-weight:700;color:var(--gold);">TOTAL GERAL</span>
+        <span style="font-family:'Cormorant Garamond',serif;font-size:20px;font-weight:700;color:#E74C3C;">${fmtBRL(totalGeral)}</span>
+      </div>`
+    ) +
+    sec('📋 DESPESAS FIXAS — acumulado por item', '#E74C3C', linhasFixas || relLinha('—','Nenhuma')) +
+    sec('💳 PARCELAMENTOS — pagas por item', '#E74C3C', linhasParc || relLinha('—','Nenhum')) +
+    sec('🏫 GASTOS INB — por mês', 'var(--gold)', linhasINB || '<div style="color:var(--muted);font-size:12px;">Nenhum gasto registrado</div>') +
+    sec('🥁 GASTOS NB — por mês', 'var(--gold)', linhasNB || '<div style="color:var(--muted);font-size:12px;">Nenhum gasto registrado</div>') +
+    sec('🛒 COTIDIANO — por mês', '#E74C3C', linhasCot || '<div style="color:var(--muted);font-size:12px;">Nenhum registro</div>');
 }
 
 function gerarRelRecital() {
@@ -5287,16 +5374,27 @@ function toggleValores() {
 }
 
 // ============ DESPESAS ============
-function renderDespesas() {
-  const totalFixas = state.despesas_fixas.reduce((s,d)=>s+d.valor,0);
+function calcDespesasKPIs() {
+  const totalFixas = state.despesas_fixas.reduce((s,d) =>
+    s + MESES.reduce((ss,m) => {
+      const pf = state.pagFixas?.[d.nome] || {};
+      const v = pf[m];
+      return ss + (v === true ? d.valor : (v || 0));
+    }, 0), 0);
+  const totalParc  = (state.parceladas||[]).reduce((s,p)=>s+parcPagas(p)*p.valorParcela,0);
   const totalINB   = state.gastos_inb.reduce((s,d)=>s+d.valor,0);
   const totalNB    = state.gastos_nb.reduce((s,d)=>s+d.valor,0);
   const totalCot   = (state.cotidiano||[]).reduce((s,d)=>s+d.valor,0);
+  return {totalFixas, totalParc, totalINB, totalNB, totalCot};
+}
+function renderDespesas() {
+  const {totalFixas, totalParc, totalINB, totalNB, totalCot} = calcDespesasKPIs();
   const el = id => document.getElementById(id);
-  if (el('desp-kpi-fixas'))     el('desp-kpi-fixas').textContent     = fmtBRL(totalFixas);
-  if (el('desp-kpi-cotidiano')) el('desp-kpi-cotidiano').textContent = fmtBRL(totalCot);
-  if (el('desp-kpi-inb'))       el('desp-kpi-inb').textContent       = fmtBRL(totalINB);
-  if (el('desp-kpi-nb'))        el('desp-kpi-nb').textContent        = fmtBRL(totalNB);
+  if (el('desp-kpi-fixas'))       el('desp-kpi-fixas').textContent       = fmtBRL(totalFixas);
+  if (el('desp-kpi-parc-anual'))  el('desp-kpi-parc-anual').textContent  = fmtBRL(totalParc);
+  if (el('desp-kpi-cotidiano'))   el('desp-kpi-cotidiano').textContent   = fmtBRL(totalCot);
+  if (el('desp-kpi-inb'))         el('desp-kpi-inb').textContent         = fmtBRL(totalINB);
+  if (el('desp-kpi-nb'))          el('desp-kpi-nb').textContent          = fmtBRL(totalNB);
 
   // Fixas
   const fixas = el('lista-fixas');
@@ -6625,15 +6723,13 @@ function salvarCotidiano() { saveState(); toast('✓ Todos os lançamentos salvo
 
 // Update only KPIs without re-rendering cards
 function updateDespesasKPIs() {
-  const totalFixas = state.despesas_fixas.reduce((s,d)=>s+d.valor,0);
-  const totalINB   = state.gastos_inb.reduce((s,d)=>s+d.valor,0);
-  const totalNB    = state.gastos_nb.reduce((s,d)=>s+d.valor,0);
-  const totalCot   = (state.cotidiano||[]).reduce((s,d)=>s+d.valor,0);
+  const {totalFixas, totalParc, totalINB, totalNB, totalCot} = calcDespesasKPIs();
   const el = id => document.getElementById(id);
-  if (el('desp-kpi-fixas'))     el('desp-kpi-fixas').textContent     = fmtBRL(totalFixas);
-  if (el('desp-kpi-cotidiano')) el('desp-kpi-cotidiano').textContent = fmtBRL(totalCot);
-  if (el('desp-kpi-inb'))       el('desp-kpi-inb').textContent       = fmtBRL(totalINB);
-  if (el('desp-kpi-nb'))        el('desp-kpi-nb').textContent        = fmtBRL(totalNB);
+  if (el('desp-kpi-fixas'))       el('desp-kpi-fixas').textContent       = fmtBRL(totalFixas);
+  if (el('desp-kpi-parc-anual'))  el('desp-kpi-parc-anual').textContent  = fmtBRL(totalParc);
+  if (el('desp-kpi-cotidiano'))   el('desp-kpi-cotidiano').textContent   = fmtBRL(totalCot);
+  if (el('desp-kpi-inb'))         el('desp-kpi-inb').textContent         = fmtBRL(totalINB);
+  if (el('desp-kpi-nb'))          el('desp-kpi-nb').textContent          = fmtBRL(totalNB);
 }
 
 // Render only a specific month card body (preserve open state)
@@ -7338,6 +7434,8 @@ function updatePainel() {
   const confEl = document.getElementById('kpi-shows-confirmados');
   if (confEl) confEl.textContent = recShowsConf > 0 ? `+ ${fmtBRL(recShowsConf)} a receber` : '';
   document.getElementById('kpi-desp').textContent = fmtBRL(despTotal);
+  const kpiDespSub = document.getElementById('kpi-desp-sub');
+  if (kpiDespSub) kpiDespSub.textContent = `Fixas ${fmtBRL(despFixas)} · Parc. ${fmtBRL(despParc)} · Cot. ${fmtBRL(despCot)} · NB/INB ${fmtBRL(despINB+despNB)}`;
   document.getElementById('saldo-sub').textContent =
     `Receitas ${fmtBRL(recTotal)} · Despesas ${fmtBRL(despTotal)} · Saldo Anterior ${fmtBRL(saldoAnterior)}`;
 
