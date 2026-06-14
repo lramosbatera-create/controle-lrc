@@ -2774,51 +2774,60 @@ function filtrarAgenda(dia, btn) {
   renderAgenda();
 }
 
+// Grade completa de horários exibidos na agenda (8h–20h)
+const AGENDA_HORAS = ['8h','9h','10h','11h','12h','13h','14h','15h','16h','17h','18h','19h','20h'];
+
+// Retorna true se o slot deve ser exibido como VAGO (aluno saiu ou slot vazio)
+function agendaSlotVago(a) {
+  if (!a || !a.aluno || a.aluno === 'VAGO') return true;
+  if (a.alunoId) {
+    const al = state.alunos.find(x => x.id === a.alunoId);
+    if (!al || al.status !== 'Ativo' || getMesSaidaIdx(al) < new Date().getMonth()) return true;
+  }
+  return false;
+}
+
 function renderAgenda() {
   const container = document.getElementById('lista-agenda');
   if (!container) return;
 
-  // Update "hoje" label
   const hoje = new Date();
   const diaHoje = DIAS_MAP[hoje.getDay()];
   document.getElementById('agenda-hoje-label').textContent =
     `Hoje é ${diaHoje}, ${hoje.toLocaleDateString('pt-BR',{day:'2-digit',month:'long'})}`;
 
-  const lista = agendaFiltro === 'todos'
-    ? [...state.agenda].sort((a,b) => {
-        const dOrder = DIAS_SEMANA.indexOf(a.dia) - DIAS_SEMANA.indexOf(b.dia);
-        return dOrder !== 0 ? dOrder : a.hora.localeCompare(b.hora);
-      })
-    : state.agenda.filter(a => a.dia === agendaFiltro).sort((a,b) => a.hora.localeCompare(b.hora));
+  const dias = agendaFiltro === 'todos' ? DIAS_SEMANA : [agendaFiltro];
 
-  if (!lista.length) {
-    container.innerHTML = '<div class="empty-state"><div class="icon">📅</div><p>Nenhuma aula neste dia</p></div>';
-    return;
-  }
-
-  // Group by day if showing all
   let html = '';
-  if (agendaFiltro === 'todos') {
-    DIAS_SEMANA.forEach(dia => {
-      const aulas = lista.filter(a => a.dia === dia);
-      if (!aulas.length) return;
-      const isHoje = dia === diaHoje;
+  dias.forEach(dia => {
+    const entriesDia = state.agenda.filter(a => a.dia === dia);
+    const isHoje = dia === diaHoje;
+    const slotsHtml = AGENDA_HORAS.map(hora => {
+      const entry = entriesDia.find(a => a.hora === hora);
+      return agendaCard(entry || { id: null, aluno: 'VAGO', alunoId: null, dia, hora, tipo: '', obs: '' });
+    }).join('');
+
+    if (agendaFiltro === 'todos') {
       html += `<div style="margin-bottom:16px;">
         <div style="font-size:11px;font-weight:600;color:${isHoje?'var(--gold)':'var(--muted)'};letter-spacing:1.5px;text-transform:uppercase;margin-bottom:8px;display:flex;align-items:center;gap:6px;">
           ${isHoje?'★ ':''} ${dia.toUpperCase()} ${isHoje?'<span style="background:var(--gold);color:#000;font-size:9px;padding:1px 6px;border-radius:10px;">HOJE</span>':''}
         </div>
-        ${aulas.map(a => agendaCard(a)).join('')}
+        ${slotsHtml}
       </div>`;
-    });
-  } else {
-    html = lista.map(a => agendaCard(a)).join('');
-  }
-  container.innerHTML = html;
+    } else {
+      html += slotsHtml;
+    }
+  });
+
+  container.innerHTML = html || '<div class="empty-state"><div class="icon">📅</div><p>Nenhuma aula neste dia</p></div>';
 }
 
 function agendaCard(a) {
-  const isVago = !a.aluno || a.aluno === 'VAGO';
+  const isVago = agendaSlotVago(a);
   const nomeExibido = isVago ? '— Vago —' : agNome(a);
+  const removeBtn = a.id !== null
+    ? `<button onclick="removerAgenda(${a.id})" style="background:none;border:none;color:var(--muted);cursor:pointer;font-size:14px;padding:4px;" title="Remover">✕</button>`
+    : '';
   return `
   <div style="display:flex;align-items:center;gap:10px;padding:10px 12px;background:var(--card);border:1px solid ${isVago?'rgba(255,255,255,0.05)':'var(--border)'};border-radius:10px;margin-bottom:6px;">
     <div style="background:${isVago?'rgba(255,255,255,0.04)':'var(--gold-glow)'};border:1px solid ${isVago?'transparent':'var(--border)'};border-radius:8px;padding:6px 10px;min-width:44px;text-align:center;flex-shrink:0;">
@@ -2828,7 +2837,7 @@ function agendaCard(a) {
       <div style="font-size:13px;font-weight:${isVago?'400':'500'};color:${isVago?'var(--muted)':'var(--text)'};">${nomeExibido}</div>
       <div style="font-size:10px;color:var(--muted);margin-top:2px;">${a.tipo}${a.obs?' · '+a.obs:''}</div>
     </div>
-    <button onclick="removerAgenda(${a.id})" style="background:none;border:none;color:var(--muted);cursor:pointer;font-size:14px;padding:4px;" title="Remover">✕</button>
+    ${removeBtn}
   </div>`;
 }
 
