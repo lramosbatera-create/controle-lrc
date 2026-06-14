@@ -1413,22 +1413,9 @@
             <label>Descrição</label>
             <input type="text" id="parc-nome" placeholder="Ex: Notebook">
           </div>
-
-          <div class="form-group">
-            <label>Valor Total (R$)</label>
-            <input type="number" id="parc-total" placeholder="0">
-          </div>
-          <div class="form-group">
-            <label>Nº de Parcelas</label>
-            <input type="number" id="parc-parcelas" placeholder="12" min="1" max="60">
-          </div>
           <div class="form-group">
             <label>Valor da Parcela (R$)</label>
-            <input type="number" id="parc-valor" placeholder="0" oninput="calcParc('valor')">
-          </div>
-          <div class="form-group">
-            <label>Parcelas Pagas</label>
-            <input type="number" id="parc-pagas" placeholder="0" min="0">
+            <input type="number" id="parc-valor" placeholder="0">
           </div>
           <div class="form-group">
             <label>Início (mês)</label>
@@ -1442,8 +1429,23 @@
             </select>
           </div>
           <div class="form-group">
-            <label>Ano</label>
+            <label>Ano Início</label>
             <input type="number" id="parc-ano" value="2026" min="2024" max="2030">
+          </div>
+          <div class="form-group">
+            <label>Fim (mês)</label>
+            <select id="parc-fim">
+              <option value="jan">Janeiro</option><option value="fev">Fevereiro</option>
+              <option value="mar">Março</option><option value="abr">Abril</option>
+              <option value="mai">Maio</option><option value="jun">Junho</option>
+              <option value="jul">Julho</option><option value="ago">Agosto</option>
+              <option value="set">Setembro</option><option value="out">Outubro</option>
+              <option value="nov">Novembro</option><option value="dez" selected>Dezembro</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label>Ano Fim</label>
+            <input type="number" id="parc-ano-fim" value="2026" min="2024" max="2030">
           </div>
           <div class="form-group" style="justify-content:flex-end;padding-top:20px;">
             <button class="btn btn-gold" onclick="addParcelada()" style="width:100%;">+ Adicionar</button>
@@ -1685,42 +1687,41 @@
     <div class="form-grid three">
       <div class="form-group full">
         <label>Descrição da Compra</label>
-        <input type="text" id="fp-nome" placeholder="Ex: Notebook, Curso, Roupa..." oninput="calcParcDedicado()">
-      </div>
-      <div class="form-group">
-        <label>Valor Total (R$)</label>
-        <input type="number" id="fp-total" placeholder="0" oninput="calcParcDedicado('total')">
-      </div>
-      <div class="form-group">
-        <label>Nº de Parcelas</label>
-        <input type="number" id="fp-num" placeholder="12" min="1" max="60" oninput="calcParcDedicado('num')">
+        <input type="text" id="fp-nome" placeholder="Ex: Notebook, Curso, Roupa...">
       </div>
       <div class="form-group">
         <label>Valor da Parcela (R$)</label>
-        <input type="number" id="fp-valor" placeholder="auto" oninput="calcParcDedicado('parcela')">
-      </div>
-      <div class="form-group">
-        <label>Parcelas Já Pagas</label>
-        <input type="number" id="fp-pagas" placeholder="0" min="0" value="0" oninput="calcParcDedicado()">
+        <input type="number" id="fp-valor" placeholder="0">
       </div>
       <div class="form-group">
         <label>Início (mês)</label>
         <select id="fp-inicio">
           <option value="jan">Janeiro</option><option value="fev">Fevereiro</option>
           <option value="mar">Março</option><option value="abr">Abril</option>
-          <option value="mai" selected>Maio</option><option value="jun">Junho</option>
+          <option value="mai">Maio</option><option value="jun" selected>Junho</option>
           <option value="jul">Julho</option><option value="ago">Agosto</option>
           <option value="set">Setembro</option><option value="out">Outubro</option>
           <option value="nov">Novembro</option><option value="dez">Dezembro</option>
         </select>
       </div>
       <div class="form-group">
-        <label>Ano</label>
+        <label>Ano Início</label>
         <input type="number" id="fp-ano" value="2026" min="2024" max="2030">
       </div>
       <div class="form-group">
-        <label>Obs (opcional)</label>
-        <input type="text" id="fp-obs" placeholder="Ex: Cartão Nubank">
+        <label>Fim (mês)</label>
+        <select id="fp-fim">
+          <option value="jan">Janeiro</option><option value="fev">Fevereiro</option>
+          <option value="mar">Março</option><option value="abr">Abril</option>
+          <option value="mai">Maio</option><option value="jun">Junho</option>
+          <option value="jul">Julho</option><option value="ago">Agosto</option>
+          <option value="set">Setembro</option><option value="out">Outubro</option>
+          <option value="nov">Novembro</option><option value="dez" selected>Dezembro</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label>Ano Fim</label>
+        <input type="number" id="fp-ano-fim" value="2026" min="2024" max="2030">
       </div>
     </div>
     <!-- Resumo preview -->
@@ -2278,7 +2279,7 @@ async function dbLoad() {
   if (!loadState()) {
     state.alunos         = SEED_ALUNOS;
     state.shows          = [{id:1,data:'2026-01-31',artista:'Aline Brasil',tipo:'Show',cidade:'Poço Fundo',estado:'MG',cache:1000,status:'pago',obs:''},{id:2,data:'2026-02-14',artista:'Aline Brasil',tipo:'Show',cidade:'Telêmaco Borba',estado:'PR',cache:1000,status:'pago',obs:''},{id:3,data:'2026-02-16',artista:'Aline Brasil',tipo:'Show',cidade:'Curitiba',estado:'PR',cache:1000,status:'pago',obs:''},{id:4,data:'2026-02-20',artista:'Aline Brasil',tipo:'Show',cidade:'São Miguel do Tocantins',estado:'TO',cache:1000,status:'pago',obs:''},{id:5,data:'2026-04-24',artista:'Aline Brasil',tipo:'Show',cidade:'São Fidélis',estado:'RJ',cache:1000,status:'pago',obs:''},{id:6,data:'2026-06-04',artista:'Aline Brasil',tipo:'Show',cidade:'Palestina do Pará',estado:'PA',cache:600,status:'pago',obs:''},{id:7,data:'2026-06-12',artista:'Aline Brasil',tipo:'Show',cidade:'Passos de Camaragibe',estado:'AL',cache:1000,status:'confirmado',obs:''},{id:8,data:'2026-06-21',artista:'Aline Brasil',tipo:'Show',cidade:'Cocal dos Alves',estado:'PI',cache:1000,status:'confirmado',obs:''},{id:9,data:'2026-06-23',artista:'Aline Brasil',tipo:'Show',cidade:'Canutama',estado:'AM',cache:1000,status:'confirmado',obs:''},{id:10,data:'2026-06-29',artista:'Aline Brasil',tipo:'Show',cidade:'Concórdia do Pará',estado:'PA',cache:1000,status:'confirmado',obs:''},{id:11,data:'2026-07-11',artista:'Aline Brasil',tipo:'Show',cidade:'Novo Cruzeiro',estado:'MG',cache:1000,status:'confirmado',obs:''},{id:12,data:'2026-07-25',artista:'Aline Brasil',tipo:'Show',cidade:'São Luís dos Montes Belos',estado:'GO',cache:1000,status:'confirmado',obs:''},{id:13,data:'2026-07-26',artista:'Aline Brasil',tipo:'Show',cidade:'Pirapetinga',estado:'MG',cache:1000,status:'confirmado',obs:''},{id:14,data:'2026-08-15',artista:'Aline Brasil',tipo:'Show',cidade:'Lago do Barro',estado:'PI',cache:1000,status:'confirmado',obs:''},{id:15,data:'2026-09-24',artista:'Aline Brasil',tipo:'Show',cidade:'Porto Walter',estado:'AC',cache:1000,status:'confirmado',obs:''}];
-    state.despesas_fixas = [{nome:'Dízimo',vencimento:'10',valor:200},{nome:'Internet',vencimento:'15',valor:60},{nome:'Vivo',vencimento:'20',valor:125},{nome:'Luz',vencimento:'10',valor:350},{nome:'Spotify',vencimento:'10',valor:25},{nome:'Plano Saúde',vencimento:'10',valor:50},{nome:'Arquiteta',vencimento:'12',valor:450},{nome:'Vanessa',vencimento:'10',valor:250},{nome:'Patrimônio',vencimento:'10',valor:100},{nome:'Cartão Nubank',vencimento:'03',valor:250},{nome:'Cartão Itaú',vencimento:'03',valor:250},{nome:'Cartão ML',vencimento:'03',valor:250},{nome:'Beco (1/6–3/8)',vencimento:'20',valor:138},{nome:'Brum',vencimento:'15',valor:156},{nome:'Sev. Curt. (4/10–12/7)',vencimento:'10',valor:113},{nome:'South',vencimento:'05',valor:112}];
+    state.despesas_fixas = [{nome:'Dízimo',vencimento:'10',valor:200},{nome:'Internet',vencimento:'15',valor:60},{nome:'Vivo',vencimento:'20',valor:125},{nome:'Luz',vencimento:'10',valor:350},{nome:'Spotify',vencimento:'10',valor:25},{nome:'Plano Saúde',vencimento:'10',valor:50},{nome:'Cartão Nubank',vencimento:'03',valor:250},{nome:'Cartão Itaú',vencimento:'03',valor:250},{nome:'Cartão ML',vencimento:'03',valor:250}];
     state.gastos_inb     = [{nome:'Pratos',mes:'jan',valor:450},{nome:'Piso Borracha',mes:'fev',valor:60},{nome:'Porta Copo',mes:'fev',valor:55},{nome:'Cabos de Fone',mes:'fev',valor:60},{nome:'Canetas',mes:'fev',valor:84},{nome:'Piso Borracha',mes:'mar',valor:60},{nome:'Relógio Digital',mes:'mar',valor:198},{nome:'Painel / Logo NB',mes:'mar',valor:829},{nome:'Cabos de Fone',mes:'mai',valor:33},{nome:'Canetas',mes:'mai',valor:25},{nome:'Fita Elétrica',mes:'mai',valor:33},{nome:'Baquetas',mes:'mai',valor:27}];
     state.gastos_nb      = [{nome:'Baquetas',mes:'fev',valor:180},{nome:'Cabos do Fone',mes:'fev',valor:49},{nome:'Joyo',mes:'fev',valor:195},{nome:'Adaptador de Fone',mes:'fev',valor:20},{nome:'Pés do BB',mes:'fev',valor:300},{nome:'Peles Mudas',mes:'fev',valor:368},{nome:'Adaptador de Fone',mes:'mar',valor:20},{nome:'Pés do SD',mes:'mar',valor:140},{nome:'Cabos do Fone',mes:'mai',valor:46}];
     saveState();
@@ -2298,6 +2299,7 @@ async function dbLoad() {
   migrateFixasExcel2026();
   migrateGastosExcel2026();
   migrateShowsExcel2026();
+  migrateParceladasFim2026();
 }
 
 async function dbSeedAlunos() {
@@ -2458,11 +2460,8 @@ function resetParaEstadoLimpo() {
     {nome:'Dízimo',vencimento:'10',valor:200},{nome:'Internet',vencimento:'15',valor:60},
     {nome:'Vivo',vencimento:'20',valor:125},{nome:'Luz',vencimento:'10',valor:350},
     {nome:'Spotify',vencimento:'10',valor:25},{nome:'Plano Saúde',vencimento:'10',valor:50},
-    {nome:'Arquiteta',vencimento:'12',valor:450},{nome:'Vanessa',vencimento:'10',valor:250},
-    {nome:'Patrimônio',vencimento:'10',valor:100},{nome:'Cartão Nubank',vencimento:'03',valor:250},
-    {nome:'Cartão Itaú',vencimento:'03',valor:250},{nome:'Cartão ML',vencimento:'03',valor:250},
-    {nome:'Beco (1/6–3/8)',vencimento:'20',valor:138},{nome:'Brum',vencimento:'15',valor:156},
-    {nome:'Sev. Curt. (4/10–12/7)',vencimento:'10',valor:113},{nome:'South',vencimento:'05',valor:112}
+    {nome:'Cartão Nubank',vencimento:'03',valor:250},{nome:'Cartão Itaú',vencimento:'03',valor:250},
+    {nome:'Cartão ML',vencimento:'03',valor:250}
   ];
   state.pagFixas = {};
   state.gastos_inb = [];
@@ -2473,6 +2472,7 @@ function resetParaEstadoLimpo() {
   delete state._migFixasExcel26;
   delete state._migGastosExcel26;
   delete state._migCotidianoCompleto2026;
+  delete state._migParceladasFim2026;
   saveState();
   try { updatePainel(); } catch(e) {}
   try { renderDespesas(); } catch(e) {}
@@ -5731,6 +5731,25 @@ function adicionarShowV2() {
   }, 800);
 }
 
+// ============ PARCELADAS — HELPERS ============
+function parcTotalParcelas(p) {
+  const ini = (p.anoInicio||p.ano||2026)*12 + MESES.indexOf(p.inicio||'jan');
+  const fim = (p.anoFim||p.anoInicio||p.ano||2026)*12 + MESES.indexOf(p.fim||'dez');
+  return Math.max(1, fim - ini + 1);
+}
+function parcPagas(p) {
+  const hoje = new Date();
+  const mesAtualAbs = hoje.getFullYear()*12 + hoje.getMonth();
+  const ini = (p.anoInicio||p.ano||2026)*12 + MESES.indexOf(p.inicio||'jan');
+  return Math.min(parcTotalParcelas(p), Math.max(0, mesAtualAbs - ini));
+}
+function parcAtivaNaMes(p, mesIdx, ano) {
+  const mAbs = ano*12 + mesIdx;
+  const ini = (p.anoInicio||p.ano||2026)*12 + MESES.indexOf(p.inicio||'jan');
+  const fim = (p.anoFim||p.anoInicio||p.ano||2026)*12 + MESES.indexOf(p.fim||'dez');
+  return mAbs >= ini && mAbs <= fim;
+}
+
 // ============ PARCELADAS — FORMULÁRIO DEDICADO ============
 function calcParcDedicado(campo) {
   const totEl  = document.getElementById('fp-total');
@@ -5774,47 +5793,40 @@ function calcParcDedicado(campo) {
 }
 
 function addParcDedicado() {
-  const nome  = document.getElementById('fp-nome')?.value.trim();
-  const total = parseFloat(document.getElementById('fp-total')?.value)||0;
-  const num   = parseInt(document.getElementById('fp-num')?.value)||0;
-  const val   = parseFloat(document.getElementById('fp-valor')?.value)||(num?total/num:0);
-  const pagas = parseInt(document.getElementById('fp-pagas')?.value)||0;
-  const ini   = document.getElementById('fp-inicio')?.value;
-  const ano   = parseInt(document.getElementById('fp-ano')?.value)||2026;
-  const obs   = document.getElementById('fp-obs')?.value.trim();
-
+  const nome     = document.getElementById('fp-nome')?.value.trim();
+  const val      = parseFloat(document.getElementById('fp-valor')?.value)||0;
+  const ini      = document.getElementById('fp-inicio')?.value || 'jan';
+  const anoInicio= parseInt(document.getElementById('fp-ano')?.value)||2026;
+  const fim      = document.getElementById('fp-fim')?.value || 'dez';
+  const anoFim   = parseInt(document.getElementById('fp-ano-fim')?.value)||anoInicio;
   if (!nome) { toast('⚠️ Informe a descrição'); return; }
-  if (!num || !val) { toast('⚠️ Informe nº de parcelas e valor'); return; }
+  if (!val)  { toast('⚠️ Informe o valor da parcela'); return; }
   if (!state.parceladas) state.parceladas = [];
   const maxId = state.parceladas.length ? Math.max(...state.parceladas.map(p=>p.id||0)) : 0;
-  state.parceladas.push({
-    id: maxId+1, nome, cat: nome,
-    total: total||(val*num), parcelas: num,
-    valorParcela: val, pagas, inicio: ini, ano, obs
-  });
-  saveState(); renderParceladas(); updatePainel();
-  // Atualizar KPI banner
-  atualizarKpiParceladas();
-  toast(`✓ ${nome} — ${num}x de ${fmtBRL(val)} registrado!`);
-  ['fp-nome','fp-total','fp-num','fp-valor','fp-obs'].forEach(id=>{
-    const el=document.getElementById(id); if(el) el.value='';
-  });
-  const pp=document.getElementById('fp-pagas'); if(pp) pp.value='0';
-  document.getElementById('fp-preview').style.display='none';
-  // Navegar para despesas para ver resultado
+  const nova = {id:maxId+1, nome, cat:nome, valorParcela:val, inicio:ini, anoInicio, fim, anoFim, obs:''};
+  state.parceladas.push(nova);
+  saveState(); renderParceladas(); updatePainel(); atualizarKpiParceladas();
+  toast(`✓ ${nome} — ${parcTotalParcelas(nova)}x de ${fmtBRL(val)} registrado!`);
+  ['fp-nome','fp-valor'].forEach(id=>{const el=document.getElementById(id); if(el) el.value='';});
+  const prev = document.getElementById('fp-preview'); if(prev) prev.style.display='none';
   setTimeout(()=>{ showPage('despesas'); },900);
 }
 
 function atualizarKpiParceladas() {
   const lista = state.parceladas||[];
-  const mensal = lista.reduce((s,p)=>s+p.valorParcela,0);
-  const total  = lista.reduce((s,p)=>s+((p.parcelas-p.pagas)*p.valorParcela),0);
+  const hoje = new Date();
+  const ativasNaMes = lista.filter(p => parcAtivaNaMes(p, hoje.getMonth(), hoje.getFullYear()));
+  const mensal = ativasNaMes.reduce((s,p)=>s+p.valorParcela, 0);
+  const totalRestante = lista.reduce((s,p) => {
+    const tot = parcTotalParcelas(p); const pag = parcPagas(p);
+    return s + Math.max(0, tot-pag)*p.valorParcela;
+  }, 0);
   const el1 = document.getElementById('desp-kpi-parc-mensal');
   const el2 = document.getElementById('desp-kpi-parc-total');
   const el3 = document.getElementById('desp-kpi-parc-count');
   if (el1) el1.textContent = fmtBRL(mensal);
-  if (el2) el2.textContent = fmtBRL(total);
-  if (el3) el3.textContent = `${lista.filter(p=>p.pagas<p.parcelas).length} parcelamento(s) ativos`;
+  if (el2) el2.textContent = fmtBRL(totalRestante);
+  if (el3) el3.textContent = `${ativasNaMes.length} parcelamento(s) ativos`;
 }
 
 // Hook: atualizar KPI parceladas após renderizar
@@ -5982,57 +5994,48 @@ function calcParcelaLancar() {
 
 // ============ PARCELADAS ============
 if (!state.parceladas) state.parceladas = [
-  {id:1,nome:'Beco da Moda',cat:'Beco da Moda',total:0,parcelas:6,valorParcela:138,pagas:4,inicio:'jan',ano:2026,obs:'1/6–3/8'},
-  {id:2,nome:'Brumayk',cat:'Brumayk',total:0,parcelas:8,valorParcela:156,pagas:4,inicio:'jan',ano:2026,obs:'5/6–8/3'},
-  {id:3,nome:'Severo Curtume',cat:'Severo Curtume',total:0,parcelas:10,valorParcela:113,pagas:4,inicio:'jan',ano:2026,obs:'4/10–12/7'},
-  {id:4,nome:'South',cat:'South',total:0,parcelas:12,valorParcela:112,pagas:4,inicio:'jan',ano:2026,obs:''},
-  {id:5,nome:'Arquiteta',cat:'Arquiteta',total:0,parcelas:12,valorParcela:450,pagas:4,inicio:'jan',ano:2026,obs:''},
-  {id:6,nome:'Vanessa',cat:'Vanessa',total:0,parcelas:12,valorParcela:250,pagas:4,inicio:'jan',ano:2026,obs:''},
-  {id:7,nome:'Patrimônio',cat:'Patrimônio',total:0,parcelas:12,valorParcela:100,pagas:4,inicio:'jan',ano:2026,obs:''},
+  {id:1,nome:'Beco da Moda',  valorParcela:138,inicio:'mar',anoInicio:2026,fim:'ago',anoFim:2026,obs:''},
+  {id:2,nome:'Brum',          valorParcela:156,inicio:'jan',anoInicio:2026,fim:'ago',anoFim:2026,obs:''},
+  {id:3,nome:'Severo Curtume',valorParcela:113,inicio:'out',anoInicio:2025,fim:'jul',anoFim:2026,obs:''},
+  {id:4,nome:'South',         valorParcela:112,inicio:'jan',anoInicio:2026,fim:'dez',anoFim:2026,obs:''},
+  {id:5,nome:'Arquiteta',     valorParcela:450,inicio:'jan',anoInicio:2026,fim:'dez',anoFim:2026,obs:''},
+  {id:6,nome:'Vanessa',       valorParcela:250,inicio:'jan',anoInicio:2026,fim:'dez',anoFim:2026,obs:''},
+  {id:7,nome:'Patrimônio',    valorParcela:100,inicio:'jan',anoInicio:2026,fim:'dez',anoFim:2026,obs:''},
 ];
 let parcNextId = 8;
 
-function calcParc(campo) {
-  const tot  = parseFloat(document.getElementById('parc-total')?.value)||0;
-  const parc = parseFloat(document.getElementById('parc-parcelas')?.value)||0;
-  const val  = parseFloat(document.getElementById('parc-valor')?.value)||0;
-  if (campo==='valor' && val && parc) {
-    const totalEl = document.getElementById('parc-total');
-    if (totalEl && !tot) totalEl.value = (val*parc).toFixed(2);
-  }
-}
-
 function addParcelada() {
-  const nome  = document.getElementById('parc-nome')?.value.trim();
-  const total = parseFloat(document.getElementById('parc-total')?.value)||0;
-  const parc  = parseInt(document.getElementById('parc-parcelas')?.value)||0;
-  const val   = parseFloat(document.getElementById('parc-valor')?.value)||(parc?total/parc:0);
-  const pagas = parseInt(document.getElementById('parc-pagas')?.value)||0;
-  const ini   = document.getElementById('parc-inicio')?.value;
-  const ano   = parseInt(document.getElementById('parc-ano')?.value)||2026;
-  if (!nome || !parc || !val) { toast('⚠️ Preencha descrição, parcelas e valor'); return; }
-  state.parceladas.push({id:parcNextId++,nome,cat:nome,total:total||(val*parc),parcelas:parc,valorParcela:val,pagas,inicio:ini,ano,obs:''});
+  const nome     = document.getElementById('parc-nome')?.value.trim();
+  const val      = parseFloat(document.getElementById('parc-valor')?.value)||0;
+  const ini      = document.getElementById('parc-inicio')?.value || 'jan';
+  const anoInicio= parseInt(document.getElementById('parc-ano')?.value)||2026;
+  const fim      = document.getElementById('parc-fim')?.value || 'dez';
+  const anoFim   = parseInt(document.getElementById('parc-ano-fim')?.value)||anoInicio;
+  if (!nome || !val) { toast('⚠️ Preencha descrição e valor da parcela'); return; }
+  state.parceladas.push({id:parcNextId++,nome,cat:nome,valorParcela:val,inicio:ini,anoInicio,fim,anoFim,obs:''});
   saveState(); renderParceladas(); updatePainel(); toast(`✓ ${nome} adicionado`);
-  ['parc-nome','parc-total','parc-parcelas','parc-valor','parc-pagas'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});
+  ['parc-nome','parc-valor'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});
 }
 
 function editarParcelada(i) {
   const p = state.parceladas[i];
   if (!p) return;
-  const novoNome  = prompt('Descrição:', p.nome);
+  const novoNome = prompt('Descrição:', p.nome);
   if (!novoNome) return;
   const novoValor = parseFloat(prompt('Valor da parcela (R$):', p.valorParcela));
   if (!novoValor) return;
-  const novasParcelas = parseInt(prompt('Número de parcelas:', p.parcelas));
-  if (!novasParcelas) return;
-  const novoInicio = prompt('Mês de início (jan, fev, mar...):', p.inicio || 'jan');
-  const novoAno = parseInt(prompt('Ano de início:', p.ano || 2026));
+  const novoInicio = prompt('Mês de início (jan,fev,mar,abr,mai,jun,jul,ago,set,out,nov,dez):', p.inicio||'jan');
+  if (novoInicio === null) return;
+  const novoAnoInicio = parseInt(prompt('Ano de início:', p.anoInicio||p.ano||2026))||2026;
+  const novoFim = prompt('Mês de fim (jan,fev,mar,abr,mai,jun,jul,ago,set,out,nov,dez):', p.fim||'dez');
+  if (novoFim === null) return;
+  const novoAnoFim = parseInt(prompt('Ano de fim:', p.anoFim||p.anoInicio||p.ano||2026))||2026;
   p.nome = novoNome; p.cat = novoNome;
   p.valorParcela = novoValor;
-  p.parcelas = novasParcelas;
-  p.total = novoValor * novasParcelas;
-  if (novoInicio !== null) p.inicio = novoInicio || p.inicio;
-  if (novoAno) p.ano = novoAno;
+  p.inicio = novoInicio || p.inicio;
+  p.anoInicio = novoAnoInicio;
+  p.fim = novoFim || p.fim || 'dez';
+  p.anoFim = novoAnoFim;
   saveState(); renderParceladas(); updatePainel(); toast('✓ Parcela atualizada');
 }
 
@@ -6042,14 +6045,26 @@ function renderParceladas() {
   const lista = state.parceladas||[];
   if (!lista.length) { container.innerHTML = '<div class="empty-state"><div class="icon">💳</div><p>Nenhuma parcela cadastrada</p></div>'; return; }
 
-  const ativas = lista.filter(p=>p.pagas<p.parcelas);
-  const quitadas = lista.filter(p=>p.pagas>=p.parcelas);
-  const totalMensal = ativas.reduce((s,p)=>s+p.valorParcela,0);
-  const totalRestante = ativas.reduce((s,p)=>s+((p.parcelas-p.pagas)*p.valorParcela),0);
+  const hoje = new Date();
+  const mesHojeAbs = hoje.getFullYear()*12 + hoje.getMonth();
+  const ativas = lista.filter(p => {
+    const fimAbs = (p.anoFim||p.anoInicio||p.ano||2026)*12 + MESES.indexOf(p.fim||'dez');
+    return mesHojeAbs <= fimAbs;
+  });
+  const quitadas = lista.filter(p => {
+    const fimAbs = (p.anoFim||p.anoInicio||p.ano||2026)*12 + MESES.indexOf(p.fim||'dez');
+    return mesHojeAbs > fimAbs;
+  });
+  const ativasNaMes = lista.filter(p => parcAtivaNaMes(p, hoje.getMonth(), hoje.getFullYear()));
+  const totalMensal = ativasNaMes.reduce((s,p)=>s+p.valorParcela, 0);
+  const totalRestante = lista.reduce((s,p) => {
+    const tot = parcTotalParcelas(p); const pag = parcPagas(p);
+    return s + Math.max(0,tot-pag)*p.valorParcela;
+  }, 0);
 
   container.innerHTML = `
   <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:16px;">
-    <div class="kpi-card"><div class="kpi-label">Mensalidade Parcelada</div><div class="kpi-value red">${fmtBRL(totalMensal)}</div><div class="kpi-sub">${ativas.length} ativas</div></div>
+    <div class="kpi-card"><div class="kpi-label">Mensalidade Parcelada</div><div class="kpi-value red">${fmtBRL(totalMensal)}</div><div class="kpi-sub">${ativasNaMes.length} ativas este mês</div></div>
     <div class="kpi-card"><div class="kpi-label">Total Restante</div><div class="kpi-value red">${fmtBRL(totalRestante)}</div><div class="kpi-sub">a pagar</div></div>
     <div class="kpi-card"><div class="kpi-label">Quitadas</div><div class="kpi-value green">${quitadas.length}</div><div class="kpi-sub">concluídas</div></div>
   </div>
@@ -6057,18 +6072,24 @@ function renderParceladas() {
   ${ativas.length ? `<div style="font-size:10px;color:var(--gold);letter-spacing:1.5px;text-transform:uppercase;margin-bottom:10px;font-weight:600;">● PARCELAMENTOS ATIVOS</div>` : ''}
   ${ativas.map((p,_) => {
     const i = lista.indexOf(p);
-    const restantes = p.parcelas - p.pagas;
-    const totalPago = p.pagas * p.valorParcela;
+    const anoInicio = p.anoInicio||p.ano||2026;
+    const anoFim = p.anoFim||anoInicio;
+    const total = parcTotalParcelas(p);
+    const pagas = parcPagas(p);
+    const restantes = total - pagas;
+    const totalPago = pagas * p.valorParcela;
     const totalRest = restantes * p.valorParcela;
-    const pct = Math.round((p.pagas/p.parcelas)*100);
-    const mesIdx = MESES.indexOf(p.inicio||'jan');
-    // Gerar mini-timeline de parcelas
-    const bolhas = Array.from({length:p.parcelas},(_,k)=>{
-      const pago = k < p.pagas;
-      const proxima = k === p.pagas;
-      const m = MESES[(mesIdx+k)%12];
-      const label = m.slice(0,3).toUpperCase();
-      return `<div title="${label} ${p.ano+(mesIdx+k>=12?1:0)}" style="
+    const pct = Math.round((pagas/total)*100);
+    const inicioLabel = MESES_LABEL[MESES.indexOf(p.inicio||'jan')];
+    const fimLabel = MESES_LABEL[MESES.indexOf(p.fim||'dez')];
+    const bolhas = Array.from({length:total},(_,k)=>{
+      const pago = k < pagas;
+      const proxima = k === pagas;
+      const mesAbsK = MESES.indexOf(p.inicio||'jan') + k;
+      const mIdx = mesAbsK % 12;
+      const mAno = anoInicio + Math.floor(mesAbsK/12);
+      const label = MESES[mIdx].slice(0,3).toUpperCase();
+      return `<div title="${label}/${mAno}" style="
         width:22px;height:22px;border-radius:50%;flex-shrink:0;
         display:flex;align-items:center;justify-content:center;
         font-size:7px;font-weight:700;letter-spacing:0;
@@ -6084,14 +6105,13 @@ function renderParceladas() {
       <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:10px;">
         <div>
           <div style="font-size:14px;font-weight:600;color:var(--text);">${p.nome}</div>
-          <div style="font-size:10px;color:var(--muted);margin-top:2px;">${p.obs||''} ${p.inicio?'· início '+MESES_LABEL[MESES.indexOf(p.inicio||'jan')]+ ' '+(p.ano||2026):''}</div>
+          <div style="font-size:10px;color:var(--muted);margin-top:2px;">${inicioLabel} ${anoInicio} → ${fimLabel} ${anoFim} · ${total}x de ${fmtBRL(p.valorParcela)}</div>
         </div>
         <div style="text-align:right;">
           <div style="font-family:'Cormorant Garamond',serif;font-size:20px;color:var(--gold);font-weight:700;">${fmtBRL(p.valorParcela)}<span style="font-size:11px;color:var(--muted)">/mês</span></div>
-          <div style="font-size:10px;color:var(--muted);">${p.pagas}/${p.parcelas} · ${pct}%</div>
+          <div style="font-size:10px;color:var(--muted);">${pagas}/${total} · ${pct}%</div>
         </div>
       </div>
-      <!-- Timeline de bolhas -->
       <div style="display:flex;gap:4px;flex-wrap:wrap;margin-bottom:10px;">${bolhas}</div>
       <div class="progress-bar" style="margin-bottom:8px;"><div class="progress-fill" style="width:${pct}%"></div></div>
       <div style="display:flex;justify-content:space-between;font-size:11px;color:var(--muted);margin-bottom:10px;">
@@ -6099,9 +6119,7 @@ function renderParceladas() {
         <span>Restante: <strong style="color:var(--red)">${fmtBRL(totalRest)}</strong> (${restantes}x)</span>
       </div>
       <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
-        <button onclick="marcarParcelaPaga(${i})" class="btn btn-gold" style="font-size:11px;padding:7px 14px;">✓ Pagar parcela ${p.pagas+1}</button>
-        <button onclick="desfazerParcelaPaga(${i})" class="btn btn-outline" style="font-size:11px;padding:7px 12px;">↩</button>
-        <button onclick="editarParcelada(${i})" style="background:var(--gold-glow);border:1px solid var(--border);color:var(--gold);border-radius:8px;padding:7px 12px;font-size:11px;cursor:pointer;">✏️</button>
+        <button onclick="editarParcelada(${i})" style="background:var(--gold-glow);border:1px solid var(--border);color:var(--gold);border-radius:8px;padding:7px 12px;font-size:11px;cursor:pointer;">✏️ Editar</button>
         <button onclick="removerParcelada(${i})" class="despesa-delete" style="margin-left:auto;">✕</button>
       </div>
     </div>`;
@@ -6111,13 +6129,15 @@ function renderParceladas() {
   <div style="font-size:10px;color:var(--green);letter-spacing:1.5px;text-transform:uppercase;margin:16px 0 10px;font-weight:600;">✓ QUITADAS</div>
   ${quitadas.map((p,_) => {
     const i = lista.indexOf(p);
+    const total = parcTotalParcelas(p);
     return `<div style="display:flex;justify-content:space-between;align-items:center;padding:10px 14px;background:rgba(39,174,96,0.05);border:1px solid rgba(39,174,96,0.15);border-radius:10px;margin-bottom:6px;opacity:0.7;">
       <div>
         <div style="font-size:13px;color:var(--text);">${p.nome}</div>
-        <div style="font-size:10px;color:var(--muted);">${p.parcelas}x de ${fmtBRL(p.valorParcela)} · Total: ${fmtBRL(p.total||(p.parcelas*p.valorParcela))}</div>
+        <div style="font-size:10px;color:var(--muted);">${total}x de ${fmtBRL(p.valorParcela)} · Total: ${fmtBRL(total*p.valorParcela)}</div>
       </div>
       <div style="display:flex;align-items:center;gap:8px;">
         <span class="badge badge-green">✓ Quitado</span>
+        <button onclick="editarParcelada(${i})" style="background:var(--gold-glow);border:1px solid var(--border);color:var(--gold);border-radius:8px;padding:5px 10px;font-size:10px;cursor:pointer;">✏️</button>
         <button onclick="removerParcelada(${i})" class="despesa-delete">✕</button>
       </div>
     </div>`;
@@ -6312,30 +6332,17 @@ function migrateFixasExcel2026() {
   if (state._migFixasExcel26) return;
   if (!state.pagFixas) state.pagFixas = {};
   const dados = {
-    'Dízimo':                  {jan:0,  fev:0,  mar:0,  abr:0,  mai:0,  jun:0},
-    'Internet':                {jan:60, fev:60, mar:60, abr:60, mai:60, jun:60},
-    'Vivo':                    {jan:125,fev:121,mar:124,abr:134,mai:134,jun:0},
-    'Luz':                     {jan:350,fev:326,mar:388,abr:397,mai:0,  jun:0},
-    'Spotify':                 {jan:25, fev:25, mar:25, abr:25, mai:25, jun:0},
-    'Plano Saúde':             {jan:0,  fev:0,  mar:0,  abr:40, mai:48, jun:48},
-    'Arquiteta':               {jan:450,fev:450,mar:450,abr:450,mai:450,jun:0},
-    'Vanessa':                 {jan:250,fev:250,mar:250,abr:250,mai:250,jun:0},
-    'Patrimônio':              {jan:100,fev:100,mar:100,abr:100,mai:100,jun:100},
-    'Cartão Nubank':           {jan:99, fev:321,mar:416,abr:426,mai:322,jun:197},
-    'Cartão Itaú':             {jan:147,fev:552,mar:172,abr:538,mai:196,jun:298},
-    'Cartão ML':               {jan:0,  fev:130,mar:300,abr:210,mai:200,jun:400},
-    'Beco (1/6–3/8)':          {jan:0,  fev:0,  mar:209,abr:138,mai:138,jun:138},
-    'Brum':                    {jan:156,fev:156,mar:156,abr:156,mai:0,  jun:0},
-    'Sev. Curt. (4/10–12/7)':  {jan:113,fev:113,mar:113,abr:113,mai:101,jun:113},
-    'South':                   {jan:112,fev:112,mar:112,abr:112,mai:112,jun:112},
+    'Dízimo':      {jan:0,  fev:0,  mar:0,  abr:0,  mai:0,  jun:0},
+    'Internet':    {jan:60, fev:60, mar:60, abr:60, mai:60, jun:60},
+    'Vivo':        {jan:125,fev:121,mar:124,abr:134,mai:134,jun:0},
+    'Luz':         {jan:350,fev:326,mar:388,abr:397,mai:0,  jun:0},
+    'Spotify':     {jan:25, fev:25, mar:25, abr:25, mai:25, jun:0},
+    'Plano Saúde': {jan:0,  fev:0,  mar:0,  abr:40, mai:48, jun:48},
+    'Cartão Nubank':{jan:99, fev:321,mar:416,abr:426,mai:322,jun:197},
+    'Cartão Itaú': {jan:147,fev:552,mar:172,abr:538,mai:196,jun:298},
+    'Cartão ML':   {jan:0,  fev:130,mar:300,abr:210,mai:200,jun:400},
   };
   Object.assign(state.pagFixas, dados);
-  if (!state.despesas_fixas.find(d => d.nome === 'Brum')) {
-    const idx = state.despesas_fixas.findIndex(d => d.nome === 'Beco (1/6–3/8)');
-    const brum = {nome:'Brum', vencimento:'15', valor:156};
-    if (idx >= 0) state.despesas_fixas.splice(idx + 1, 0, brum);
-    else state.despesas_fixas.push(brum);
-  }
   state._migFixasExcel26 = true;
   saveState();
 }
@@ -6399,6 +6406,33 @@ function migrateShowsExcel2026() {
     }
   });
   state._migShowsExcel26 = true;
+  saveState();
+}
+
+function migrateParceladasFim2026() {
+  if (state._migParceladasFim2026) return;
+  const remover = new Set(['South','Brum','Arquiteta','Vanessa','Patrimônio',
+    'Beco (1/6–3/8)','Sev. Curt. (4/10–12/7)']);
+  state.despesas_fixas = (state.despesas_fixas||[]).filter(d => !remover.has(d.nome));
+  const cfg = {
+    1:{nome:'Beco da Moda',  inicio:'mar',anoInicio:2026,fim:'ago',anoFim:2026},
+    2:{nome:'Brum',          inicio:'jan',anoInicio:2026,fim:'ago',anoFim:2026},
+    3:{nome:'Severo Curtume',inicio:'out',anoInicio:2025,fim:'jul',anoFim:2026},
+    4:{nome:'South',         inicio:'jan',anoInicio:2026,fim:'dez',anoFim:2026},
+    5:{nome:'Arquiteta',     inicio:'jan',anoInicio:2026,fim:'dez',anoFim:2026},
+    6:{nome:'Vanessa',       inicio:'jan',anoInicio:2026,fim:'dez',anoFim:2026},
+    7:{nome:'Patrimônio',    inicio:'jan',anoInicio:2026,fim:'dez',anoFim:2026},
+  };
+  (state.parceladas||[]).forEach(p => {
+    const c = cfg[p.id];
+    if (c) { Object.assign(p, c); }
+    else {
+      if (!p.anoInicio) p.anoInicio = p.ano||2026;
+      if (!p.fim) p.fim = 'dez';
+      if (!p.anoFim) p.anoFim = p.anoInicio||2026;
+    }
+  });
+  state._migParceladasFim2026 = true;
   saveState();
 }
 
@@ -7225,8 +7259,9 @@ function updatePainel() {
   const despINB = state.gastos_inb.reduce((s,d)=>s+d.valor,0);
   const despNB = state.gastos_nb.reduce((s,d)=>s+d.valor,0);
   const despCot = (state.cotidiano||[]).reduce((s,d)=>s+d.valor,0);
-  const despParc = (state.parceladas||[]).filter(p=>p.pagas<p.parcelas).reduce((s,p)=>s+p.valorParcela,0);
-  const despTotal = despFixas + despINB + despNB + despCot;
+  const hoje = new Date();
+  const despParc = (state.parceladas||[]).filter(p=>parcAtivaNaMes(p,hoje.getMonth(),hoje.getFullYear())).reduce((s,p)=>s+p.valorParcela,0);
+  const despTotal = despFixas + despParc + despINB + despNB + despCot;
   const saldoAnterior = 3600;
   const saldo = saldoAnterior + recTotal - despTotal;
 
@@ -7248,10 +7283,10 @@ function updatePainel() {
   try { atualizarKpiParceladas(); } catch(e) {}
 
   // Gráficos dinâmicos
-  renderPainelCharts(recINB, recShows, despFixas, despINB, despNB, despCot);
+  renderPainelCharts(recINB, recShows, despFixas, despINB, despNB, despCot, despParc);
 }
 
-function renderPainelCharts(recINB, recShows, despFixas, despINB, despNB, despCot) {
+function renderPainelCharts(recINB, recShows, despFixas, despINB, despNB, despCot, despParc) {
   function barRow(label, val, max, cls) {
     const pct = max > 0 ? Math.max(2, (val/max)*100).toFixed(1) : 0;
     return `<div class="bar-row">
@@ -7266,6 +7301,7 @@ function renderPainelCharts(recINB, recShows, despFixas, despINB, despNB, despCo
     const items = [
       {label:'Cotidiano', val:despCot, cls:'red'},
       {label:'Despesas Fixas', val:despFixas, cls:'gold'},
+      {label:'Parceladas', val:despParc||0, cls:'red'},
       {label:'Gastos INB', val:despINB, cls:'blue'},
       {label:'Gastos NB', val:despNB, cls:'green'},
     ].filter(x=>x.val>0).sort((a,b)=>b.val-a.val);
@@ -7664,7 +7700,7 @@ function toggleMic() {
   if (!state.alunos?.length) {
     state.alunos = SEED_ALUNOS;
     state.shows = [{id:1,data:'2026-01-31',artista:'Aline Brasil',tipo:'Show',cidade:'Poço Fundo',estado:'MG',cache:1000,status:'pago',obs:''},{id:2,data:'2026-02-14',artista:'Aline Brasil',tipo:'Show',cidade:'Telêmaco Borba',estado:'PR',cache:1000,status:'pago',obs:''},{id:3,data:'2026-02-16',artista:'Aline Brasil',tipo:'Show',cidade:'Curitiba',estado:'PR',cache:1000,status:'pago',obs:''},{id:4,data:'2026-02-20',artista:'Aline Brasil',tipo:'Show',cidade:'São Miguel do Tocantins',estado:'TO',cache:1000,status:'pago',obs:''},{id:5,data:'2026-04-24',artista:'Aline Brasil',tipo:'Show',cidade:'São Fidélis',estado:'RJ',cache:1000,status:'pago',obs:''},{id:6,data:'2026-06-04',artista:'Aline Brasil',tipo:'Show',cidade:'Palestina do Pará',estado:'PA',cache:600,status:'pago',obs:''},{id:7,data:'2026-06-12',artista:'Aline Brasil',tipo:'Show',cidade:'Passos de Camaragibe',estado:'AL',cache:1000,status:'confirmado',obs:''},{id:8,data:'2026-06-21',artista:'Aline Brasil',tipo:'Show',cidade:'Cocal dos Alves',estado:'PI',cache:1000,status:'confirmado',obs:''},{id:9,data:'2026-06-23',artista:'Aline Brasil',tipo:'Show',cidade:'Canutama',estado:'AM',cache:1000,status:'confirmado',obs:''},{id:10,data:'2026-06-29',artista:'Aline Brasil',tipo:'Show',cidade:'Concórdia do Pará',estado:'PA',cache:1000,status:'confirmado',obs:''},{id:11,data:'2026-07-11',artista:'Aline Brasil',tipo:'Show',cidade:'Novo Cruzeiro',estado:'MG',cache:1000,status:'confirmado',obs:''},{id:12,data:'2026-07-25',artista:'Aline Brasil',tipo:'Show',cidade:'São Luís dos Montes Belos',estado:'GO',cache:1000,status:'confirmado',obs:''},{id:13,data:'2026-07-26',artista:'Aline Brasil',tipo:'Show',cidade:'Pirapetinga',estado:'MG',cache:1000,status:'confirmado',obs:''},{id:14,data:'2026-08-15',artista:'Aline Brasil',tipo:'Show',cidade:'Lago do Barro',estado:'PI',cache:1000,status:'confirmado',obs:''},{id:15,data:'2026-09-24',artista:'Aline Brasil',tipo:'Show',cidade:'Porto Walter',estado:'AC',cache:1000,status:'confirmado',obs:''}];
-    state.despesas_fixas = [{nome:'Dízimo',vencimento:'10',valor:200},{nome:'Internet',vencimento:'15',valor:60},{nome:'Vivo',vencimento:'20',valor:125},{nome:'Luz',vencimento:'10',valor:350},{nome:'Spotify',vencimento:'10',valor:25},{nome:'Plano Saúde',vencimento:'10',valor:50},{nome:'Arquiteta',vencimento:'12',valor:450},{nome:'Vanessa',vencimento:'10',valor:250},{nome:'Patrimônio',vencimento:'10',valor:100},{nome:'Cartão Nubank',vencimento:'03',valor:250},{nome:'Cartão Itaú',vencimento:'03',valor:250},{nome:'Cartão ML',vencimento:'03',valor:250},{nome:'Beco (1/6–3/8)',vencimento:'20',valor:138},{nome:'Brum',vencimento:'15',valor:156},{nome:'Sev. Curt. (4/10–12/7)',vencimento:'10',valor:113},{nome:'South',vencimento:'05',valor:112}];
+    state.despesas_fixas = [{nome:'Dízimo',vencimento:'10',valor:200},{nome:'Internet',vencimento:'15',valor:60},{nome:'Vivo',vencimento:'20',valor:125},{nome:'Luz',vencimento:'10',valor:350},{nome:'Spotify',vencimento:'10',valor:25},{nome:'Plano Saúde',vencimento:'10',valor:50},{nome:'Cartão Nubank',vencimento:'03',valor:250},{nome:'Cartão Itaú',vencimento:'03',valor:250},{nome:'Cartão ML',vencimento:'03',valor:250}];
     state.gastos_inb = [{nome:'Pratos',mes:'jan',valor:450},{nome:'Piso Borracha',mes:'fev',valor:60},{nome:'Porta Copo',mes:'fev',valor:55},{nome:'Cabos de Fone',mes:'fev',valor:60},{nome:'Canetas',mes:'fev',valor:84},{nome:'Piso Borracha',mes:'mar',valor:60},{nome:'Relógio Digital',mes:'mar',valor:198},{nome:'Painel / Logo NB',mes:'mar',valor:829},{nome:'Cabos de Fone',mes:'mai',valor:33},{nome:'Canetas',mes:'mai',valor:25},{nome:'Fita Elétrica',mes:'mai',valor:33},{nome:'Baquetas',mes:'mai',valor:27}];
     state.gastos_nb = [{nome:'Baquetas',mes:'fev',valor:180},{nome:'Cabos do Fone',mes:'fev',valor:49},{nome:'Joyo',mes:'fev',valor:195},{nome:'Adaptador de Fone',mes:'fev',valor:20},{nome:'Pés do BB',mes:'fev',valor:300},{nome:'Peles Mudas',mes:'fev',valor:368},{nome:'Adaptador de Fone',mes:'mar',valor:20},{nome:'Pés do SD',mes:'mar',valor:140},{nome:'Cabos do Fone',mes:'mai',valor:46}];
   }
@@ -7680,6 +7716,7 @@ function toggleMic() {
   try { migrateFixasExcel2026(); } catch(e) {}
   try { migrateGastosExcel2026(); } catch(e) {}
   try { migrateShowsExcel2026(); } catch(e) {}
+  try { migrateParceladasFim2026(); } catch(e) {}
 
   // 2. Renderiza UI imediatamente
   try { renderAlunos(); } catch(e) { console.warn(e); }
