@@ -2191,7 +2191,7 @@ const SEED_ALUNOS = [
   {id:6,nome:'Daniel Alexandre',tel:'',mensalidade:185,matricula:75,status:'Ativo',pag:{jan:0,fev:185,mar:185,abr:185,mai:185,jun:185,jul:0,ago:0,set:0,out:0,nov:0,dez:0},mat_pago:75},
   {id:7,nome:'Davi Curty',tel:'',mensalidade:185,matricula:100,status:'Ativo',pag:{jan:0,fev:185,mar:185,abr:185,mai:185,jun:185,jul:0,ago:0,set:0,out:0,nov:0,dez:0},mat_pago:100},
   {id:8,nome:'Davi Pio',tel:'',mensalidade:185,matricula:100,status:'Ativo',pag:{jan:0,fev:185,mar:185,abr:185,mai:0,jun:0,jul:0,ago:0,set:0,out:0,nov:0,dez:0},mat_pago:100},
-  {id:9,nome:'Elias Rocha',tel:'',mensalidade:185,matricula:75,status:'Ativo',pag:{jan:0,fev:185,mar:185,abr:185,mai:185,jun:185,jul:0,ago:0,set:0,out:0,nov:0,dez:0},mat_pago:75},
+  {id:9,nome:'Elias Medeiros',tel:'',mensalidade:185,matricula:75,status:'Ativo',pag:{jan:0,fev:185,mar:185,abr:185,mai:185,jun:185,jul:0,ago:0,set:0,out:0,nov:0,dez:0},mat_pago:75},
   {id:10,nome:'Enzo Gomes',tel:'',mensalidade:185,matricula:75,status:'Ativo',pag:{jan:0,fev:0,mar:185,abr:185,mai:185,jun:185,jul:0,ago:0,set:0,out:0,nov:0,dez:0},mat_pago:75},
   {id:11,nome:'Erinelma Santos',tel:'',mensalidade:185,matricula:75,status:'Ativo',pag:{jan:0,fev:185,mar:185,abr:185,mai:185,jun:0,jul:0,ago:0,set:0,out:0,nov:0,dez:0},mat_pago:75},
   {id:12,nome:'Gabriel Soreano',tel:'',mensalidade:185,matricula:100,status:'Ativo',pag:{jan:0,fev:0,mar:0,abr:185,mai:185,jun:0,jul:0,ago:0,set:0,out:0,nov:0,dez:0},mat_pago:100},
@@ -2584,7 +2584,7 @@ if (!state.agenda) state.agenda = [
   {id:14,aluno:'Luiz Felipe',dia:'Quinta',hora:'15h',tipo:'Individual',obs:''},
   {id:15,aluno:'Mateus Lelis',dia:'Segunda',hora:'15h',tipo:'Individual',obs:''},
   {id:16,aluno:'Carlos Eduardo',dia:'Sexta',hora:'16h',tipo:'Individual',obs:''},
-  {id:17,aluno:'Elias Rocha',dia:'Quarta',hora:'16h',tipo:'Individual',obs:''},
+  {id:17,aluno:'Elias Medeiros',dia:'Quarta',hora:'16h',tipo:'Individual',obs:''},
   {id:18,aluno:'Vivi Monzato',dia:'Terça',hora:'16h',tipo:'Individual',obs:''},
   {id:19,aluno:'Maria Vares',dia:'Segunda',hora:'16h',tipo:'Individual',obs:''},
   {id:20,aluno:'Miguel Pozes',dia:'Quinta',hora:'16h',tipo:'Individual',obs:''},
@@ -2636,18 +2636,27 @@ function migrateAgendaPresenca() {
   if (!state.alunos || !state.alunos.length) return;
   let changed = false;
 
-  // Fix direcionado: desfaz links errados criados pelo fallback de primeiro nome
-  // (ex: "Miguel Paes" agenda id:24 foi vinculado incorretamente a Miguel Pozes id:25)
-  const WRONG_LINKS = {
-    24: {alunoId: null, nome: 'Miguel Paes'}, // especial — não tem ID numérico
+  // FORCED_LINKS: vínculos fixos por ID de entrada da agenda
+  // Usado quando auto-detecção falha (aluno renomeado, especial sem ID numérico, etc.)
+  // alunoId: null → especial/sem vínculo; alunoId: N → vincula ao aluno id N do Cadastro
+  const FORCED_LINKS = {
+    17: {alunoId: 9},                        // Elias Rocha (seed) → id:9 = Elias Medeiros no Cadastro
+    24: {alunoId: null, nome: 'Miguel Paes'}, // especial — sem ID numérico
   };
   state.agenda.forEach(ag => {
-    const fix = ag.id != null ? WRONG_LINKS[ag.id] : null;
-    if (fix && (ag.alunoId !== fix.alunoId || ag.aluno !== fix.nome)) {
-      ag.alunoId = fix.alunoId;
-      ag.aluno   = fix.nome;
-      changed = true;
+    if (ag.id == null) return;
+    const fix = FORCED_LINKS[ag.id];
+    if (!fix) return;
+    let needsSave = false;
+    if (ag.alunoId !== fix.alunoId) { ag.alunoId = fix.alunoId; needsSave = true; }
+    if (fix.alunoId != null) {
+      // Sincroniza nome com o Cadastro (funciona mesmo após renomeações futuras)
+      const nomeAtual = getNomeAluno(fix.alunoId);
+      if (nomeAtual && nomeAtual !== ag.aluno) { ag.aluno = nomeAtual; needsSave = true; }
+    } else if (fix.nome && ag.aluno !== fix.nome) {
+      ag.aluno = fix.nome; needsSave = true;
     }
+    if (needsSave) changed = true;
   });
 
   // Tabela de nomes parentéticos do seed → seed ID fixo do aluno
@@ -2659,8 +2668,8 @@ function migrateAgendaPresenca() {
   // 1. Vincula por nome (se alunoId ausente) E mantém ag.aluno sempre em dia com Cadastro
   state.agenda.forEach(ag => {
     if (ag.aluno === 'VAGO') return;
-    // Pula entradas com fix direcionado (já tratadas acima)
-    if (ag.id != null && WRONG_LINKS[ag.id]) return;
+    // Pula entradas com vínculo forçado (já tratadas acima)
+    if (ag.id != null && FORCED_LINKS[ag.id]) return;
 
     if (!ag.alunoId) {
       let id = null;
@@ -3248,6 +3257,34 @@ function getPresencaStatsInstituto(ano) {
     });
     const den = byAluno[nomeCanon].P + byAluno[nomeCanon].F + byAluno[nomeCanon].R;
     byAluno[nomeCanon].taxa = den > 0 ? Math.round(byAluno[nomeCanon].P / den * 100) : null;
+  });
+
+  // Alunos especiais — por nome (sem ID numérico)
+  (state.alunosEspeciais || []).forEach(esp => {
+    const agEntries = state.agenda.filter(ag => !ag.alunoId && ag.aluno === esp.nome);
+    if (!agEntries.length) return;
+    byAluno[esp.nome] = { P:0, F:0, R:0, H:0, nao:0, total:0 };
+    agEntries.forEach(ag => {
+      const key = agKey(ag);
+      for (let m = 0; m < 12; m++) {
+        const datas = getAulasDatasDoMes(ag.dia, ano, m);
+        datas.forEach(d => {
+          if (d > hoje) return;
+          const ds  = dateToStr(d);
+          const val = (state.presencas[ds] || {})[key];
+          byAluno[esp.nome].total++;
+          const mk = MESES[m];
+          if (!byMes[mk]) byMes[mk] = {mesIdx:m, P:0, F:0, R:0, H:0, total:0};
+          byMes[mk].total++;
+          if (val === 'P')                  { byAluno[esp.nome].P++;  byMes[mk].P++; }
+          else if (val === 'F')             { byAluno[esp.nome].F++;  byMes[mk].F++; }
+          else if (val&&val.startsWith('R')){ byAluno[esp.nome].R++;  byMes[mk].R++; }
+          else if (val === 'H')             { byAluno[esp.nome].H++;  byMes[mk].H++; }
+        });
+      }
+    });
+    const denE = byAluno[esp.nome].P + byAluno[esp.nome].F + byAluno[esp.nome].R;
+    byAluno[esp.nome].taxa = denE > 0 ? Math.round(byAluno[esp.nome].P / denE * 100) : null;
   });
 
   return { byAluno, byMes };
@@ -8233,12 +8270,21 @@ let atvEditConteudoId = null;
 let atvEditExercicioId = null;
 let atvEditMusicaId = null;
 
+// Retorna o nome do especial se atvAlunoAtual for 'ESP:Nome', ou null se for aluno regular
+function atvEspNome() {
+  return String(atvAlunoAtual).startsWith('ESP:') ? atvAlunoAtual.slice(4) : null;
+}
+
 function populateAtvAlunoSelect() {
   const sel = document.getElementById('atv-aluno-sel');
   if (!sel) return;
   const ativos = state.alunos.filter(a => a.status !== 'Inativo').sort((a,b) => a.nome.localeCompare(b.nome));
+  const especiais = (state.alunosEspeciais || []).sort((a,b) => a.nome.localeCompare(b.nome));
   sel.innerHTML = '<option value="">— Selecione o aluno —</option>' +
-    ativos.map(a => `<option value="${a.id}"${a.id == atvAlunoAtual ? ' selected':''}">${a.nome}</option>`).join('');
+    ativos.map(a => `<option value="${a.id}"${String(a.id) === String(atvAlunoAtual) ? ' selected':''}>${a.nome}</option>`).join('') +
+    (especiais.length
+      ? `<optgroup label="★ Especiais">${especiais.map(e => `<option value="ESP:${e.nome}"${'ESP:'+e.nome === atvAlunoAtual ? ' selected':''}>${e.nome} ★</option>`).join('')}</optgroup>`
+      : '');
 }
 
 function atvAlunoChange(idStr) {
@@ -8267,9 +8313,10 @@ function renderAtvConteudo() {
   const c = document.getElementById('atv-conteudo-container');
   if (!c) return;
   if (!state.atividades) state.atividades = { conteudo:[], exercicios:[], musicas:[] };
+  const espNome = atvEspNome();
   const aId = parseInt(atvAlunoAtual);
   const registros = atvAlunoAtual
-    ? state.atividades.conteudo.filter(r => r.alunoId === aId).sort((a,b) => b.data.localeCompare(a.data))
+    ? state.atividades.conteudo.filter(r => espNome ? r.alunoNome === espNome : r.alunoId === aId).sort((a,b) => b.data.localeCompare(a.data))
     : [];
 
   const formHtml = `
@@ -8366,7 +8413,11 @@ function salvarConteudo() {
   if (!texto) { toast('Digite o conteúdo da aula'); return; }
   const tags = [...document.querySelectorAll('.atvc-tag:checked')].map(cb => cb.value);
   const nextId = (state.atividades.conteudo.reduce((mx, r) => Math.max(mx, r.id||0), 0)) + 1;
-  state.atividades.conteudo.push({ id: nextId, alunoId: parseInt(atvAlunoAtual), data, texto, nivel, tags });
+  const espNomeC = atvEspNome();
+  const entryC = { id: nextId, data, texto, nivel, tags };
+  if (espNomeC) { entryC.alunoId = null; entryC.alunoNome = espNomeC; }
+  else { entryC.alunoId = parseInt(atvAlunoAtual); }
+  state.atividades.conteudo.push(entryC);
   saveState();
   toast('✓ Registro salvo');
   renderAtvConteudo();
@@ -8395,14 +8446,21 @@ function salvarEdicaoConteudo(id) {
 }
 
 async function resumoIAConteudo() {
+  const espNomeIA = atvEspNome();
   const aId = parseInt(atvAlunoAtual);
-  const aluno = state.alunos.find(a => a.id === aId);
+  const aluno = espNomeIA ? { nome: espNomeIA } : state.alunos.find(a => a.id === aId);
   if (!aluno) return;
-  const registros = state.atividades.conteudo.filter(r => r.alunoId === aId).sort((a,b) => a.data.localeCompare(b.data));
+  const registros = espNomeIA
+    ? state.atividades.conteudo.filter(r => r.alunoNome === espNomeIA).sort((a,b) => a.data.localeCompare(b.data))
+    : state.atividades.conteudo.filter(r => r.alunoId === aId).sort((a,b) => a.data.localeCompare(b.data));
   if (!registros.length) { toast('Sem registros para resumir'); return; }
 
-  const exercicios = state.atividades.exercicios.filter(e => e.alunoId === aId);
-  const musicas = state.atividades.musicas.filter(m => m.alunoId === aId);
+  const exercicios = espNomeIA
+    ? state.atividades.exercicios.filter(e => e.alunoNome === espNomeIA)
+    : state.atividades.exercicios.filter(e => e.alunoId === aId);
+  const musicas = espNomeIA
+    ? state.atividades.musicas.filter(m => m.alunoNome === espNomeIA)
+    : state.atividades.musicas.filter(m => m.alunoId === aId);
 
   const prompt = `Você é um professor de bateria experiente. Analise o progresso do aluno abaixo e gere um relatório profissional e motivador em português.
 
@@ -8470,9 +8528,10 @@ function renderAtvExercicios() {
   const c = document.getElementById('atv-exercicios-container');
   if (!c) return;
   if (!state.atividades) state.atividades = { conteudo:[], exercicios:[], musicas:[] };
+  const espNome = atvEspNome();
   const aId = parseInt(atvAlunoAtual);
   const lista = atvAlunoAtual
-    ? state.atividades.exercicios.filter(e => e.alunoId === aId).sort((a,b) => a.nome.localeCompare(b.nome))
+    ? state.atividades.exercicios.filter(e => espNome ? e.alunoNome === espNome : e.alunoId === aId).sort((a,b) => a.nome.localeCompare(b.nome))
     : [];
 
   const formHtml = `
@@ -8588,11 +8647,11 @@ function salvarExercicio() {
   const bpmAtual = parseInt(document.getElementById('atve-bpm-atual')?.value) || bpmAlvo;
   if (!nome) { toast('Digite o nome do exercício'); return; }
   const nextId = (state.atividades.exercicios.reduce((mx, r) => Math.max(mx, r.id||0), 0)) + 1;
-  state.atividades.exercicios.push({
-    id: nextId, alunoId: parseInt(atvAlunoAtual),
-    nome, dataInicio, bpmAlvo, bpmAtual, status: 'Em andamento',
-    historico: [{ data: dataInicio, bpm: bpmAtual }]
-  });
+  const espNomeE = atvEspNome();
+  const entryE = { id: nextId, nome, dataInicio, bpmAlvo, bpmAtual, status: 'Em andamento', historico: [{ data: dataInicio, bpm: bpmAtual }] };
+  if (espNomeE) { entryE.alunoId = null; entryE.alunoNome = espNomeE; }
+  else { entryE.alunoId = parseInt(atvAlunoAtual); }
+  state.atividades.exercicios.push(entryE);
   saveState();
   toast('✓ Exercício salvo');
   renderAtvExercicios();
@@ -8651,9 +8710,10 @@ function renderAtvMusicas() {
   const c = document.getElementById('atv-musicas-container');
   if (!c) return;
   if (!state.atividades) state.atividades = { conteudo:[], exercicios:[], musicas:[] };
+  const espNome = atvEspNome();
   const aId = parseInt(atvAlunoAtual);
   const lista = atvAlunoAtual
-    ? state.atividades.musicas.filter(m => m.alunoId === aId).sort((a,b) => a.nome.localeCompare(b.nome))
+    ? state.atividades.musicas.filter(m => espNome ? m.alunoNome === espNome : m.alunoId === aId).sort((a,b) => a.nome.localeCompare(b.nome))
     : [];
 
   const formHtml = `
@@ -8770,12 +8830,11 @@ function salvarMusica() {
   const dataInicio = document.getElementById('atvm-data')?.value || new Date().toISOString().slice(0,10);
   if (!nome) { toast('Digite o nome da música'); return; }
   const nextId = (state.atividades.musicas.reduce((mx, r) => Math.max(mx, r.id||0), 0)) + 1;
-  state.atividades.musicas.push({
-    id: nextId, alunoId: parseInt(atvAlunoAtual),
-    nome, artista, estilo, status,
-    dataInicio,
-    dataConclusao: null
-  });
+  const espNomeM = atvEspNome();
+  const entryM = { id: nextId, nome, artista, estilo, status, dataInicio, dataConclusao: null };
+  if (espNomeM) { entryM.alunoId = null; entryM.alunoNome = espNomeM; }
+  else { entryM.alunoId = parseInt(atvAlunoAtual); }
+  state.atividades.musicas.push(entryM);
   saveState();
   toast('✓ Música salva');
   renderAtvMusicas();
