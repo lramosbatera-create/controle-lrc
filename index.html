@@ -2140,6 +2140,9 @@ function saveState() {
       alunosEspeciais: state.alunosEspeciais,
       parceladas: state.parceladas,
       cotidiano: state.cotidiano,
+      agenda: state.agenda,
+      recital: state.recital,
+      nextId: state.nextId,
       _migAlunosExcel26: state._migAlunosExcel26,
       _migFixasExcel26: state._migFixasExcel26,
       _migGastosExcel26: state._migGastosExcel26,
@@ -2513,6 +2516,13 @@ async function dbPushAll() {
       recital:        state.recital        || {},
       parceladas:     state.parceladas     || [],
       cotidiano:      state.cotidiano      || [],
+      nextId:         state.nextId,
+      _migAlunosExcel26:        state._migAlunosExcel26,
+      _migFixasExcel26:         state._migFixasExcel26,
+      _migGastosExcel26:        state._migGastosExcel26,
+      _migShowsExcel26:         state._migShowsExcel26,
+      _migParceladasFim2026:    state._migParceladasFim2026,
+      _migCotidianoCompleto2026:state._migCotidianoCompleto2026,
     };
     const erros = [];
     if (state.alunos?.length) {
@@ -2560,6 +2570,13 @@ async function dbPullAll() {
       if (b.recital)                state.recital        = b.recital;
       if (b.parceladas)             state.parceladas     = b.parceladas;
       if (b.cotidiano)              state.cotidiano      = b.cotidiano;
+      if (b.nextId)                 state.nextId         = b.nextId;
+      if (b._migAlunosExcel26)        state._migAlunosExcel26        = b._migAlunosExcel26;
+      if (b._migFixasExcel26)         state._migFixasExcel26         = b._migFixasExcel26;
+      if (b._migGastosExcel26)        state._migGastosExcel26        = b._migGastosExcel26;
+      if (b._migShowsExcel26)         state._migShowsExcel26         = b._migShowsExcel26;
+      if (b._migParceladasFim2026)    state._migParceladasFim2026    = b._migParceladasFim2026;
+      if (b._migCotidianoCompleto2026) state._migCotidianoCompleto2026 = b._migCotidianoCompleto2026;
     }
     saveState();
     try { renderAlunos(); updatePainel(); } catch(e) {}
