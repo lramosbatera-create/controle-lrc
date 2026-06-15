@@ -2130,7 +2130,6 @@ function saveState() {
       despesas_fixas: state.despesas_fixas,
       gastos_inb: state.gastos_inb,
       gastos_nb: state.gastos_nb,
-      nextId: state.nextId,
       cadastroExtra: state.cadastroExtra,
       avulsos: state.avulsos,
       pagFixas: state.pagFixas,
@@ -2143,12 +2142,16 @@ function saveState() {
       agenda: state.agenda,
       recital: state.recital,
       nextId: state.nextId,
+      agendaNextId: agendaNextId,
+      cotNextId: cotNextId,
+      parcNextId: parcNextId,
       _migAlunosExcel26: state._migAlunosExcel26,
       _migFixasExcel26: state._migFixasExcel26,
       _migGastosExcel26: state._migGastosExcel26,
       _migShowsExcel26: state._migShowsExcel26,
       _migParceladasFim2026: state._migParceladasFim2026,
       _migCotidianoCompleto2026: state._migCotidianoCompleto2026,
+      _migCotidianoMaiJun: state._migCotidianoMaiJun,
     }));
   } catch(e) { console.warn('Save failed', e); }
 }
@@ -2523,6 +2526,7 @@ async function dbPushAll() {
       _migShowsExcel26:         state._migShowsExcel26,
       _migParceladasFim2026:    state._migParceladasFim2026,
       _migCotidianoCompleto2026:state._migCotidianoCompleto2026,
+      _migCotidianoMaiJun:      state._migCotidianoMaiJun,
     };
     const erros = [];
     if (state.alunos?.length) {
@@ -2577,6 +2581,7 @@ async function dbPullAll() {
       if (b._migShowsExcel26)         state._migShowsExcel26         = b._migShowsExcel26;
       if (b._migParceladasFim2026)    state._migParceladasFim2026    = b._migParceladasFim2026;
       if (b._migCotidianoCompleto2026) state._migCotidianoCompleto2026 = b._migCotidianoCompleto2026;
+      if (b._migCotidianoMaiJun)       state._migCotidianoMaiJun       = b._migCotidianoMaiJun;
     }
     saveState();
     try { renderAlunos(); updatePainel(); } catch(e) {}
@@ -6713,7 +6718,8 @@ function migrateCotidianoCompleto2026() {
 
 function migrateCotidianoMaiJun() {
   if (!state.cotidiano) return;
-  if (state.cotidiano.some(d => d.mes === 'jun')) return; // já migrado
+  if (state._migCotidianoMaiJun) return;
+  if (state.cotidiano.some(d => d.mes === 'jun')) { state._migCotidianoMaiJun = true; return; }
   const e118 = state.cotidiano.find(d => d.id === 118);
   if (e118) e118.valor = 58;
   const maxId = Math.max(...state.cotidiano.map(d => d.id || 0), 122);
@@ -6744,6 +6750,7 @@ function migrateCotidianoMaiJun() {
   ];
   novas.forEach(e => state.cotidiano.push({id: nid++, ...e}));
   cotNextId = nid;
+  state._migCotidianoMaiJun = true;
   saveState();
 }
 
@@ -8228,6 +8235,14 @@ function toggleMic() {
   try { migrateGastosExcel2026(); } catch(e) {}
   try { migrateShowsExcel2026(); } catch(e) {}
   try { migrateParceladasFim2026(); } catch(e) {}
+
+  // Sincroniza contadores globais com os dados reais (evita conflitos de ID após F5)
+  try {
+    const saved = JSON.parse(localStorage.getItem(STORAGE_KEY) || '{}');
+    agendaNextId = Math.max(agendaNextId, saved.agendaNextId || 0, ...(state.agenda||[]).map(a=>a.id||0)) + 1;
+    cotNextId    = Math.max(cotNextId,    saved.cotNextId    || 0, ...(state.cotidiano||[]).map(c=>c.id||0)) + 1;
+    parcNextId   = Math.max(parcNextId,   saved.parcNextId   || 0, ...(state.parceladas||[]).map(p=>p.id||0)) + 1;
+  } catch(e) {}
 
   // 2. Renderiza UI imediatamente
   try { renderAlunos(); } catch(e) { console.warn(e); }
