@@ -901,7 +901,7 @@
           <div class="form-group">
             <label>Horário</label>
             <select id="ag-hora">
-              <option>09h</option><option>10h</option><option>11h</option><option>12h</option>
+              <option>8h</option><option>9h</option><option>10h</option><option>11h</option><option>12h</option>
               <option>13h</option><option>14h</option><option>15h</option><option>16h</option>
               <option>17h</option><option>18h</option><option>19h</option><option>20h</option>
             </select>
@@ -8235,6 +8235,9 @@ function toggleMic() {
   try { migrateGastosExcel2026(); } catch(e) {}
   try { migrateShowsExcel2026(); } catch(e) {}
   try { migrateParceladasFim2026(); } catch(e) {}
+
+  // Normaliza hora das entradas da agenda (09h → 9h) para compatibilidade com AGENDA_HORAS
+  try { (state.agenda||[]).forEach(a => { if (a.hora && a.hora.startsWith('0')) a.hora = a.hora.slice(1); }); } catch(e) {}
 
   // Sincroniza contadores globais com os dados reais (evita conflitos de ID após F5)
   try {
