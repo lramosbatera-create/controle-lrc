@@ -2597,8 +2597,8 @@ async function dbPullAll() {
 
 // Agenda data (from Excel)
 if (!state.agenda) state.agenda = [
-  {id:1,aluno:'Maria Lavínia',dia:'Terça',hora:'09h',tipo:'Individual',obs:''},
-  {id:2,aluno:'Nilo Castilho',dia:'Segunda',hora:'09h',tipo:'Individual',obs:''},
+  {id:1,aluno:'Maria Lavínia',dia:'Terça',hora:'9h',tipo:'Individual',obs:''},
+  {id:2,aluno:'Nilo Castilho',dia:'Segunda',hora:'9h',tipo:'Individual',obs:''},
   {id:3,aluno:'Erinelma Santos',dia:'Quarta',hora:'11h',tipo:'Individual',obs:''},
   {id:4,aluno:'Bernardo Lorençoni',dia:'Sexta',hora:'12h',tipo:'Individual',obs:''},
   {id:5,aluno:'Gabriel Soreano',dia:'Quarta',hora:'13h',tipo:'Individual',obs:''},
@@ -8237,7 +8237,11 @@ function toggleMic() {
   try { migrateParceladasFim2026(); } catch(e) {}
 
   // Normaliza hora das entradas da agenda (09h → 9h) para compatibilidade com AGENDA_HORAS
-  try { (state.agenda||[]).forEach(a => { if (a.hora && a.hora.startsWith('0')) a.hora = a.hora.slice(1); }); } catch(e) {}
+  try {
+    let agNorm = false;
+    (state.agenda||[]).forEach(a => { if (a.hora && a.hora.startsWith('0')) { a.hora = a.hora.slice(1); agNorm = true; } });
+    if (agNorm) saveState();
+  } catch(e) {}
 
   // Sincroniza contadores globais com os dados reais (evita conflitos de ID após F5)
   try {
