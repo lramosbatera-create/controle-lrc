@@ -2140,6 +2140,12 @@ function saveState() {
       alunosEspeciais: state.alunosEspeciais,
       parceladas: state.parceladas,
       cotidiano: state.cotidiano,
+      _migAlunosExcel26: state._migAlunosExcel26,
+      _migFixasExcel26: state._migFixasExcel26,
+      _migGastosExcel26: state._migGastosExcel26,
+      _migShowsExcel26: state._migShowsExcel26,
+      _migParceladasFim2026: state._migParceladasFim2026,
+      _migCotidianoCompleto2026: state._migCotidianoCompleto2026,
     }));
   } catch(e) { console.warn('Save failed', e); }
 }
@@ -5252,6 +5258,7 @@ function showPage(id) {
   document.querySelectorAll('.nav-tab').forEach(t => t.classList.remove('active'));
   document.getElementById('page-' + id).classList.add('active');
   document.getElementById('tab-' + id).classList.add('active');
+  if (id === 'painel') updatePainel();
   if (id === 'inb') { renderAlunos(); renderAgenda(); populateAgendaSelect(); }
   if (id === 'shows') { renderShows(); if (showsTabAtual==='agenda') renderShowsAgenda(); }
   if (id === 'despesas') renderDespesas();
@@ -6767,7 +6774,7 @@ function migrateAlunosExcel2026() {
     const d = excel[a.nome.trim()];
     if (!d) return;
     a.mat_pago = d.mat;
-    ['jan','fev','mar','abr','mai','jun'].forEach(m => { if (!a.pag) a.pag = {}; a.pag[m] = d[m]; });
+    ['jan','fev','mar','abr','mai','jun'].forEach(m => { if (!a.pag) a.pag = {}; if (!a.pag[m]) a.pag[m] = d[m]; });
   });
   state._migAlunosExcel26 = true;
   saveState();
