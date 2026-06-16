@@ -2908,9 +2908,14 @@ function adicionarAgenda() {
     if (!a) { toast('⚠️ Aluno não encontrado'); return; }
     aluno = a.nome; alunoId = a.id;
   }
-  // Remove slot existente para o mesmo aluno+dia
-  state.agenda = state.agenda.filter(a => !((a.alunoId ? a.alunoId === alunoId : a.aluno === aluno) && a.dia === dia));
-  const novaEntrada = {id: agendaNextId++, aluno, alunoId, dia, hora: hora.replace(/^0/,''), tipo, obs};
+  const horaAlvo = hora.replace(/^0/,'');
+  // Remove quem ocupa o slot alvo (dia+hora), independente de quem seja
+  state.agenda = state.agenda.filter(a => !(a.dia === dia && (a.hora||'').replace(/^0/,'') === horaAlvo));
+  // Remove entrada do mesmo aluno no mesmo dia (evita duplicata em outro horário)
+  if (aluno !== 'VAGO') {
+    state.agenda = state.agenda.filter(a => !((a.alunoId ? a.alunoId === alunoId : a.aluno === aluno) && a.dia === dia));
+  }
+  const novaEntrada = {id: agendaNextId++, aluno, alunoId, dia, hora: horaAlvo, tipo, obs};
   state.agenda.push(novaEntrada);
   saveState();
   renderAgenda();
