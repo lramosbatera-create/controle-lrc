@@ -8269,9 +8269,24 @@ function toggleMic() {
     // Use o ponto verde → "↑ Enviar" ou "↓ Importar" para sincronizar manualmente
   } catch(e) { console.warn('Supabase init error:', e); }
 
-  // 4. Service Worker
+  // 4. Service Worker — updateViaCache:'none' garante que sw.js nunca vem do HTTP cache
   if ('serviceWorker' in navigator) {
-    navigator.serviceWorker.register('/sw.js').catch(() => {});
+    navigator.serviceWorker.register('/sw.js', {updateViaCache: 'none'}).then(reg => {
+      reg.update(); // verifica atualização a cada carregamento
+      reg.addEventListener('updatefound', () => {
+        const nw = reg.installing;
+        nw.addEventListener('statechange', () => {
+          if (nw.state === 'installed' && navigator.serviceWorker.controller) {
+            toast('🔄 Nova versão disponível — recarregando...');
+            setTimeout(() => location.reload(), 1500);
+          }
+        });
+      });
+    }).catch(() => {});
+    let swRefreshing = false;
+    navigator.serviceWorker.addEventListener('controllerchange', () => {
+      if (!swRefreshing) { swRefreshing = true; location.reload(); }
+    });
   }
 
   // 5. Setup banners
