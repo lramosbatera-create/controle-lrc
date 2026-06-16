@@ -2385,6 +2385,7 @@ function showSyncMenu() {
     <button style="${btn('')}" onmouseover="this.style.background='rgba(201,168,76,0.1)'" onmouseout="this.style.background=''" onclick="dbPullAll();document.getElementById('sync-menu')?.remove()">↓ Importar da nuvem</button>` :
     `<div style="font-size:11px;color:#555;padding:4px 10px 6px">Supabase não conectado</div>`;
   menu.innerHTML = `
+    <div style="font-size:10px;color:#555;padding:2px 8px 6px;border-bottom:1px solid rgba(201,168,76,0.1);margin-bottom:4px">v16Jun-v5</div>
     <div style="font-size:11px;color:#7A7060;padding:4px 8px 8px;border-bottom:1px solid rgba(201,168,76,0.15);margin-bottom:6px">☁️ Nuvem</div>
     ${sbBtns}
     <div style="border-top:1px solid rgba(201,168,76,0.15);margin:6px 0 4px"></div>

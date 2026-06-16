@@ -1,4 +1,4 @@
-const CACHE = 'lrc-v4';
+const CACHE = 'lrc-v5';
 
 self.addEventListener('install', e => {
   e.waitUntil(self.skipWaiting());
@@ -14,15 +14,15 @@ self.addEventListener('activate', e => {
 
 self.addEventListener('fetch', e => {
   if (e.request.method !== 'GET') return;
-  // Requests com ?bust= sempre vão direto à rede (force update)
+  // Requests com ?bust= sempre vão direto à rede, ignorando qualquer cache
   if (e.request.url.includes('bust=')) {
-    e.respondWith(fetch(e.request));
+    e.respondWith(fetch(e.request, {cache: 'no-store'}));
     return;
   }
-  // HTML principal: sempre da rede (garante versão mais recente)
+  // HTML principal: sempre da rede, ignorando HTTP cache do browser
   if (e.request.mode === 'navigate') {
     e.respondWith(
-      fetch(e.request).catch(() => caches.match(e.request))
+      fetch(e.request, {cache: 'no-store'}).catch(() => caches.match(e.request))
     );
     return;
   }
