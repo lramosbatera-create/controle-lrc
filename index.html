@@ -2832,10 +2832,12 @@ function renderAgenda() {
     const isHoje = dia === diaHoje;
     const slotsHtml = AGENDA_HORAS.map(hora => {
       const entry = entriesDia.find(a => (a.hora||'').replace(/^0/,'') === hora);
-      return agendaCard(entry || { id: null, aluno: 'VAGO', alunoId: null, dia, hora, tipo: '', obs: '' });
+      if (!entry || agendaSlotVago(entry)) return '';
+      return agendaCard(entry);
     }).join('');
 
     if (agendaFiltro === 'todos') {
+      if (!slotsHtml) return;
       html += `<div style="margin-bottom:16px;">
         <div style="font-size:11px;font-weight:600;color:${isHoje?'var(--gold)':'var(--muted)'};letter-spacing:1.5px;text-transform:uppercase;margin-bottom:8px;display:flex;align-items:center;gap:6px;">
           ${isHoje?'★ ':''} ${dia.toUpperCase()} ${isHoje?'<span style="background:var(--gold);color:#000;font-size:9px;padding:1px 6px;border-radius:10px;">HOJE</span>':''}
@@ -2907,11 +2909,12 @@ function adicionarAgenda() {
   }
   // Remove slot existente para o mesmo aluno+dia
   state.agenda = state.agenda.filter(a => !((a.alunoId ? a.alunoId === alunoId : a.aluno === aluno) && a.dia === dia));
-  state.agenda.push({id: agendaNextId++, aluno, alunoId, dia, hora: hora.replace(/^0/,''), tipo, obs});
+  const novaEntrada = {id: agendaNextId++, aluno, alunoId, dia, hora: hora.replace(/^0/,''), tipo, obs};
+  state.agenda.push(novaEntrada);
   saveState();
   renderAgenda();
   document.getElementById('ag-obs').value = '';
-  toast(`✓ ${aluno} agendado ${dia} ${hora}`);
+  toast(`✓ ${aluno} · ${dia} ${novaEntrada.hora} · total agenda: ${state.agenda.length}`);
 }
 
 // ============ AGENDA: SUB-ABAS ============
