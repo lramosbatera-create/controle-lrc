@@ -23,6 +23,8 @@ O arquivo que normalmente é editado é `C:\Users\maste\OneDrive\Desktop\CF\inde
 
 **Rode `deploy.ps1` ao final de cada sessão de edição** — enquanto o arquivo só existir no Desktop (fora do git), ele não está protegido por backup nenhum.
 
+**Desde 02/07/2026:** o projeto `controle-lrc` na Cloudflare está conectado a este repositório (branch `main`, implantações automáticas habilitadas). Ou seja, o `git push` do passo 2 já é suficiente para publicar — o `wrangler pages deploy` do passo 3 ficou redundante, mas não causa problema em manter.
+
 ## Convenções
 
 - Commits em português, estilo `fix(agenda): ...`, `feat(pwa): ...`
