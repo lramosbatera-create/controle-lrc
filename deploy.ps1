@@ -1,5 +1,5 @@
 Write-Host "Copiando arquivo do Desktop..." -ForegroundColor Cyan
-Copy-Item "C:\Users\maste\OneDrive\Desktop\index.html.html" "C:\Users\maste\controle-lrc\index.html" -Force
+Copy-Item "C:\Users\maste\OneDrive\Desktop\CF\index.html.html" "C:\Users\maste\controle-lrc\index.html" -Force
 
 Set-Location "C:\Users\maste\controle-lrc"
 
