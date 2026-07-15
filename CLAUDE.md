@@ -15,15 +15,18 @@ App de página única (`index.html`, ~525 KB) para gestão financeira e operacio
 
 ## ⚠️ Fluxo de edição — importante
 
-O arquivo que normalmente é editado é `C:\Users\maste\OneDrive\Desktop\CF\index.html.html` (fora deste repositório). O script `deploy.ps1`:
+**Desde 15/07/2026:** o arquivo é editado direto aqui: `C:\Users\maste\controle-lrc\index.html` — dentro do próprio repositório Git. Não existe mais cópia solta fora do controle de versão.
 
-1. Copia esse arquivo do Desktop para `index.html` neste repo
-2. Commita e faz `git push`
-3. Publica no Cloudflare Pages (`wrangler pages deploy`)
+> Histórico: até 02/07/2026 a edição era feita numa cópia em `C:\Users\maste\OneDrive\Desktop\CF\index.html.html`, fora do repo. Essa pasta sumiu do OneDrive (motivo não identificado) e o fluxo foi simplificado para eliminar esse ponto de falha.
 
-**Rode `deploy.ps1` ao final de cada sessão de edição** — enquanto o arquivo só existir no Desktop (fora do git), ele não está protegido por backup nenhum.
+O script `deploy.ps1`:
 
-**Desde 02/07/2026:** o projeto `controle-lrc` na Cloudflare está conectado a este repositório (branch `main`, implantações automáticas habilitadas). Ou seja, o `git push` do passo 2 já é suficiente para publicar — o `wrangler pages deploy` do passo 3 ficou redundante, mas não causa problema em manter.
+1. Commita as mudanças em `index.html`
+2. Faz `git push`
+
+**Desde 02/07/2026:** o projeto `controle-lrc` na Cloudflare está conectado a este repositório (branch `main`, implantações automáticas habilitadas) — o `git push` já é suficiente para publicar. Não é mais necessário rodar `wrangler pages deploy` manualmente.
+
+**Rode `deploy.ps1` ao final de cada sessão de edição.**
 
 ## Convenções
 
