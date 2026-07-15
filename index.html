@@ -4957,7 +4957,7 @@ function gerarRelAnual() {
   const totalINB = state.gastos_inb.reduce((s,d)=>s+d.valor,0);
   const totalNB = state.gastos_nb.reduce((s,d)=>s+d.valor,0);
   const totalCot = (state.cotidiano||[]).reduce((s,d)=>s+d.valor,0);
-  const saldoAnterior = 3600;
+  const saldoAnterior = 2688.66;
   const totalRec = totalRecINB + totalRecShows;
   const totalDesp = totalFixas + totalINB + totalNB + totalCot;
   const saldo = saldoAnterior + totalRec - totalDesp;
@@ -7754,7 +7754,7 @@ function updatePainel() {
   const despCot = (state.cotidiano||[]).reduce((s,d)=>s+d.valor,0);
   const despParc = (state.parceladas||[]).reduce((s,p)=>s+parcPagas(p)*p.valorParcela,0);
   const despTotal = despFixas + despParc + despINB + despNB + despCot;
-  const saldoAnterior = 3600;
+  const saldoAnterior = 2688.66;
   const saldo = saldoAnterior + recTotal - despTotal;
 
   document.getElementById('saldo-total').textContent = fmtBRL(saldo);
