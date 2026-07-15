@@ -1,4 +1,4 @@
-const CACHE = 'lrc-v5';
+const CACHE = 'lrc-v6';
 
 self.addEventListener('install', e => {
   e.waitUntil(self.skipWaiting());
@@ -14,6 +14,9 @@ self.addEventListener('activate', e => {
 
 self.addEventListener('fetch', e => {
   if (e.request.method !== 'GET') return;
+  // Requisições de outra origem (Supabase, CDNs, etc.) vão direto à rede,
+  // sem passar pelo cache do service worker — evita "Failed to fetch" em APIs externas
+  if (new URL(e.request.url).origin !== self.location.origin) return;
   // Requests com ?bust= sempre vão direto à rede, ignorando qualquer cache
   if (e.request.url.includes('bust=')) {
     e.respondWith(fetch(e.request, {cache: 'no-store'}));
