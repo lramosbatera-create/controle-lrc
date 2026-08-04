@@ -7601,6 +7601,20 @@ function removerShow(id) {
   renderShows(); updatePainel(); toast('Show removido');
 }
 
+function addDespesaFixa() {
+  const nome  = document.getElementById('add-fixa-nome')?.value.trim();
+  const venc  = document.getElementById('add-fixa-venc')?.value.trim();
+  const valor = parseFloat(document.getElementById('add-fixa-valor')?.value);
+  if (!nome || !valor) { toast('⚠️ Preencha descrição e valor'); return; }
+  const novo = { nome, vencimento: venc || '—', valor };
+  state.despesas_fixas.push(novo);
+  dbSave('despesas_fixas', novo);
+  document.getElementById('add-fixa-nome').value = '';
+  document.getElementById('add-fixa-venc').value = '';
+  document.getElementById('add-fixa-valor').value = '';
+  renderDespesas(); updatePainel();
+  toast(`✓ ${nome} adicionado`);
+}
 function removerFixa(i) {
   const row = state.despesas_fixas[i]; state.despesas_fixas.splice(i,1);
   if(row&&row.id) dbDelete('despesas_fixas', row.id); else saveState();
