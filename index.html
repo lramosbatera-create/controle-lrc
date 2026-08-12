@@ -2873,6 +2873,7 @@ function agendaCard(a) {
 }
 
 function removerAgenda(id) {
+  if (!confirm('Remover este horário da agenda?')) return;
   state.agenda = state.agenda.filter(a => a.id !== id);
   saveState();
   renderAgenda();
@@ -4799,6 +4800,7 @@ function renderRecitalInscricoes() {
 }
 
 function removerInscricaoRecital(idx) {
+  if (!confirm('Remover esta inscrição?')) return;
   state.recital.inscricoes.splice(idx,1);
   saveState(); renderRecitalInscricoes(); updateRecitalKPIs();
   toast('Inscrição removida');
@@ -4832,6 +4834,7 @@ function renderRecitalReceitas() {
 }
 
 function removerRecitalReceita(i) {
+  if (!confirm('Remover esta receita?')) return;
   state.recital.receitas.splice(i,1);
   saveState(); renderRecitalReceitas(); updateRecitalKPIs(); toast('Receita removida');
 }
@@ -4864,6 +4867,7 @@ function renderRecitalDespesas() {
 }
 
 function removerRecitalDespesa(i) {
+  if (!confirm('Remover esta despesa?')) return;
   state.recital.despesas.splice(i,1);
   saveState(); renderRecitalDespesas(); updateRecitalKPIs(); toast('Despesa removida');
 }
@@ -5496,6 +5500,7 @@ function cadastrarEspecial() {
 }
 
 function removerEspecial(idx) {
+  if (!confirm('Remover este aluno especial?')) return;
   state.alunosEspeciais?.splice(idx, 1);
   saveState();
   renderAlunos();
@@ -5661,6 +5666,7 @@ function setFilterShow(f, btn) {
 }
 
 function removerShow(id) {
+  if (!confirm('Remover este show?')) return;
   state.shows = state.shows.filter(s => s.id !== id);
   dbDelete('shows', id);
   renderShows(); updatePainel(); toast('Show removido');
@@ -5855,6 +5861,7 @@ function addGastoINBMes(mes) {
 }
 
 function removerINBItem(mes, idx) {
+  if (!confirm('Remover este item?')) return;
   const items = state.gastos_inb.filter(d=>d.mes===mes);
   const item = items[idx];
   state.gastos_inb = state.gastos_inb.filter(d => d !== item);
@@ -5993,6 +6000,7 @@ function addGastoNBMes(mes) {
 }
 
 function removerNBItem(mes, idx) {
+  if (!confirm('Remover este item?')) return;
   const items = state.gastos_nb.filter(d=>d.mes===mes);
   const item = items[idx];
   state.gastos_nb = state.gastos_nb.filter(d => d !== item);
@@ -6642,6 +6650,7 @@ function despagarParcela(parcIdx, mesKey) {
   saveState(); renderParceladas(); updatePainel(); toast('Pagamento desfeito');
 }
 function removerParcelada(i) {
+  if (!confirm('Remover esta parcela? Isso vai apagar todo o histórico de pagamentos dela.')) return;
   state.parceladas.splice(i,1);
   saveState(); renderParceladas(); updatePainel(); toast('Parcela removida');
 }
@@ -7027,6 +7036,7 @@ function addCotidiano(mes) {
 }
 
 function removerCotidiano(id) {
+  if (!confirm('Remover este gasto?')) return;
   const item = (state.cotidiano||[]).find(d=>d.id===id);
   const mes = item?.mes;
   state.cotidiano = (state.cotidiano||[]).filter(d => d.id !== id);
@@ -7596,6 +7606,7 @@ function wppResumoCotidiano() {
 }
 
 function removerShow(id) {
+  if (!confirm('Remover este show?')) return;
   state.shows = state.shows.filter(s => s.id !== id);
   dbDelete('shows', id);
   renderShows(); updatePainel(); toast('Show removido');
@@ -7616,6 +7627,7 @@ function addDespesaFixa() {
   toast(`✓ ${nome} adicionado`);
 }
 function removerFixa(i) {
+  if (!confirm('Remover esta despesa fixa?')) return;
   const row = state.despesas_fixas[i]; state.despesas_fixas.splice(i,1);
   if(row&&row.id) dbDelete('despesas_fixas', row.id); else saveState();
   renderDespesas(); updatePainel(); toast('Despesa removida');
@@ -7634,11 +7646,13 @@ function editarFixa(i) {
   saveState(); renderDespesas(); updatePainel(); toast('✓ Despesa atualizada');
 }
 function removerINB(i) {
+  if (!confirm('Remover este gasto?')) return;
   const row = state.gastos_inb[i]; state.gastos_inb.splice(i,1);
   if(row&&row.id) dbDelete('gastos_inb', row.id); else saveState();
   renderDespesas(); updatePainel(); toast('Gasto removido');
 }
 function removerNB(i) {
+  if (!confirm('Remover este gasto?')) return;
   const row = state.gastos_nb[i]; state.gastos_nb.splice(i,1);
   if(row&&row.id) dbDelete('gastos_nb', row.id); else saveState();
   renderDespesas(); updatePainel(); toast('Gasto removido');
