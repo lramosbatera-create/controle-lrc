@@ -650,14 +650,14 @@
   <div class="nav-tab active" onclick="showPage('painel')" id="tab-painel">
     <span class="icon">◈</span> Painel
   </div>
-  <div class="nav-tab" onclick="showPage('inb')" id="tab-inb">
-    <span class="icon">🥁</span> INB
+  <div class="nav-tab" onclick="showPage('despesas')" id="tab-despesas">
+    <span class="icon">💳</span> Despesas
   </div>
   <div class="nav-tab" onclick="showPage('shows')" id="tab-shows">
     <span class="icon">🎸</span> Shows
   </div>
-  <div class="nav-tab" onclick="showPage('despesas')" id="tab-despesas">
-    <span class="icon">💳</span> Despesas
+  <div class="nav-tab" onclick="showPage('inb')" id="tab-inb">
+    <span class="icon">🥁</span> INB
   </div>
   <div class="nav-tab" onclick="showPage('lancar')" id="tab-lancar">
     <span class="icon">＋</span> Lançar
@@ -667,9 +667,6 @@
   </div>
   <div class="nav-tab" onclick="showPage('whatsapp')" id="tab-whatsapp">
     <span class="icon">📱</span> WhatsApp
-  </div>
-  <div class="nav-tab" onclick="showPage('recital')" id="tab-recital">
-    <span class="icon">🎪</span> Recital
   </div>
   <div class="nav-tab" onclick="showPage('relatorios')" id="tab-relatorios">
     <span class="icon">📊</span> Relatórios
@@ -1507,50 +1504,6 @@
 
 
   <div class="form-card">
-    <div class="form-title">💰 Registrar Pagamento de Aluno</div>
-    <div class="form-grid">
-      <div class="form-group">
-        <label>Aluno</label>
-        <select id="f-aluno">
-          <option value="">Selecionar...</option>
-        </select>
-      </div>
-      <div class="form-group">
-        <label>Mês</label>
-        <select id="f-mes">
-          <option value="jan">Janeiro</option>
-          <option value="fev">Fevereiro</option>
-          <option value="mar">Março</option>
-          <option value="abr">Abril</option>
-          <option value="mai">Maio</option>
-          <option value="jun">Junho</option>
-          <option value="jul">Julho</option>
-          <option value="ago">Agosto</option>
-          <option value="set">Setembro</option>
-          <option value="out">Outubro</option>
-          <option value="nov">Novembro</option>
-          <option value="dez">Dezembro</option>
-        </select>
-      </div>
-      <div class="form-group">
-        <label>Valor (R$)</label>
-        <input type="number" id="f-valor-pag" placeholder="185">
-      </div>
-      <div class="form-group">
-        <label>Tipo</label>
-        <select id="f-tipo-pag">
-          <option value="mensalidade">Mensalidade</option>
-          <option value="matricula">Matrícula</option>
-        </select>
-      </div>
-    </div>
-    <div class="form-actions">
-      <button class="btn btn-gold" onclick="registrarPagamento()">Confirmar Pagamento</button>
-    </div>
-  </div>
-
-
-  <div class="form-card">
     <div class="form-title">🎸 Adicionar Show / Evento</div>
     <div style="font-size:11px;color:var(--muted);margin-bottom:12px;">Após adicionar, o show aparece automaticamente na <strong style="color:var(--gold)">Agenda de Shows</strong>.</div>
     <div class="form-grid three">
@@ -1624,7 +1577,6 @@
         <select id="f-desp-cat" onchange="toggleParcelaForm()">
           <option value="fixa">Despesa Fixa</option>
           <option value="cotidiano">Cotidiano</option>
-          <option value="inb">Gasto INB</option>
           <option value="nb">Gasto NB</option>
           <option value="parcelada">💳 Despesa Parcelada</option>
         </select>
@@ -1736,40 +1688,6 @@
       <button class="btn btn-outline" onclick="showPage('despesas')" style="font-size:12px;">Ver todas →</button>
     </div>
   </div>
-
-
-  <div class="form-card">
-    <div class="form-title">👤 Cadastrar Novo Aluno</div>
-    <div class="form-grid">
-      <div class="form-group full">
-        <label>Nome Completo</label>
-        <input type="text" id="f-aluno-nome" placeholder="Nome do aluno">
-      </div>
-      <div class="form-group">
-        <label>Telefone / WhatsApp</label>
-        <input type="tel" id="f-aluno-tel" placeholder="(11) 99999-9999">
-      </div>
-      <div class="form-group">
-        <label>Mensalidade (R$)</label>
-        <input type="number" id="f-aluno-mens" placeholder="185">
-      </div>
-      <div class="form-group">
-        <label>Matrícula (R$)</label>
-        <input type="number" id="f-aluno-mat" placeholder="100">
-      </div>
-      <div class="form-group">
-        <label>Status</label>
-        <select id="f-aluno-status">
-          <option value="Ativo">Ativo</option>
-          <option value="Pausado">Pausado</option>
-          <option value="Inativo">Inativo</option>
-        </select>
-      </div>
-    </div>
-    <div class="form-actions">
-      <button class="btn btn-gold" onclick="cadastrarAluno()">Cadastrar Aluno</button>
-    </div>
-  </div>
 </div>
 
 <div class="page" id="page-chat">
@@ -1862,113 +1780,6 @@
   <div id="wpp-lista-alunos"></div>
 </div>
 
-<div class="page" id="page-recital">
-  <p class="section-title">Recital Nego Batera</p>
-  <p class="section-sub">GESTÃO DO EVENTO · CONTABILIDADE SEPARADA</p>
-
-  <div class="cards-grid four" style="margin-bottom:20px;">
-    <div class="kpi-card">
-      <div class="kpi-label">Receita Total</div>
-      <div class="kpi-value green" id="rec-receita">R$ 0</div>
-      <div class="kpi-sub">Inscrições + outros</div>
-    </div>
-    <div class="kpi-card">
-      <div class="kpi-label">Despesas</div>
-      <div class="kpi-value red" id="rec-despesa">R$ 0</div>
-      <div class="kpi-sub">Estrutura + produção</div>
-    </div>
-    <div class="kpi-card">
-      <div class="kpi-label">Resultado</div>
-      <div class="kpi-value" id="rec-resultado">R$ 0</div>
-      <div class="kpi-sub">Receita - Despesas</div>
-    </div>
-    <div class="kpi-card">
-      <div class="kpi-label">Alunos</div>
-      <div class="kpi-value" id="rec-alunos-count">0</div>
-      <div class="kpi-sub">participantes</div>
-    </div>
-  </div>
-
-
-  <div class="filter-row">
-    <button class="filter-btn active" onclick="setRecitalTab('inscricoes',this)">👥 Inscrições</button>
-    <button class="filter-btn" onclick="setRecitalTab('receitas',this)">💰 Receitas</button>
-    <button class="filter-btn" onclick="setRecitalTab('despesas',this)">💸 Despesas</button>
-  </div>
-
-  <div id="recital-inscricoes">
-    <div class="form-card" style="margin-bottom:12px;">
-      <div class="form-title">➕ Inscrever Aluno</div>
-      <div class="form-grid">
-        <div class="form-group">
-          <label>Aluno</label>
-          <select id="rec-aluno-sel"></select>
-        </div>
-        <div class="form-group">
-          <label>Taxa (R$)</label>
-          <input type="number" id="rec-taxa" placeholder="150">
-        </div>
-        <div class="form-group">
-          <label>Status Pagamento</label>
-          <select id="rec-pag-status">
-            <option value="pendente">Pendente</option>
-            <option value="pago">Pago</option>
-            <option value="parcial">Parcial</option>
-          </select>
-        </div>
-        <div class="form-group">
-          <label>Valor Pago (R$)</label>
-          <input type="number" id="rec-valor-pago" placeholder="0">
-        </div>
-      </div>
-      <div class="form-actions">
-        <button class="btn btn-gold" onclick="inscreverRecital()">Inscrever</button>
-      </div>
-    </div>
-    <div id="rec-lista-inscricoes"></div>
-  </div>
-
-  <div id="recital-receitas" style="display:none">
-    <div class="form-card" style="margin-bottom:12px;">
-      <div class="form-title">➕ Adicionar Receita</div>
-      <div class="form-grid">
-        <div class="form-group">
-          <label>Descrição</label>
-          <input type="text" id="rec-rec-nome" placeholder="Ex: Patrocínio, Bilheteria...">
-        </div>
-        <div class="form-group">
-          <label>Valor (R$)</label>
-          <input type="number" id="rec-rec-valor" placeholder="0">
-        </div>
-      </div>
-      <div class="form-actions">
-        <button class="btn btn-gold" onclick="addRecitalReceita()">Adicionar</button>
-      </div>
-    </div>
-    <div id="rec-lista-receitas"></div>
-  </div>
-
-  <div id="recital-despesas" style="display:none">
-    <div class="form-card" style="margin-bottom:12px;">
-      <div class="form-title">➕ Adicionar Despesa</div>
-      <div class="form-grid">
-        <div class="form-group">
-          <label>Descrição</label>
-          <input type="text" id="rec-desp-nome" placeholder="Ex: Aluguel do espaço, Som...">
-        </div>
-        <div class="form-group">
-          <label>Valor (R$)</label>
-          <input type="number" id="rec-desp-valor" placeholder="0">
-        </div>
-      </div>
-      <div class="form-actions">
-        <button class="btn btn-gold" onclick="addRecitalDespesa()">Adicionar</button>
-      </div>
-    </div>
-    <div id="rec-lista-despesas"></div>
-  </div>
-</div>
-
 <div class="page" id="page-relatorios">
   <p class="section-title">Relatórios</p>
   <p class="section-sub">BALANÇO POR SETOR · EXPORTAR PDF</p>
@@ -1976,10 +1787,8 @@
   <div class="filter-row">
     <button class="filter-btn active" onclick="setRelTab('mensal',this)">📅 Mensal</button>
     <button class="filter-btn" onclick="setRelTab('anual',this)">📆 Anual</button>
-    <button class="filter-btn" onclick="setRelTab('inb',this)">🥁 INB</button>
     <button class="filter-btn" onclick="setRelTab('shows',this)">🎸 Shows</button>
     <button class="filter-btn" onclick="setRelTab('despesas',this)">💸 Despesas</button>
-    <button class="filter-btn" onclick="setRelTab('recital',this)">🎪 Recital</button>
   </div>
 
 
@@ -4615,7 +4424,6 @@ function renderListaTransmissao(lista, config, preview) {
     <div style="display:flex;gap:8px;flex-wrap:wrap;">
       <button onclick="copiarNumeros('pais')" style="background:var(--gold-glow);border:1px solid var(--border);color:var(--gold);border-radius:8px;padding:8px 14px;font-size:12px;cursor:pointer;font-family:inherit;">📋 Copiar números</button>
       <button onclick="enviarWppLista('pais','geral')" style="background:linear-gradient(135deg,#1a5c35,#27AE60);border:none;color:#fff;border-radius:8px;padding:8px 14px;font-size:12px;cursor:pointer;font-family:inherit;">📢 Aviso Geral</button>
-      <button onclick="enviarWppLista('pais','recital')" style="background:rgba(201,168,76,0.15);border:1px solid var(--border);color:var(--gold);border-radius:8px;padding:8px 14px;font-size:12px;cursor:pointer;font-family:inherit;">🎪 Recital</button>
     </div>`:
     '<div style="font-size:12px;color:var(--muted);">Nenhum responsável com WhatsApp cadastrado ainda. Preencha os contatos na aba Cadastro.</div>'}
   </div>
@@ -4921,70 +4729,51 @@ function relLinha(label, valor, cor) {
 }
 
 function gerarRelMensal(mes, mesNome) {
-  const mesIdx = MESES.indexOf(mes);
-  const recINB = state.alunos.reduce((s,a) => s + (a.pag[mes]||0), 0);
   const recShows = state.shows.filter(s=>s.status==='pago'&&s.data&&MESES[new Date(s.data+'T12:00:00').getMonth()]===mes).reduce((s,x)=>s+(parseFloat(x.cache)||0),0);
   const despFixas = state.despesas_fixas.reduce((s,d)=>s+d.valor,0);
-  const despINB = state.gastos_inb.filter(g=>g.mes===mes).reduce((s,d)=>s+d.valor,0);
   const despNB = state.gastos_nb.filter(g=>g.mes===mes).reduce((s,d)=>s+d.valor,0);
   const despCot = (state.cotidiano||[]).filter(d=>getMesDaCot(d)===mes).reduce((s,d)=>s+d.valor,0);
-  // Inadimplentes até este mês (mesma lógica da aba INB)
-  const inadimplentes = state.alunos.filter(a => a.status==='Ativo' && calcDevedorNoMes(a, mesIdx) > 0);
-  const totalInad = inadimplentes.reduce((s,a) => s + calcDevedorNoMes(a, mesIdx), 0);
 
   return relHeader(`Relatório Mensal — ${mesNome}`, `Gerado em ${new Date().toLocaleDateString('pt-BR')}`) +
     `<div style="margin-bottom:16px;"><div style="font-size:11px;color:var(--gold);letter-spacing:1px;text-transform:uppercase;margin-bottom:8px;">RECEITAS</div>` +
-    relLinha('Mensalidades INB', fmtBRL(recINB), 'var(--green)') +
     relLinha('Shows/Cachês', fmtBRL(recShows), 'var(--green)') +
-    relLinha('Total Receitas', fmtBRL(recINB+recShows), 'var(--gold)') + `</div>` +
+    relLinha('Total Receitas', fmtBRL(recShows), 'var(--gold)') + `</div>` +
     `<div style="margin-bottom:16px;"><div style="font-size:11px;color:var(--gold);letter-spacing:1px;text-transform:uppercase;margin-bottom:8px;">DESPESAS</div>` +
     relLinha('Fixas (rateio mês)', fmtBRL(despFixas), '#E74C3C') +
-    relLinha('Gastos INB', fmtBRL(despINB), '#E74C3C') +
     relLinha('Gastos NB', fmtBRL(despNB), '#E74C3C') +
     relLinha('Cotidiano', fmtBRL(despCot), '#E74C3C') +
-    relLinha('Total Despesas', fmtBRL(despFixas+despINB+despNB+despCot), '#E74C3C') + `</div>` +
-    `<div style="margin-bottom:16px;"><div style="font-size:11px;color:var(--gold);letter-spacing:1px;text-transform:uppercase;margin-bottom:8px;">INADIMPLÊNCIA ACUMULADA ATÉ ${mesNome.toUpperCase()}</div>` +
-    relLinha('Alunos em atraso', inadimplentes.length + ' alunos', inadimplentes.length>0?'#E74C3C':'var(--green)') +
-    inadimplentes.map(a => relLinha(a.nome, fmtBRL(calcDevedorNoMes(a, mesIdx)), '#E74C3C')).join('') +
-    (inadimplentes.length > 0
-      ? `<div style="display:flex;justify-content:space-between;padding:10px 0;margin-top:6px;border-top:1px solid var(--border);">
-          <span style="font-size:13px;font-weight:700;color:#E74C3C;">Total a receber</span>
-          <span style="font-family:'Cormorant Garamond',serif;font-size:18px;font-weight:700;color:#E74C3C;">${fmtBRL(totalInad)}</span>
-        </div>`
-      : '') + `</div>`;
+    relLinha('Total Despesas', fmtBRL(despFixas+despNB+despCot), '#E74C3C') + `</div>` +
+    `<div style="font-size:11px;color:var(--muted);line-height:1.6;">ℹ️ Financeiro do Instituto Nego Batera (mensalidades, matrículas e inadimplência) agora é acompanhado no <strong style="color:var(--gold);">Programa Nego Batera</strong>.</div>`;
 }
 
 function gerarRelAnual() {
-  const totalRecINB = state.alunos.reduce((s,a) => s + calcPago(a), 0);
   const totalRecShows = state.shows.filter(s=>s.status==='pago').reduce((s,x)=>s+(parseFloat(x.cache)||0),0);
   const totalFixas = state.despesas_fixas.reduce((s,d)=>s+d.valor,0);
-  const totalINB = state.gastos_inb.reduce((s,d)=>s+d.valor,0);
   const totalNB = state.gastos_nb.reduce((s,d)=>s+d.valor,0);
   const totalCot = (state.cotidiano||[]).reduce((s,d)=>s+d.valor,0);
   const saldoAnterior = 2688.66;
-  const totalRec = totalRecINB + totalRecShows;
-  const totalDesp = totalFixas + totalINB + totalNB + totalCot;
+  const totalRec = totalRecShows;
+  const totalDesp = totalFixas + totalNB + totalCot;
   const saldo = saldoAnterior + totalRec - totalDesp;
 
   return relHeader('Relatório Anual 2026', `Gerado em ${new Date().toLocaleDateString('pt-BR')}`) +
     `<div style="margin-bottom:16px;"><div style="font-size:11px;color:var(--gold);letter-spacing:1px;text-transform:uppercase;margin-bottom:8px;">RECEITAS ANUAIS</div>` +
-    relLinha('INB — Mensalidades + Matrículas', fmtBRL(totalRecINB), 'var(--green)') +
     relLinha('Shows — Cachês', fmtBRL(totalRecShows), 'var(--green)') +
     relLinha('Total Receitas', fmtBRL(totalRec), 'var(--gold)') + `</div>` +
     `<div style="margin-bottom:16px;"><div style="font-size:11px;color:var(--gold);letter-spacing:1px;text-transform:uppercase;margin-bottom:8px;">DESPESAS ANUAIS</div>` +
     relLinha('Despesas Fixas', fmtBRL(totalFixas), '#E74C3C') +
     relLinha('Cotidiano', fmtBRL(totalCot), '#E74C3C') +
-    relLinha('Gastos INB', fmtBRL(totalINB), '#E74C3C') +
     relLinha('Gastos NB', fmtBRL(totalNB), '#E74C3C') +
     relLinha('Total Despesas', fmtBRL(totalDesp), '#E74C3C') + `</div>` +
-    `<div><div style="font-size:11px;color:var(--gold);letter-spacing:1px;text-transform:uppercase;margin-bottom:8px;">RESULTADO</div>` +
+    `<div style="margin-bottom:16px;"><div style="font-size:11px;color:var(--gold);letter-spacing:1px;text-transform:uppercase;margin-bottom:8px;">RESULTADO</div>` +
     relLinha('Saldo Anterior', fmtBRL(saldoAnterior), 'var(--muted)') +
     relLinha('Receitas', fmtBRL(totalRec), 'var(--green)') +
     relLinha('Despesas', fmtBRL(totalDesp), '#E74C3C') +
     `<div style="display:flex;justify-content:space-between;padding:12px 0;margin-top:4px;border-top:1px solid var(--border);">
       <span style="font-size:15px;font-weight:700;color:var(--gold);">SALDO FINAL</span>
       <span style="font-family:'Cormorant Garamond',serif;font-size:22px;font-weight:700;color:${saldo>=0?'var(--green)':'#E74C3C'};">${fmtBRL(saldo)}</span>
-    </div></div>`;
+    </div></div>` +
+    `<div style="font-size:11px;color:var(--muted);line-height:1.6;margin-top:16px;">ℹ️ Financeiro do Instituto Nego Batera agora é acompanhado no <strong style="color:var(--gold);">Programa Nego Batera</strong>.</div>`;
 }
 
 function gerarRelINB(mes, mesNome) {
