@@ -28,6 +28,14 @@ O script `deploy.ps1`:
 
 **Rode `deploy.ps1` ao final de cada sessão de edição.**
 
+## Instituto Nego Batera — agora só leitura ao vivo do Programa Nego Batera
+
+**Desde 20/08/2026:** a Aba INB (nav + página) foi **removida de vez** — Leandro confirmou que só alimenta dados do Instituto (financeiro, agenda, etc.) pelo Programa Nego Batera (`C:\Projetos\Programa-Nego-Batera\`), nunca mais editando aqui. Em vez de qualquer aba própria, o Painel principal tem um card (`#card-resumo-inb`) que busca **ao vivo** (toda vez que a página carrega, sem cache/job agendado) um resumo do mês corrente via RPC pública `financeiro_resumo_mes(p_ano, p_mes)` no Supabase do Programa Nego Batera (projeto separado, credenciais hardcoded em `PNB_SUPABASE_URL`/`PNB_SUPABASE_KEY` — é a anon key, segura de expor, mesmo padrão do resto do app). Só números agregados (arrecadado, gasto, saldo, alunos ativos) — nunca aluno por aluno.
+
+Isso fecha a "Etapa 4" do plano de migração original (ver `project-ecossistema-nego-batera` na memória): Programa Nego Batera é a fonte única, Controle LRC só recebe um resumo, sem sincronização linha a linha.
+
+**Nota:** o card `kpi-rec-inb` ("Receitas INB") e o "Saldo Atual do Ano" no topo do Painel **ainda usam `state.alunos` local**, que ficou **congelado desde a migração de 13/08/2026** (nada novo entra ali) — não foram tocados nesta rodada por não terem sido pedidos explicitamente. Considerar migrar/aposentar esses dois também quando Leandro confirmar.
+
 ## Convenções
 
 - Commits em português, estilo `fix(agenda): ...`, `feat(pwa): ...`

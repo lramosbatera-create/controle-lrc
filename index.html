@@ -656,9 +656,6 @@
   <div class="nav-tab" onclick="showPage('shows')" id="tab-shows">
     <span class="icon">🎸</span> Shows
   </div>
-  <div class="nav-tab" onclick="showPage('inb')" id="tab-inb">
-    <span class="icon">🥁</span> INB
-  </div>
   <div class="nav-tab" onclick="showPage('lancar')" id="tab-lancar">
     <span class="icon">＋</span> Lançar
   </div>
@@ -706,6 +703,31 @@
     </div>
   </div>
 
+  <div class="kpi-card" id="card-resumo-inb" style="margin-bottom:20px;border-color:rgba(201,168,76,0.4);">
+    <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:10px;">
+      <span class="kpi-label" style="font-size:13px;">🥁 Instituto Nego Batera — mês atual</span>
+      <span class="pnb-status" style="font-size:10px;color:var(--muted);">Carregando...</span>
+    </div>
+    <div class="cards-grid four" style="gap:10px;">
+      <div>
+        <div class="kpi-label">Arrecadado</div>
+        <div class="kpi-value green" id="pnb-arrecadado" style="font-size:18px;">—</div>
+      </div>
+      <div>
+        <div class="kpi-label">Gastos</div>
+        <div class="kpi-value red" id="pnb-gasto" style="font-size:18px;">—</div>
+      </div>
+      <div>
+        <div class="kpi-label">Saldo do mês</div>
+        <div class="kpi-value" style="color:var(--gold);font-size:18px;" id="pnb-saldo">—</div>
+      </div>
+      <div>
+        <div class="kpi-label">Alunos ativos</div>
+        <div class="kpi-value" style="font-size:18px;" id="pnb-alunos-ativos">—</div>
+      </div>
+    </div>
+  </div>
+
   <div class="toggle-section">
     <div class="toggle-header" onclick="toggleSection(this)">
       <span class="toggle-title">Composição das Despesas</span>
@@ -738,563 +760,6 @@
     <div class="toggle-body">
       <div class="chart-container" style="margin-bottom:0">
         <div class="bar-chart" id="chart-areas"></div>
-      </div>
-    </div>
-  </div>
-</div>
-
-<div class="page" id="page-inb">
-
-  <div style="display:flex;align-items:center;gap:14px;margin-bottom:16px;">
-    <div id="nb-logo-wrap"><img src="data:image/png;base64,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" alt="Nego Batera" style="height:52px;object-fit:contain;display:block;"></div>
-    <div>
-      <p class="section-title" style="margin-bottom:0">Instituto Nego Batera</p>
-      <p class="section-sub" style="margin-bottom:0">ALUNOS & PAGAMENTOS · 2026</p>
-    </div>
-  </div>
-
-
-  <div style="display:flex;gap:4px;background:var(--dark);border:1px solid var(--border);border-radius:10px;padding:4px;margin-bottom:16px;">
-    <button class="inb-subtab active" onclick="showInbTab('alunos',this)">👥 Alunos</button>
-    <button class="inb-subtab" onclick="showInbTab('agenda',this)">📅 Agenda</button>
-    <button class="inb-subtab" onclick="showInbTab('cadastro',this)">📋 Cadastro</button>
-    <button class="inb-subtab" onclick="showInbTab('pagamentos',this)">💰 Pagamentos</button>
-    <button class="inb-subtab" onclick="showInbTab('atividades',this)">🎯 Atividades</button>
-    <button class="inb-subtab" onclick="showInbTab('certificado',this)">🎓 Certificado</button>
-  </div>
-
-  <div style="display:flex;align-items:center;gap:10px;background:rgba(201,168,76,0.08);border:1px solid rgba(201,168,76,0.3);border-radius:10px;padding:12px 14px;margin-bottom:16px;">
-    <span style="font-size:18px;">🔓</span>
-    <div style="font-size:11px;color:var(--muted);line-height:1.5;">
-      <strong style="color:var(--gold);">Destravado temporariamente</strong> pra consulta/comparação visual com o Programa Nego Batera. Evite editar dados aqui — a fonte real já é o Programa.
-    </div>
-  </div>
-
-  <div id="inb-readonly-wrap">
-  <div id="inb-alunos" class="inb-tab-content">
-
-    <!-- KPIs -->
-    <div class="cards-grid four" style="margin-bottom:16px;">
-      <div class="kpi-card">
-        <div class="kpi-label">Total de Alunos</div>
-        <div class="kpi-value" style="font-size:36px;color:var(--gold);" id="total-ativos">0</div>
-        <div class="kpi-sub" id="kpi-alunos-sub">ativos + especiais</div>
-      </div>
-      <div class="kpi-card">
-        <div class="kpi-label">Regulares</div>
-        <div class="kpi-value green" id="kpi-regulares">0</div>
-        <div class="kpi-sub">pagantes</div>
-      </div>
-      <div class="kpi-card">
-        <div class="kpi-label">Especiais ★</div>
-        <div class="kpi-value" style="color:var(--gold)" id="kpi-especiais">0</div>
-        <div class="kpi-sub">cortesias / parcerias</div>
-      </div>
-      <div class="kpi-card">
-        <div class="kpi-label">Inativos</div>
-        <div class="kpi-value red" id="total-inadimplentes">0</div>
-        <div class="kpi-sub">encerrados</div>
-      </div>
-    </div>
-
-    <!-- Filtros -->
-    <div class="filter-row">
-      <button class="filter-btn active" onclick="filterAlunos('todos',this)">Todos</button>
-      <button class="filter-btn" onclick="filterAlunos('ativo',this)">Ativos</button>
-      <button class="filter-btn" onclick="filterAlunos('especial',this)">★ Especiais</button>
-      <button class="filter-btn" onclick="filterAlunos('inativo',this)">Inativos</button>
-      <button class="filter-btn" onclick="filterAlunos('pausado',this)">Pausados</button>
-    </div>
-
-    <input class="search-bar" type="text" id="search-aluno" placeholder="🔍  Buscar aluno..." oninput="renderAlunos()">
-
-    <!-- Lista simples -->
-    <div id="lista-alunos"></div>
-
-    <!-- Cadastrar aluno especial -->
-    <div class="toggle-section" style="margin-top:16px;">
-      <div class="toggle-header" onclick="toggleSection(this)">
-        <span class="toggle-title">★ Adicionar Aluno Especial (Cortesia / Parceria)</span>
-        <span class="chevron">▼</span>
-      </div>
-      <div class="toggle-body">
-        <div style="font-size:11px;color:var(--muted);margin-bottom:12px;line-height:1.6;">
-          Alunos especiais aparecem na lista total com ★ mas não são cobrados mensalidade.
-        </div>
-        <div class="form-grid">
-          <div class="form-group full">
-            <label>Nome do Aluno</label>
-            <input type="text" id="esp-nome" placeholder="Nome completo">
-          </div>
-          <div class="form-group">
-            <label>Tipo</label>
-            <select id="esp-tipo">
-              <option value="cortesia">Cortesia</option>
-              <option value="parceria">Parceria</option>
-              <option value="bolsa">Bolsa</option>
-              <option value="permuta">Permuta</option>
-            </select>
-          </div>
-          <div class="form-group">
-            <label>Telefone / WhatsApp</label>
-            <input type="tel" id="esp-tel" placeholder="(22) 99999-9999">
-          </div>
-          <div class="form-group full">
-            <label>Observação</label>
-            <input type="text" id="esp-obs" placeholder="Ex: Filho de professor parceiro">
-          </div>
-        </div>
-        <div class="form-actions">
-          <button class="btn btn-gold" onclick="cadastrarEspecial()">★ Adicionar Especial</button>
-        </div>
-      </div>
-    </div>
-  </div>
-
-
-  <div id="inb-agenda" class="inb-tab-content" style="display:none">
-
-    <!-- Sub-abas da Agenda -->
-    <div style="display:flex;gap:4px;background:var(--dark);border:1px solid var(--border);border-radius:10px;padding:4px;margin-bottom:14px;flex-wrap:wrap;">
-      <button class="inb-subtab agenda-subtab active" onclick="showAgendaSubTab('horarios',this)">📅 Horários</button>
-      <button class="inb-subtab agenda-subtab" onclick="showAgendaSubTab('presenca',this)">✅ Presença</button>
-      <button class="inb-subtab agenda-subtab" onclick="showAgendaSubTab('reposicao',this)">🔄 Reposição</button>
-      <button class="inb-subtab agenda-subtab" onclick="showAgendaSubTab('relatorios',this)">📊 Relatórios</button>
-    </div>
-
-    <!-- Sub-aba: Horários (conteúdo existente) -->
-    <div id="agenda-sub-horarios">
-      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;flex-wrap:wrap;gap:8px;">
-        <div>
-          <div style="font-size:13px;font-weight:600;color:var(--gold)">Agenda de Aulas</div>
-          <div style="font-size:11px;color:var(--muted)" id="agenda-hoje-label">Hoje</div>
-        </div>
-        <button onclick="compartilharAgendaDia()" style="
-          background:linear-gradient(135deg,#1A5C35,var(--green));
-          border:none;border-radius:8px;padding:8px 14px;
-          color:#fff;font-size:12px;font-weight:600;cursor:pointer;font-family:inherit;
-          display:flex;align-items:center;gap:6px;
-        ">📲 Enviar por WhatsApp</button>
-      </div>
-      <div class="filter-row" id="agenda-dias-filter">
-        <button class="filter-btn active" onclick="filtrarAgenda('todos',this)">Todos</button>
-        <button class="filter-btn" onclick="filtrarAgenda('Segunda',this)">Seg</button>
-        <button class="filter-btn" onclick="filtrarAgenda('Terça',this)">Ter</button>
-        <button class="filter-btn" onclick="filtrarAgenda('Quarta',this)">Qua</button>
-        <button class="filter-btn" onclick="filtrarAgenda('Quinta',this)">Qui</button>
-        <button class="filter-btn" onclick="filtrarAgenda('Sexta',this)">Sex</button>
-        <button class="filter-btn" onclick="filtrarAgenda('Sábado',this)">Sáb</button>
-      </div>
-      <div id="lista-agenda"></div>
-      <div class="form-card" style="margin-top:16px;">
-        <div class="form-title">➕ Adicionar / Editar Horário</div>
-        <div class="form-grid">
-          <div class="form-group">
-            <label>Aluno</label>
-            <select id="ag-aluno">
-              <option value="VAGO">— VAGO —</option>
-            </select>
-          </div>
-          <div class="form-group">
-            <label>Dia</label>
-            <select id="ag-dia">
-              <option>Segunda</option><option>Terça</option><option>Quarta</option>
-              <option>Quinta</option><option>Sexta</option><option>Sábado</option>
-            </select>
-          </div>
-          <div class="form-group">
-            <label>Horário</label>
-            <select id="ag-hora">
-              <option>8h</option><option>9h</option><option>10h</option><option>11h</option><option>12h</option>
-              <option>13h</option><option>14h</option><option>15h</option><option>16h</option>
-              <option>17h</option><option>18h</option><option>19h</option><option>20h</option>
-            </select>
-          </div>
-          <div class="form-group">
-            <label>Tipo</label>
-            <select id="ag-tipo"><option>Individual</option><option>Grupo</option><option>Reposição</option></select>
-          </div>
-        </div>
-        <div class="form-group" style="margin-top:10px;">
-          <label>Observação</label>
-          <input type="text" id="ag-obs" placeholder="Ex: Aula de reposição, feriado...">
-        </div>
-        <div class="form-actions">
-          <button class="btn btn-gold" onclick="adicionarAgenda()">Salvar Horário</button>
-        </div>
-      </div>
-    </div>
-
-    <!-- Sub-aba: Presença -->
-    <div id="agenda-sub-presenca" style="display:none">
-      <div id="agenda-presenca-container"></div>
-    </div>
-
-    <!-- Sub-aba: Reposição -->
-    <div id="agenda-sub-reposicao" style="display:none">
-      <div id="agenda-reposicao-container"></div>
-    </div>
-
-    <!-- Sub-aba: Relatórios -->
-    <div id="agenda-sub-relatorios" style="display:none">
-      <div id="agenda-relatorios-container"></div>
-    </div>
-
-  </div>
-
-
-  <div id="inb-cadastro" class="inb-tab-content" style="display:none">
-    <div style="font-size:13px;font-weight:600;color:var(--gold);margin-bottom:12px;">📋 Banco de Dados dos Alunos</div>
-    <input class="search-bar" type="text" id="search-cadastro" placeholder="🔍  Buscar aluno..." oninput="renderCadastro()">
-    <div id="lista-cadastro"></div>
-
-    <!-- AVULSOS -->
-    <div style="margin-top:24px;">
-      <div style="font-size:10px;color:var(--gold);letter-spacing:1.5px;text-transform:uppercase;margin-bottom:12px;font-weight:600;">👤 Alunos Avulsos</div>
-      <div style="background:var(--card);border:1px solid var(--border);border-radius:12px;padding:14px;margin-bottom:12px;">
-        <div style="display:grid;grid-template-columns:1fr auto 1fr;gap:8px;margin-bottom:8px;align-items:end;">
-          <div>
-            <div style="color:var(--muted);font-size:10px;letter-spacing:1px;text-transform:uppercase;margin-bottom:4px;">Nome</div>
-            <input id="av-nome" type="text" placeholder="Nome do aluno"
-              style="background:var(--card2);border:1px solid rgba(201,168,76,0.2);border-radius:6px;color:var(--text);font-size:12px;padding:6px 8px;width:100%;outline:none;">
-          </div>
-          <div>
-            <div style="color:var(--muted);font-size:10px;letter-spacing:1px;text-transform:uppercase;margin-bottom:4px;">Mês</div>
-            <select id="av-mes"
-              style="background:var(--card2);border:1px solid rgba(201,168,76,0.2);border-radius:6px;color:var(--text);font-size:11px;padding:6px 8px;width:100%;outline:none;">
-              <option value="">—</option>
-              <option value="jan">Janeiro</option>
-              <option value="fev">Fevereiro</option>
-              <option value="mar">Março</option>
-              <option value="abr">Abril</option>
-              <option value="mai">Maio</option>
-              <option value="jun">Junho</option>
-              <option value="jul">Julho</option>
-              <option value="ago">Agosto</option>
-              <option value="set">Setembro</option>
-              <option value="out">Outubro</option>
-              <option value="nov">Novembro</option>
-              <option value="dez">Dezembro</option>
-            </select>
-          </div>
-          <div>
-            <div style="color:var(--muted);font-size:10px;letter-spacing:1px;text-transform:uppercase;margin-bottom:4px;">Valor (R$)</div>
-            <input id="av-valor" type="number" placeholder="0"
-              style="background:var(--card2);border:1px solid rgba(201,168,76,0.2);border-radius:6px;color:var(--text);font-size:12px;padding:6px 8px;width:100%;outline:none;">
-          </div>
-        </div>
-        <div style="margin-bottom:8px;">
-          <div style="color:var(--muted);font-size:10px;letter-spacing:1px;text-transform:uppercase;margin-bottom:4px;">Observação (opcional)</div>
-          <input id="av-obs" type="text" placeholder="Ex: Aulas avulsas, workshop..."
-            style="background:var(--card2);border:1px solid rgba(201,168,76,0.2);border-radius:6px;color:var(--text);font-size:12px;padding:6px 8px;width:100%;outline:none;">
-        </div>
-        <button onclick="addAvulso()" class="btn btn-gold" style="font-size:12px;padding:8px 16px;">＋ Adicionar Avulso</button>
-      </div>
-      <div id="avulsos-lista"></div>
-    </div>
-  </div>
-
-  <!-- PAGAMENTOS -->
-  <div id="inb-pagamentos" class="inb-tab-content" style="display:none">
-
-    <!-- Totais anuais -->
-    <div class="cards-grid four" style="margin-bottom:16px;">
-      <div class="kpi-card">
-        <div class="kpi-label">Total Recebido 2026</div>
-        <div class="kpi-value green" id="pag-total-recebido">R$ 0</div>
-        <div class="kpi-sub">Matrículas + Mensalidades</div>
-      </div>
-      <div class="kpi-card">
-        <div class="kpi-label">Projeção Anual a Receber</div>
-        <div class="kpi-value red" id="pag-total-pendente">R$ 0</div>
-        <div class="kpi-sub">12 meses × alunos ativos</div>
-      </div>
-      <div class="kpi-card">
-        <div class="kpi-label">Alunos Ativos</div>
-        <div class="kpi-value" style="color:var(--gold);font-size:36px;" id="pag-count-ativos">0</div>
-        <div class="kpi-sub" id="pag-meta-alunos">Meta: aumentar!</div>
-      </div>
-      <div class="kpi-card">
-        <div class="kpi-label">Matrículas</div>
-        <div class="kpi-value" style="color:var(--gold)" id="pag-total-mat">R$ 0</div>
-        <div class="kpi-sub" id="pag-mat-count">0 alunos</div>
-      </div>
-    </div>
-
-    <!-- Sub-tabs: Mensal / Anual -->
-    <div style="display:flex;gap:8px;margin-bottom:16px;">
-      <button class="filter-btn active" id="pag-tab-mensal" onclick="setPagTab('mensal',this)">📅 Visão Mensal</button>
-      <button class="filter-btn" id="pag-tab-anual" onclick="setPagTab('anual',this)">📊 Tabela Anual</button>
-      <button class="filter-btn" id="pag-tab-inadimplentes" onclick="setPagTab('inadimplentes',this)">⚠️ Inadimplentes</button>
-    </div>
-
-    <!-- VISÃO MENSAL -->
-    <div id="pag-mensal-view">
-      <!-- Seletor de mês -->
-      <div style="display:flex;gap:8px;overflow-x:auto;padding-bottom:8px;margin-bottom:16px;scrollbar-width:none;">
-        <button class="mes-chip active" id="pag-mes-jan" onclick="setPagMes('jan',this)">
-          <div class="mes-chip-nome">Jan</div><div class="mes-chip-val" id="pag-chip-jan">—</div>
-        </button>
-        <button class="mes-chip" id="pag-mes-fev" onclick="setPagMes('fev',this)">
-          <div class="mes-chip-nome">Fev</div><div class="mes-chip-val" id="pag-chip-fev">—</div>
-        </button>
-        <button class="mes-chip" id="pag-mes-mar" onclick="setPagMes('mar',this)">
-          <div class="mes-chip-nome">Mar</div><div class="mes-chip-val" id="pag-chip-mar">—</div>
-        </button>
-        <button class="mes-chip" id="pag-mes-abr" onclick="setPagMes('abr',this)">
-          <div class="mes-chip-nome">Abr</div><div class="mes-chip-val" id="pag-chip-abr">—</div>
-        </button>
-        <button class="mes-chip" id="pag-mes-mai" onclick="setPagMes('mai',this)">
-          <div class="mes-chip-nome">Mai</div><div class="mes-chip-val" id="pag-chip-mai">—</div>
-        </button>
-        <button class="mes-chip" id="pag-mes-jun" onclick="setPagMes('jun',this)">
-          <div class="mes-chip-nome">Jun</div><div class="mes-chip-val" id="pag-chip-jun">—</div>
-        </button>
-        <button class="mes-chip" id="pag-mes-jul" onclick="setPagMes('jul',this)">
-          <div class="mes-chip-nome">Jul</div><div class="mes-chip-val" id="pag-chip-jul">—</div>
-        </button>
-        <button class="mes-chip" id="pag-mes-ago" onclick="setPagMes('ago',this)">
-          <div class="mes-chip-nome">Ago</div><div class="mes-chip-val" id="pag-chip-ago">—</div>
-        </button>
-        <button class="mes-chip" id="pag-mes-set" onclick="setPagMes('set',this)">
-          <div class="mes-chip-nome">Set</div><div class="mes-chip-val" id="pag-chip-set">—</div>
-        </button>
-        <button class="mes-chip" id="pag-mes-out" onclick="setPagMes('out',this)">
-          <div class="mes-chip-nome">Out</div><div class="mes-chip-val" id="pag-chip-out">—</div>
-        </button>
-        <button class="mes-chip" id="pag-mes-nov" onclick="setPagMes('nov',this)">
-          <div class="mes-chip-nome">Nov</div><div class="mes-chip-val" id="pag-chip-nov">—</div>
-        </button>
-        <button class="mes-chip" id="pag-mes-dez" onclick="setPagMes('dez',this)">
-          <div class="mes-chip-nome">Dez</div><div class="mes-chip-val" id="pag-chip-dez">—</div>
-        </button>
-      </div>
-
-      <!-- KPIs do mês -->
-      <div class="cards-grid four" style="margin-bottom:16px;">
-        <div class="kpi-card">
-          <div class="kpi-label">Recebido</div>
-          <div class="kpi-value green" id="pag-mes-recebido">R$ 0</div>
-          <div class="kpi-sub" id="pag-mes-pagaram">0 pagaram</div>
-        </div>
-        <div class="kpi-card">
-          <div class="kpi-label">A Receber</div>
-          <div class="kpi-value red" id="pag-mes-pendente">R$ 0</div>
-          <div class="kpi-sub" id="pag-mes-nao-pagaram">0 pendentes</div>
-        </div>
-        <div class="kpi-card">
-          <div class="kpi-label">Esperado no Mês</div>
-          <div class="kpi-value" style="color:var(--gold)" id="pag-mes-esperado">R$ 0</div>
-          <div class="kpi-sub" id="pag-mes-total-alunos">total de alunos</div>
-        </div>
-        <div class="kpi-card">
-          <div class="kpi-label">Recebimento</div>
-          <div class="kpi-value" style="color:var(--gold)" id="pag-mes-pct">0%</div>
-          <div class="progress-bar" style="margin-top:8px;"><div class="progress-fill" id="pag-mes-pct-bar" style="width:0%"></div></div>
-        </div>
-      </div>
-
-      <!-- Janeiro especial -->
-      <div id="pag-jan-extra" style="display:none;margin-bottom:16px;">
-        <div class="chart-container" style="padding:16px;">
-          <div class="chart-title">JANEIRO — CONTROLE ESPECIAL</div>
-          <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;text-align:center;">
-            <div>
-              <div style="font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:1px;margin-bottom:4px;">Pré-Matrícula</div>
-              <div style="font-family:'Cormorant Garamond',serif;font-size:22px;color:var(--gold);" id="jan-prematricula-total">R$ 0</div>
-              <div style="font-size:10px;color:var(--muted);" id="jan-prematricula-count">0 pagaram</div>
-            </div>
-            <div>
-              <div style="font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:1px;margin-bottom:4px;">Matrícula</div>
-              <div style="font-family:'Cormorant Garamond',serif;font-size:22px;color:var(--gold);" id="jan-matricula-total">R$ 0</div>
-              <div style="font-size:10px;color:var(--muted);" id="jan-matricula-count">0 pagaram</div>
-            </div>
-            <div>
-              <div style="font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:1px;margin-bottom:4px;">Mensalidade</div>
-              <div style="font-family:'Cormorant Garamond',serif;font-size:22px;color:var(--gold);" id="jan-mensalidade-total">R$ 0</div>
-              <div style="font-size:10px;color:var(--muted);" id="jan-mensalidade-count">0 pagaram</div>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <!-- Lista pagaram / não pagaram -->
-      <div id="pag-mes-lista"></div>
-    </div>
-
-    <!-- TABELA ANUAL -->
-    <div id="pag-anual-view" style="display:none;">
-      <div style="font-size:11px;color:var(--muted);margin-bottom:12px;">
-        Toque em uma célula para marcar/desmarcar pagamento
-      </div>
-      <div style="overflow-x:auto;-webkit-overflow-scrolling:touch;">
-        <div id="pag-tabela-anual"></div>
-      </div>
-    </div>
-
-    <!-- INADIMPLENTES -->
-    <div id="pag-inadimplentes-view" style="display:none;">
-      <div id="pag-inad-lista"></div>
-    </div>
-
-  </div>
-
-  <!-- ATIVIDADES -->
-  <div id="inb-atividades" class="inb-tab-content" style="display:none">
-    <div style="margin-bottom:12px;">
-      <select id="atv-aluno-sel" onchange="atvAlunoChange(this.value)"
-        style="width:100%;background:var(--card);border:1px solid var(--border);border-radius:10px;padding:11px 14px;color:var(--text);font-size:13px;font-family:inherit;">
-        <option value="">— Selecione o aluno —</option>
-      </select>
-    </div>
-    <div style="display:flex;gap:4px;background:var(--dark);border:1px solid var(--border);border-radius:10px;padding:4px;margin-bottom:14px;flex-wrap:wrap;">
-      <button class="inb-subtab atv-subtab active" onclick="showAtvTab('conteudo',this)">📝 Conteúdo</button>
-      <button class="inb-subtab atv-subtab" onclick="showAtvTab('exercicios',this)">🥁 Exercícios/BPM</button>
-      <button class="inb-subtab atv-subtab" onclick="showAtvTab('musicas',this)">🎵 Músicas</button>
-    </div>
-    <div id="atv-sub-conteudo"><div id="atv-conteudo-container"></div></div>
-    <div id="atv-sub-exercicios" style="display:none"><div id="atv-exercicios-container"></div></div>
-    <div id="atv-sub-musicas" style="display:none"><div id="atv-musicas-container"></div></div>
-  </div>
-
-  <!-- CERTIFICADO -->
-  <div id="inb-certificado" class="inb-tab-content" style="display:none">
-    <div style="margin-bottom:12px;">
-      <select id="cert-aluno-sel" onchange="renderCertificado(this.value)"
-        style="width:100%;background:var(--card);border:1px solid var(--border);border-radius:10px;padding:11px 14px;color:var(--text);font-size:13px;font-family:inherit;">
-        <option value="">— Selecione o aluno —</option>
-      </select>
-    </div>
-    <div id="cert-container"></div>
-  </div>
-  </div>
-
-</div>
-
-<div class="page" id="page-shows">
-  <p class="section-title">Shows & Eventos</p>
-  <p class="section-sub">AGENDA ARTÍSTICA · NEGO BATERA 2026</p>
-
-  <!-- KPIs Realizados -->
-  <div class="cards-grid" style="margin-bottom:10px;">
-    <div class="kpi-card">
-      <div class="kpi-label">Realizados</div>
-      <div class="kpi-value green" id="total-shows">4</div>
-      <div class="kpi-sub">shows pagos em 2026</div>
-    </div>
-    <div class="kpi-card">
-      <div class="kpi-label">Faturamento</div>
-      <div class="kpi-value green" id="fat-shows">R$ 4.000</div>
-      <div class="kpi-sub">cachês recebidos</div>
-    </div>
-    <div class="kpi-card">
-      <div class="kpi-label">Cidades</div>
-      <div class="kpi-value" id="total-cidades">4</div>
-      <div class="kpi-sub">diferentes</div>
-    </div>
-    <div class="kpi-card">
-      <div class="kpi-label">Estados</div>
-      <div class="kpi-value" id="total-estados">3</div>
-      <div class="kpi-sub" id="lista-estados">MG · PR · RJ · TO</div>
-    </div>
-  </div>
-  <!-- KPIs Confirmados + Previstos -->
-  <div class="cards-grid" style="margin-bottom:16px;">
-    <div class="kpi-card" style="border-color:rgba(201,168,76,0.4);">
-      <div class="kpi-label">🟡 Confirmados</div>
-      <div class="kpi-value" style="color:var(--gold)" id="shows-conf-count">0</div>
-      <div class="kpi-sub" id="shows-conf-val">R$ 0 a receber</div>
-    </div>
-    <div class="kpi-card" style="border-color:rgba(52,152,219,0.4);">
-      <div class="kpi-label">🔵 Previstos</div>
-      <div class="kpi-value" style="color:#3498db" id="shows-prev-count">0</div>
-      <div class="kpi-sub" id="shows-prev-val">R$ 0 estimados</div>
-    </div>
-  </div>
-
-  <!-- Sub-tabs -->
-  <div class="filter-row" style="margin-bottom:16px;">
-    <button class="filter-btn active" onclick="setShowsTab('lista',this)">🎸 Lista de Shows</button>
-    <button class="filter-btn" onclick="setShowsTab('agenda',this)">📅 Agenda Visual</button>
-    <button class="filter-btn" onclick="setShowsTab('novo',this)">➕ Novo Show</button>
-  </div>
-
-  <!-- Lista de Shows -->
-  <div id="shows-lista-view">
-    <div class="filter-row" id="filter-artistas"></div>
-    <div id="lista-shows"></div>
-  </div>
-
-  <!-- Agenda Visual -->
-  <div id="shows-agenda-view" style="display:none;">
-    <div id="shows-agenda-content"></div>
-  </div>
-
-  <!-- Formulário Novo Show -->
-  <div id="shows-novo-view" style="display:none;">
-    <div class="form-card">
-      <div class="form-title">🎸 Adicionar Show / Evento</div>
-      <div class="form-grid three">
-        <div class="form-group">
-          <label>Data</label>
-          <input type="date" id="f-show-data2" onchange="previewShowAgenda()">
-        </div>
-        <div class="form-group">
-          <label>Artista</label>
-          <select id="f-show-artista2" onchange="previewShowAgenda()">
-            <option>Aline Brasil</option>
-            <option>Padre Max</option>
-            <option>Outros Artistas</option>
-            <option>Casamento</option>
-            <option>Aniversário</option>
-            <option>Outros Eventos</option>
-          </select>
-        </div>
-        <div class="form-group">
-          <label>Tipo</label>
-          <select id="f-show-tipo2">
-            <option>Show</option>
-            <option>Casamento</option>
-            <option>Aniversário</option>
-            <option>Evento Corporativo</option>
-            <option>Outro</option>
-          </select>
-        </div>
-        <div class="form-group">
-          <label>Cidade</label>
-          <input type="text" id="f-show-cidade2" placeholder="Ex: Curitiba" oninput="previewShowAgenda()">
-        </div>
-        <div class="form-group">
-          <label>Estado (UF)</label>
-          <input type="text" id="f-show-estado2" placeholder="PR" maxlength="2" oninput="previewShowAgenda()">
-        </div>
-        <div class="form-group">
-          <label>Cachê (R$)</label>
-          <input type="number" id="f-show-cache2" placeholder="1000" oninput="previewShowAgenda()">
-        </div>
-      </div>
-      <div class="form-group" style="margin-top:12px;">
-        <label>Status</label>
-        <select id="f-show-status2">
-          <option value="previsto">🔵 Previsto</option>
-          <option value="confirmado">🟡 Confirmado</option>
-          <option value="pago">🟢 Pago</option>
-        </select>
-      </div>
-      <div class="form-group" style="margin-top:12px;">
-        <label>Observações</label>
-        <textarea id="f-show-obs2" placeholder="Detalhes do evento..."></textarea>
-      </div>
-      <!-- Preview do card gerado -->
-      <div id="show-preview-card" style="display:none;margin-top:16px;"></div>
-      <!-- Agenda do mês em tempo real -->
-      <div id="novo-show-agenda-preview" style="display:none;margin-top:16px;">
-        <div style="font-size:10px;color:var(--gold);letter-spacing:1.5px;text-transform:uppercase;margin-bottom:10px;">📅 Agenda do Mês — Como ficará</div>
-        <div id="novo-show-agenda-content"></div>
-      </div>
-      <div class="form-actions">
-        <button class="btn btn-gold" onclick="adicionarShowV2()">✓ Adicionar Show</button>
-        <button class="btn btn-outline" onclick="setShowsTab('agenda', document.querySelector('#page-shows .filter-btn:nth-child(2)'))">📅 Ver Agenda</button>
       </div>
     </div>
   </div>
@@ -1999,6 +1464,38 @@ const SUPABASE_URL = (localStorage.getItem('lrc-sb-url') || '').replace(/\/rest\
 const SUPABASE_KEY = localStorage.getItem('lrc-sb-key') || '';
 let supabaseReady = false;
 let sb = null;
+
+// ============ SUPABASE DO PROGRAMA NEGO BATERA (espelho de leitura, INB) ============
+// Projeto separado (institutonegobatera@gmail.com) — só leitura do resumo financeiro
+// via RPC pública financeiro_resumo_mes, sem token de admin. Ver CLAUDE.md.
+const PNB_SUPABASE_URL = 'https://obyvnxtowoweauxyegyv.supabase.co';
+const PNB_SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9ieXZueHRvd293ZWF1eHllZ3l2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODQ3Mzc0NjcsImV4cCI6MjEwMDMxMzQ2N30.gM9arqhkMiZi0sscibIyEAxq9xHJX6XONJl8iu0Yd2Y';
+let sbPrograma = null;
+
+async function carregarResumoINB() {
+  const card = document.getElementById('card-resumo-inb');
+  try {
+    if (!sbPrograma) {
+      const { createClient } = await import('https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm');
+      sbPrograma = createClient(PNB_SUPABASE_URL, PNB_SUPABASE_KEY);
+    }
+    const agora = new Date();
+    const { data, error } = await sbPrograma.rpc('financeiro_resumo_mes', {
+      p_ano: agora.getFullYear(),
+      p_mes: agora.getMonth() + 1,
+    });
+    if (error) throw error;
+    const r = Array.isArray(data) ? data[0] : data;
+    document.getElementById('pnb-arrecadado').textContent = fmtBRL(r.total_arrecadado || 0);
+    document.getElementById('pnb-gasto').textContent = fmtBRL(r.total_gasto || 0);
+    document.getElementById('pnb-saldo').textContent = fmtBRL(r.saldo || 0);
+    document.getElementById('pnb-alunos-ativos').textContent = r.alunos_ativos ?? '—';
+    if (card) card.querySelector('.pnb-status').textContent = 'Atualizado agora · Programa Nego Batera';
+  } catch (e) {
+    console.warn('Resumo INB (Programa Nego Batera) indisponível:', e);
+    if (card) card.querySelector('.pnb-status').textContent = '⚠️ Não foi possível carregar agora';
+  }
+}
 
 async function initSupabase() {
   if (!SUPABASE_URL || !SUPABASE_KEY) return false;
@@ -8098,6 +7595,9 @@ function toggleMic() {
     // Supabase conectado — dados locais preservados
     // Use o ponto verde → "↑ Enviar" ou "↓ Importar" para sincronizar manualmente
   } catch(e) { console.warn('Supabase init error:', e); }
+
+  // 3.5 Resumo do INB, ao vivo, direto do Programa Nego Batera (fonte real)
+  try { carregarResumoINB(); } catch(e) { console.warn(e); }
 
   // 4. Service Worker — updateViaCache:'none' garante que sw.js nunca vem do HTTP cache
   if ('serviceWorker' in navigator) {
