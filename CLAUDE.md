@@ -34,7 +34,7 @@ O script `deploy.ps1`:
 
 Isso fecha a "Etapa 4" do plano de migração original (ver `project-ecossistema-nego-batera` na memória): Programa Nego Batera é a fonte única, Controle LRC só recebe um resumo, sem sincronização linha a linha.
 
-**Nota:** o card `kpi-rec-inb` ("Receitas INB") e o "Saldo Atual do Ano" no topo do Painel **ainda usam `state.alunos` local**, que ficou **congelado desde a migração de 13/08/2026** (nada novo entra ali) — não foram tocados nesta rodada por não terem sido pedidos explicitamente. Considerar migrar/aposentar esses dois também quando Leandro confirmar.
+**Atualização 17/09/2026 — corrigido:** o `kpi-rec-inb` ("Receitas INB"), `kpi-a-receber` ("A Receber INB") e o "Saldo Atual do Ano" no topo do Painel usavam `state.alunos`/`state.gastos_inb` locais, congelados desde 13/08/2026 — por isso uma correção de pagamento no Programa Nego Batera nunca aparecia nesses 3 números (bug real reportado por Leandro, saldo ficou negativo indevidamente). Corrigido: nova função `carregarResumoAnoINB()` busca a RPC `financeiro_resumo_ano(p_ano)` (nova, no repo `programa-nego-batera`) no boot, guarda em `pnbResumoAno`, e `updatePainel()` usa esse valor quando disponível — só cai no cálculo local antigo (`state.alunos`/`state.gastos_inb`) como fallback se a RPC ainda não existir ou a busca falhar. **Depende de Leandro rodar o SQL da `financeiro_resumo_ano` no Supabase do Programa Nego Batera** — até lá, o fallback mantém o comportamento antigo (mesmo bug) sem quebrar nada.
 
 ## Convenções
 
