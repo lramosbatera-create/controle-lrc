@@ -1626,6 +1626,37 @@ async function carregarResumoINB() {
   }
 }
 
+// Resumo do ANO (não só do mês), pro Painel geral — "Receitas INB", "A Receber
+// INB" e "Saldo Atual do Ano" usavam state.alunos local (congelado desde a
+// migração de 13/08/2026), então uma correção de pagamento feita no Programa
+// Nego Batera nunca refletia nesses 3 números. `pnbResumoAno` guarda o
+// resultado; enquanto for null (RPC ainda não existe ou falhou), updatePainel()
+// cai de volta no cálculo local antigo, pra nunca quebrar o Painel.
+let pnbResumoAno = null;
+
+async function carregarResumoAnoINB() {
+  try {
+    if (!sbPrograma) {
+      const { createClient } = await import('https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm');
+      sbPrograma = createClient(PNB_SUPABASE_URL, PNB_SUPABASE_KEY);
+    }
+    const { data, error } = await sbPrograma.rpc('financeiro_resumo_ano', {
+      p_ano: new Date().getFullYear(),
+    });
+    if (error) throw error;
+    const r = Array.isArray(data) ? data[0] : data;
+    pnbResumoAno = {
+      arrecadado: parseFloat(r.total_arrecadado) || 0,
+      gasto: parseFloat(r.total_gasto) || 0,
+      aReceber: parseFloat(r.total_a_receber) || 0,
+    };
+  } catch (e) {
+    console.warn('Resumo anual INB (Programa Nego Batera) indisponível, usando dado local congelado:', e);
+    pnbResumoAno = null;
+  }
+  try { updatePainel(); } catch(e) {}
+}
+
 async function initSupabase() {
   if (!SUPABASE_URL || !SUPABASE_KEY) return false;
   try {
@@ -7189,9 +7220,13 @@ function cadastrarAluno() {
 
 // ============ UPDATE PAINEL ============
 function updatePainel() {
-  const recINBAlunos = state.alunos.reduce((s,a) => s + calcPago(a), 0);
-  const recINBAvulsos = (state.avulsos||[]).reduce((s,av) => s + av.valor, 0);
-  const recINB = recINBAlunos + recINBAvulsos;
+  // Fonte real do financeiro INB é o Programa Nego Batera (ver carregarResumoAnoINB).
+  // state.alunos/state.gastos_inb locais ficaram congelados na migração de
+  // 13/08/2026 — só entram aqui como fallback se o resumo ao vivo ainda não
+  // carregou ou a RPC financeiro_resumo_ano não existir no Supabase.
+  const recINB = pnbResumoAno
+    ? pnbResumoAno.arrecadado
+    : state.alunos.reduce((s,a) => s + calcPago(a), 0) + (state.avulsos||[]).reduce((s,av) => s + av.valor, 0);
   const recShows = state.shows.filter(s=>s.status==='pago').reduce((s,x)=>s+(parseFloat(x.cache)||0),0);
   const recShowsConf = state.shows.filter(s=>s.status==='confirmado').reduce((s,x)=>s+(parseFloat(x.cache)||0),0);
   const recTotal = recINB + recShows;
@@ -7201,7 +7236,7 @@ function updatePainel() {
       const v = pf[m];
       return ss + (v === true ? d.valor : (v || 0));
     }, 0), 0);
-  const despINB = state.gastos_inb.reduce((s,d)=>s+d.valor,0);
+  const despINB = pnbResumoAno ? pnbResumoAno.gasto : state.gastos_inb.reduce((s,d)=>s+d.valor,0);
   const despNB = state.gastos_nb.reduce((s,d)=>s+d.valor,0);
   const despCot = (state.cotidiano||[]).reduce((s,d)=>s+d.valor,0);
   const despParc = (state.parceladas||[]).reduce((s,p)=>s+parcPagas(p)*p.valorParcela,0);
@@ -7222,7 +7257,7 @@ function updatePainel() {
     `Receitas ${fmtBRL(recTotal)} · Despesas ${fmtBRL(despTotal)} · Saldo Anterior ${fmtBRL(saldoAnterior)}`;
 
   // A receber
-  const aReceber = state.alunos.filter(a=>a.status==='Ativo').reduce((s,a)=>s+calcDevedor(a),0);
+  const aReceber = pnbResumoAno ? pnbResumoAno.aReceber : state.alunos.filter(a=>a.status==='Ativo').reduce((s,a)=>s+calcDevedor(a),0);
   document.getElementById('kpi-a-receber').textContent = fmtBRL(aReceber);
 
   // KPI parceladas (se função disponível)
@@ -7728,6 +7763,7 @@ function toggleMic() {
 
   // 3.5 Resumo do INB, ao vivo, direto do Programa Nego Batera (fonte real)
   try { carregarResumoINB(); } catch(e) { console.warn(e); }
+  try { carregarResumoAnoINB(); } catch(e) { console.warn(e); }
 
   // 4. Service Worker — updateViaCache:'none' garante que sw.js nunca vem do HTTP cache
   if ('serviceWorker' in navigator) {
