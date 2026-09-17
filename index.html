@@ -7241,7 +7241,14 @@ function updatePainel() {
   const despCot = (state.cotidiano||[]).reduce((s,d)=>s+d.valor,0);
   const despParc = (state.parceladas||[]).reduce((s,p)=>s+parcPagas(p)*p.valorParcela,0);
   const despTotal = despFixas + despParc + despINB + despNB + despCot;
-  const saldoAnterior = 2688.66;
+  // Recalibrado em 17/09/2026 (mesmo método da auditoria de 15/07/2026 —
+  // ver commit 3dfe3f4): o valor antigo (R$2.688,66) tinha sido calibrado
+  // ANTES do Programa Nego Batera existir, usando "Receitas INB" de uma
+  // fonte local que ficou congelada em 13/08. Com recINB/despINB agora
+  // vindos ao vivo do Programa (mais completos e corretos), o valor antigo
+  // ficou desalinhado do saldo bancário real. Reconferido contra o saldo
+  // real informado por Leandro (Nubank + Itaú, 17/09/2026: R$4.225,00).
+  const saldoAnterior = 1361.00;
   const saldo = saldoAnterior + recTotal - despTotal;
 
   document.getElementById('saldo-total').textContent = fmtBRL(saldo);
