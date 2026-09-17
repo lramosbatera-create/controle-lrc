@@ -765,6 +765,135 @@
   </div>
 </div>
 
+<div class="page" id="page-shows">
+  <p class="section-title">Shows & Eventos</p>
+  <p class="section-sub">AGENDA ARTÍSTICA · NEGO BATERA 2026</p>
+
+  <!-- KPIs Realizados -->
+  <div class="cards-grid" style="margin-bottom:10px;">
+    <div class="kpi-card">
+      <div class="kpi-label">Realizados</div>
+      <div class="kpi-value green" id="total-shows">4</div>
+      <div class="kpi-sub">shows pagos em 2026</div>
+    </div>
+    <div class="kpi-card">
+      <div class="kpi-label">Faturamento</div>
+      <div class="kpi-value green" id="fat-shows">R$ 4.000</div>
+      <div class="kpi-sub">cachês recebidos</div>
+    </div>
+    <div class="kpi-card">
+      <div class="kpi-label">Cidades</div>
+      <div class="kpi-value" id="total-cidades">4</div>
+      <div class="kpi-sub">diferentes</div>
+    </div>
+    <div class="kpi-card">
+      <div class="kpi-label">Estados</div>
+      <div class="kpi-value" id="total-estados">3</div>
+      <div class="kpi-sub" id="lista-estados">MG · PR · RJ · TO</div>
+    </div>
+  </div>
+  <!-- KPIs Confirmados + Previstos -->
+  <div class="cards-grid" style="margin-bottom:16px;">
+    <div class="kpi-card" style="border-color:rgba(201,168,76,0.4);">
+      <div class="kpi-label">🟡 Confirmados</div>
+      <div class="kpi-value" style="color:var(--gold)" id="shows-conf-count">0</div>
+      <div class="kpi-sub" id="shows-conf-val">R$ 0 a receber</div>
+    </div>
+    <div class="kpi-card" style="border-color:rgba(52,152,219,0.4);">
+      <div class="kpi-label">🔵 Previstos</div>
+      <div class="kpi-value" style="color:#3498db" id="shows-prev-count">0</div>
+      <div class="kpi-sub" id="shows-prev-val">R$ 0 estimados</div>
+    </div>
+  </div>
+
+  <!-- Sub-tabs -->
+  <div class="filter-row" style="margin-bottom:16px;">
+    <button class="filter-btn active" onclick="setShowsTab('lista',this)">🎸 Lista de Shows</button>
+    <button class="filter-btn" onclick="setShowsTab('agenda',this)">📅 Agenda Visual</button>
+    <button class="filter-btn" onclick="setShowsTab('novo',this)">➕ Novo Show</button>
+  </div>
+
+  <!-- Lista de Shows -->
+  <div id="shows-lista-view">
+    <div class="filter-row" id="filter-artistas"></div>
+    <div id="lista-shows"></div>
+  </div>
+
+  <!-- Agenda Visual -->
+  <div id="shows-agenda-view" style="display:none;">
+    <div id="shows-agenda-content"></div>
+  </div>
+
+  <!-- Formulário Novo Show -->
+  <div id="shows-novo-view" style="display:none;">
+    <div class="form-card">
+      <div class="form-title">🎸 Adicionar Show / Evento</div>
+      <div class="form-grid three">
+        <div class="form-group">
+          <label>Data</label>
+          <input type="date" id="f-show-data2" onchange="previewShowAgenda()">
+        </div>
+        <div class="form-group">
+          <label>Artista</label>
+          <select id="f-show-artista2" onchange="previewShowAgenda()">
+            <option>Aline Brasil</option>
+            <option>Padre Max</option>
+            <option>Outros Artistas</option>
+            <option>Casamento</option>
+            <option>Aniversário</option>
+            <option>Outros Eventos</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>Tipo</label>
+          <select id="f-show-tipo2">
+            <option>Show</option>
+            <option>Casamento</option>
+            <option>Aniversário</option>
+            <option>Evento Corporativo</option>
+            <option>Outro</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>Cidade</label>
+          <input type="text" id="f-show-cidade2" placeholder="Ex: Curitiba" oninput="previewShowAgenda()">
+        </div>
+        <div class="form-group">
+          <label>Estado (UF)</label>
+          <input type="text" id="f-show-estado2" placeholder="PR" maxlength="2" oninput="previewShowAgenda()">
+        </div>
+        <div class="form-group">
+          <label>Cachê (R$)</label>
+          <input type="number" id="f-show-cache2" placeholder="1000" oninput="previewShowAgenda()">
+        </div>
+      </div>
+      <div class="form-group" style="margin-top:12px;">
+        <label>Status</label>
+        <select id="f-show-status2">
+          <option value="previsto">🔵 Previsto</option>
+          <option value="confirmado">🟡 Confirmado</option>
+          <option value="pago">🟢 Pago</option>
+        </select>
+      </div>
+      <div class="form-group" style="margin-top:12px;">
+        <label>Observações</label>
+        <textarea id="f-show-obs2" placeholder="Detalhes do evento..."></textarea>
+      </div>
+      <!-- Preview do card gerado -->
+      <div id="show-preview-card" style="display:none;margin-top:16px;"></div>
+      <!-- Agenda do mês em tempo real -->
+      <div id="novo-show-agenda-preview" style="display:none;margin-top:16px;">
+        <div style="font-size:10px;color:var(--gold);letter-spacing:1.5px;text-transform:uppercase;margin-bottom:10px;">📅 Agenda do Mês — Como ficará</div>
+        <div id="novo-show-agenda-content"></div>
+      </div>
+      <div class="form-actions">
+        <button class="btn btn-gold" onclick="adicionarShowV2()">✓ Adicionar Show</button>
+        <button class="btn btn-outline" onclick="setShowsTab('agenda', document.querySelector('#page-shows .filter-btn:nth-child(2)'))">📅 Ver Agenda</button>
+      </div>
+    </div>
+  </div>
+</div>
+
 <div class="page" id="page-despesas">
   <p class="section-title">Despesas LRC</p>
   <p class="section-sub">CONTROLE FINANCEIRO PESSOAL · 2026</p>
@@ -5318,6 +5447,7 @@ function salvarNB() { saveState(); toast('✓ Todos os gastos NB salvos!'); }
 
 
 // ============ SHOWS — NOVO TAB SISTEMA ============
+let showsTabAtual = 'lista';
 function setShowsTab(tab, btn) {
   showsTabAtual = tab;
   document.querySelectorAll('#page-shows .filter-btn').forEach(b => b.classList.remove('active'));
