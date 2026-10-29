@@ -72,3 +72,7 @@ Substituiu a aba **Lançar** (tudo que ela lançava já existia em Despesas, Sho
 ## Meta Janeiro (desde 29/10/2026)
 
 Card `#proj-meta-janeiro` na aba Projeções, visível de setembro a janeiro (`renderMetaJaneiro`). Meta automática = gastos − receita de janeiro na projeção realista (ou a meta que Leandro digitar); depósitos em `state.metas['jan<ano>'].depositos` (sincronizado na nuvem). Guardar não é gasto, não mexe no saldo. Junto entrou a sazonalidade do INB: nos meses do ano que vem, usa o mesmo mês deste ano quando ele já aconteceu (janeiro de férias entra baixo).
+
+## Tabela antiga `shows` (limpa em 29/10/2026)
+
+Os shows vivem só no `full_state` (app, Projeções e `sync-apps.ps1` leem de lá). A tabela `shows` do Supabase estava desatualizada: as 19 linhas foram apagadas e o app não grava mais nela (commit 643098f). Backup em `C:\Users\maste\Documents\Projetos\LRC\Backups\controle-lrc-tabela-shows-antiga-2026-10-29.json`. A tabela vazia continua existindo; apagar a estrutura dela exige SQL no painel. `despesas_fixas`, `gastos_inb` e `gastos_nb` ainda recebem gravações antigas do mesmo tipo (candidatas à próxima vasculha).
