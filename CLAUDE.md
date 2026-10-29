@@ -40,3 +40,16 @@ Isso fecha a "Etapa 4" do plano de migração original (ver `project-ecossistema
 
 - Commits em português, estilo `fix(agenda): ...`, `feat(pwa): ...`
 - PWA com service worker — cuidado com cache ao mudar `index.html` (ver histórico de commits sobre `sw.js`/`updateViaCache`)
+
+## Aba Projeções (desde 29/10/2026)
+
+Substituiu a aba **Lançar** (tudo que ela lançava já existia em Despesas, Shows e Chat; o card da URL do Worker do Chat IA foi pro topo da aba Chat). Funções `calcProjecoes()` / `renderProjecoes()`: Receita, Gastos e Saldo em Mensal/Trimestral/Semestral/Anual, por grupo de categoria (`PROJ_GRUPOS_GASTO`, agrupamento por palavra-chave no padrão Mobills/Organizze/Monarch — o nome original lançado não muda). Realizado = lançado/pago; projetado = fixas e parcelas não pagas, shows confirmados/previstos com data, e média dos últimos 3 meses fechados com lançamento (mesma janela pra todas as categorias de uma fonte). Saldo parte de `SALDO_ANTERIOR_ANO` (constante única, também usada pelo Painel).
+
+## 🔁 Rotina obrigatória ao abrir este projeto
+
+**Toda vez** que uma conversa retomar o Controle LRC (pedido de Leandro, reforçado em 29/10/2026), antes de qualquer outra coisa:
+
+1. **Vasculha de erros**: abrir todas as abas com Playwright efêmero e checar `pageerror`/console; procurar números que ainda leem `state.alunos`/`state.gastos_inb` locais (congelados desde 13/08/2026) em vez do Programa Nego Batera ao vivo.
+2. **Melhorias com base no mercado**: comparar com Mobills, Organizze, Monarch, YNAB, Copilot e afins.
+3. **Apresentar as sugestões dentro do contexto** num artefato visual (itens A1…/B1…), e **só aplicar o que Leandro aprovar**.
+4. Fazer isso **mesmo que as sugestões da vez anterior não tenham sido aprovadas**.
