@@ -3668,7 +3668,6 @@ function addAvulso() {
   if (!state.avulsos) state.avulsos = [];
   const novo = { id: state.nextId++, nome, mes, valor, obs };
   state.avulsos.push(novo);
-  dbSave('avulsos', novo);
   saveState();
   document.getElementById('av-nome').value  = '';
   document.getElementById('av-valor').value = '';
@@ -3681,7 +3680,6 @@ function addAvulso() {
 
 function deleteAvulso(id) {
   state.avulsos = (state.avulsos || []).filter(av => av.id !== id);
-  dbDelete('avulsos', id);
   saveState();
   renderAvulsos();
   updatePainel();
