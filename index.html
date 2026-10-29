@@ -1490,6 +1490,7 @@ function saveState() {
       _migCotidianoCompleto2026: state._migCotidianoCompleto2026,
       _migCotidianoMaiJun: state._migCotidianoMaiJun,
       _migLimites2910: state._migLimites2910,
+      _migChatOutrosMai: state._migChatOutrosMai,
     }));
   } catch(e) { console.warn('Save failed', e); }
   agendarAutoSaveNuvem();
@@ -2039,6 +2040,7 @@ async function dbPushAll(silencioso) {
       _migCotidianoCompleto2026:state._migCotidianoCompleto2026,
       _migCotidianoMaiJun:      state._migCotidianoMaiJun,
       _migLimites2910:          state._migLimites2910,
+      _migChatOutrosMai:        state._migChatOutrosMai,
     };
     const erros = [];
     if (!silencioso && state.alunos?.length) {
@@ -2107,8 +2109,10 @@ async function dbPullAll() {
       if (b._migCotidianoCompleto2026) state._migCotidianoCompleto2026 = b._migCotidianoCompleto2026;
       if (b._migCotidianoMaiJun)       state._migCotidianoMaiJun       = b._migCotidianoMaiJun;
       if (b._migLimites2910) state._migLimites2910 = b._migLimites2910;
+      if (b._migChatOutrosMai) state._migChatOutrosMai = b._migChatOutrosMai;
     }
     nuvemMarcarVersao(meta.data?.value?.atualizadoEm || 1);
+    try { migrarChatOutrosMai(); } catch(e) {}
     autoSavePausado = false;
     saveState();
     try { renderAlunos(); updatePainel(); renderProjecoes(); } catch(e) {}
@@ -6121,6 +6125,23 @@ function migrateCotidianoCompleto2026() {
   saveState();
 }
 
+// 29/10/2026, pedido de Leandro: 6 gastos de maio lançados pelo Chat IA antigo
+// (ids 146–151, lançados em 14/06) ficaram com categoria "Outros" e o nome
+// real só na descrição. O nome vira a categoria (Almoço/Lanche → Alimentação,
+// Passagem de Ônibus → Transporte). Roda uma vez; a marca vai pra nuvem.
+function migrarChatOutrosMai() {
+  if (state._migChatOutrosMai || !state.cotidiano) return;
+  let n = 0;
+  state.cotidiano.forEach(d => {
+    if (d.id >= 146 && d.id <= 151 && d.mes === 'mai' && (d.cat || '').trim().toLowerCase() === 'outros' && d.desc) {
+      d.cat = d.desc; d.desc = 'via Chat IA'; n++;
+    }
+  });
+  state._migChatOutrosMai = true;
+  saveState();
+  if (n) console.info(`Correção de maio: ${n} lançamento(s) do Chat IA saíram de "Outros"`);
+}
+
 function migrateCotidianoMaiJun() {
   if (!state.cotidiano) return;
   if (state._migCotidianoMaiJun) return;
@@ -8527,6 +8548,7 @@ function toggleMic() {
 (async () => {
   // 1. PRIMEIRO: renderiza a UI com dados do localStorage (imediato, sem esperar Supabase)
   try { loadState(); } catch(e) {}
+  try { migrarChatOutrosMai(); } catch(e) { console.warn(e); }
   if (!state.alunos?.length) {
     state.alunos = SEED_ALUNOS;
     state.shows = [{id:1,data:'2026-01-31',artista:'Aline Brasil',tipo:'Show',cidade:'Poço Fundo',estado:'MG',cache:1000,status:'pago',obs:''},{id:2,data:'2026-02-14',artista:'Aline Brasil',tipo:'Show',cidade:'Telêmaco Borba',estado:'PR',cache:1000,status:'pago',obs:''},{id:3,data:'2026-02-16',artista:'Aline Brasil',tipo:'Show',cidade:'Curitiba',estado:'PR',cache:1000,status:'pago',obs:''},{id:4,data:'2026-02-20',artista:'Aline Brasil',tipo:'Show',cidade:'São Miguel do Tocantins',estado:'TO',cache:1000,status:'pago',obs:''},{id:5,data:'2026-04-24',artista:'Aline Brasil',tipo:'Show',cidade:'São Fidélis',estado:'RJ',cache:1000,status:'pago',obs:''},{id:6,data:'2026-06-04',artista:'Aline Brasil',tipo:'Show',cidade:'Palestina do Pará',estado:'PA',cache:600,status:'pago',obs:''},{id:7,data:'2026-06-12',artista:'Aline Brasil',tipo:'Show',cidade:'Passos de Camaragibe',estado:'AL',cache:1000,status:'confirmado',obs:''},{id:8,data:'2026-06-21',artista:'Aline Brasil',tipo:'Show',cidade:'Cocal dos Alves',estado:'PI',cache:1000,status:'confirmado',obs:''},{id:9,data:'2026-06-23',artista:'Aline Brasil',tipo:'Show',cidade:'Canutama',estado:'AM',cache:1000,status:'confirmado',obs:''},{id:10,data:'2026-06-29',artista:'Aline Brasil',tipo:'Show',cidade:'Concórdia do Pará',estado:'PA',cache:1000,status:'confirmado',obs:''},{id:11,data:'2026-07-11',artista:'Aline Brasil',tipo:'Show',cidade:'Novo Cruzeiro',estado:'MG',cache:1000,status:'confirmado',obs:''},{id:12,data:'2026-07-25',artista:'Aline Brasil',tipo:'Show',cidade:'São Luís dos Montes Belos',estado:'GO',cache:1000,status:'confirmado',obs:''},{id:13,data:'2026-07-26',artista:'Aline Brasil',tipo:'Show',cidade:'Pirapetinga',estado:'MG',cache:1000,status:'confirmado',obs:''},{id:14,data:'2026-08-15',artista:'Aline Brasil',tipo:'Show',cidade:'Lago do Barro',estado:'PI',cache:1000,status:'confirmado',obs:''},{id:15,data:'2026-09-24',artista:'Aline Brasil',tipo:'Show',cidade:'Porto Walter',estado:'AC',cache:1000,status:'confirmado',obs:''}];
