@@ -7193,8 +7193,9 @@ function calcProjecoes(cenario) {
     const base = janela.reduce((s, i) => s + serie[i], 0) / janela.length;
     for (let k = 0; k < PROJ_N; k++) {
       alvo.real[k] += serie[k];
-      if (k === mesAtual) alvo.proj[k] += Math.max(0, base - serie[k]);
-      if (k > mesAtual) alvo.proj[k] += base;
+      // Do mês atual em diante, o que já entrou (ex.: mensalidade paga adiantada)
+      // conta como parte da média, não por cima dela
+      if (k >= mesAtual) alvo.proj[k] += Math.max(0, base - serie[k]);
     }
   };
 
