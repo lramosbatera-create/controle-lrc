@@ -1487,6 +1487,7 @@ function saveState() {
       _migParceladasFim2026: state._migParceladasFim2026,
       _migCotidianoCompleto2026: state._migCotidianoCompleto2026,
       _migCotidianoMaiJun: state._migCotidianoMaiJun,
+      _migLimites2910: state._migLimites2910,
     }));
   } catch(e) { console.warn('Save failed', e); }
   agendarAutoSaveNuvem();
@@ -2033,6 +2034,7 @@ async function dbPushAll(silencioso) {
       _migParceladasFim2026:    state._migParceladasFim2026,
       _migCotidianoCompleto2026:state._migCotidianoCompleto2026,
       _migCotidianoMaiJun:      state._migCotidianoMaiJun,
+      _migLimites2910:          state._migLimites2910,
     };
     const erros = [];
     if (!silencioso && state.alunos?.length) {
@@ -2099,6 +2101,7 @@ async function dbPullAll() {
       if (b._migParceladasFim2026)    state._migParceladasFim2026    = b._migParceladasFim2026;
       if (b._migCotidianoCompleto2026) state._migCotidianoCompleto2026 = b._migCotidianoCompleto2026;
       if (b._migCotidianoMaiJun)       state._migCotidianoMaiJun       = b._migCotidianoMaiJun;
+      if (b._migLimites2910) state._migLimites2910 = b._migLimites2910;
     }
     nuvemMarcarVersao(meta.data?.value?.atualizadoEm || 1);
     autoSavePausado = false;
@@ -7101,18 +7104,20 @@ function cadastrarAluno() {
 // de decisão do grupo: regra criada pelo Leandro (state.regrasCategoria) →
 // grupo escolhido na importação do extrato (item.grupo) → palavra-chave.
 const PROJ_GRUPOS_GASTO = [
-  {id:'moradia',     label:'🏠 Moradia & Contas',     chaves:['luz','internet','vivo','água','agua','aluguel','gás','faxin','quintal','construção','construcao','arquitet','casa']},
+  {id:'moradia',     label:'🏠 Moradia & Contas',     chaves:['luz','internet','vivo','água','agua','aluguel','gás','faxin','quintal','construção','construcao','arquitet','casa','material elétrico','material eletrico','elétric','eletric','cortina']},
   {id:'alimentacao', label:'🍽️ Alimentação',          chaves:['almoço','almoco','lanche','padaria','mercado','açougue','acougue','sorvete','cerveja','comida','jantar','restaurante','pizza','hortifruti','ifood','supermerc']},
-  {id:'transporte',  label:'🚗 Transporte',           chaves:['táxi','taxi','combust','gasolina','posto','pedágio','pedagio','passagem','mecânic','mecanic','lavador','uber','99app','estacionamento','ônibus','onibus','carro','pneu','ipva']},
+  {id:'transporte',  label:'🚗 Transporte',           chaves:['táxi','taxi','combust','gasolina','posto','pedágio','pedagio','passagem','mecânic','mecanic','lavador','uber','99app','estacionamento','ônibus','onibus','carro','pneu','ipva','movida','aluguel do carro','locadora']},
   {id:'saude',       label:'🩺 Saúde',                chaves:['saúde','saude','consulta','farmácia','farmacia','drogaria','remédio','remedio','dentista','exame','médic','medic']},
-  {id:'igreja',      label:'🙏 Igreja & Doações',     chaves:['dízimo','dizimo','igreja','paróquia','paroquia','corpus christi','rifa','oferta','doação','doacao']},
+  {id:'igreja',      label:'🙏 Igreja & Doações',     chaves:['dízimo','dizimo','igreja','paróquia','paroquia','corpus christi','rifa','bingo','oferta','doação','doacao']},
+  {id:'familia',     label:'👪 Família & Ajuda',      chaves:['márcia','marcia']},
+  {id:'impostos',    label:'🧾 Impostos & Contador',  chaves:['contador','contabil','contábil','darf','receita federal','dívida ativa','divida ativa','imposto','irpf','iptu'], pontual:true},
   {id:'assinaturas', label:'📺 Assinaturas',          chaves:['spotify','iptv','netflix','youtube','prime','assinatura','icloud','google one','disney','globoplay']},
-  {id:'vestuario',   label:'👕 Vestuário & Compras',  chaves:['roupa','beco da moda','severo curtume','brum','south','calçado','calcado','tênis','tenis','renner','riachuelo','shopee','mercadolivre','mercado livre','amazon']},
+  {id:'vestuario',   label:'🛍️ Compras & Vestuário',  chaves:['roupa','beco da moda','severo curtume','brum','south','calçado','calcado','tênis','tenis','renner','riachuelo','shopee','mercadolivre','mercado livre','amazon','cartão ml','cartao ml','infinit']},
   {id:'lazer',       label:'🎉 Lazer & Presentes',    chaves:['entretenimento','presente','lazer','cinema','viagem','passeio','bar ']},
-  {id:'musica',      label:'🥁 Trabalho & Música',    chaves:['baqueta','gráfica','grafica','fita','pen drive','cabo','pele','prato','instrumento']},
-  {id:'cartoes',     label:'🏦 Cartões & Bancos (sem detalhe)', chaves:['cartão','cartao','saídas nubank','saidas nubank','saídas itaú','saidas itau','tarifa','anuidade','iof','juros']},
+  {id:'musica',      label:'🥁 Trabalho & Música',    chaves:['baqueta','gráfica','grafica','fita','pen drive','cabo','pele','prato','instrumento','pedal','batera','bateria','equipamento musical','music']},
+  {id:'cartoes',     label:'💳 Cartões (fixos e sem detalhe)', chaves:['cartão','cartao','saídas nubank','saidas nubank','saídas itaú','saidas itau','tarifa','anuidade','iof','juros']},
   {id:'compromissos',label:'📌 Compromissos Parcelados', chaves:['patrimônio','patrimonio','vanessa']},
-  {id:'inb',         label:'🏫 Instituto (INB)',      chaves:[]},
+  {id:'inb',         label:'🏫 Instituto (INB)',      chaves:['devolução de mensalidade','devolucao de mensalidade']},
   {id:'outros',      label:'📦 Outros',               chaves:[]},
 ];
 const PROJ_GRUPOS_RECEITA = [
@@ -7139,8 +7144,38 @@ function projChaveNome(nome) { return (nome || '').toLowerCase().trim(); }
 
 function projGrupoPorPalavra(nome, fallback) {
   const n = (nome || '').toLowerCase();
-  const g = PROJ_GRUPOS_GASTO.find(g => g.chaves.some(c => n.includes(c)));
-  return g ? g.id : (fallback || 'outros');
+  let melhor = null, tam = 0;
+  PROJ_GRUPOS_GASTO.forEach(g => g.chaves.forEach(c => { if (c.length > tam && n.includes(c)) { melhor = g.id; tam = c.length; } }));
+  return melhor || fallback || 'outros';
+}
+
+// Limite de um grupo: número (fixo no mês) ou {valor, acumula}. Com "acumula",
+// a sobra dos meses anteriores (desde o 1º mês com gasto no ano) fica
+// disponível — pra categorias com poucos meses de gasto alto (ex.: Igreja).
+function projLimite(id) {
+  const l = (state.limites || {})[id];
+  if (!l) return null;
+  return typeof l === 'number' ? {valor: l, acumula: false} : l;
+}
+function projLimiteDisponivel(id, serieReal, mesAtual) {
+  const l = projLimite(id);
+  if (!l) return 0;
+  if (!l.acumula) return l.valor;
+  let ini = serieReal.findIndex((v, i) => i <= mesAtual && v > 0);
+  if (ini < 0 || ini > mesAtual) ini = mesAtual;
+  let gastoAntes = 0;
+  for (let i = ini; i < mesAtual; i++) gastoAntes += serieReal[i];
+  return Math.max(0, l.valor * (mesAtual - ini + 1) - gastoAntes);
+}
+
+// Limites combinados com Leandro em 29/10/2026 (D4 e D5), só na 1ª vez
+function projLimitesPadrao() {
+  if (state._migLimites2910) return;
+  state.limites = state.limites || {};
+  if (!state.limites.alimentacao) state.limites.alimentacao = 1200;
+  if (!state.limites.igreja) state.limites.igreja = {valor: 300, acumula: true};
+  state._migLimites2910 = true;
+  saveState();
 }
 
 function projGrupoGasto(nome, fallback, item) {
@@ -7174,6 +7209,7 @@ function projJanela(serieTotal, mesAtual) {
 
 function calcProjecoes(cenario) {
   cenario = cenario || 'realista';
+  projLimitesPadrao();
   const hoje = new Date();
   const ano = hoje.getFullYear();
   const mesAtual = hoje.getMonth();
@@ -7273,10 +7309,21 @@ function calcProjecoes(cenario) {
   Object.values(seriesVar).forEach(serie => serie.forEach((v, k) => { totalVar[k] += v; }));
   const janelaVar = projJanela(totalVar, mesAtual);
   projJanelaVar = janelaVar;
-  Object.entries(seriesVar).forEach(([grupo, serie]) => porMedia(desp[grupo], serie, janelaVar));
+  Object.entries(seriesVar).forEach(([grupo, serie]) => {
+    if ((PROJ_GRUPOS_GASTO.find(g => g.id === grupo) || {}).pontual) serie.forEach((v, k) => { desp[grupo].real[k] += v; });
+    else porMedia(desp[grupo], serie, janelaVar);
+  });
   porMedia(desp.inb, serieGastoINB);
 
   if (cenario === 'conservador') Object.values(desp).forEach(g => { g.proj = g.proj.map(v => v * 1.1); });
+  else Object.keys(desp).forEach(id => {
+    const l = projLimite(id);
+    if (!l) return;
+    for (let k = mesAtual + 1; k < PROJ_N; k++) {
+      const g = desp[id];
+      if (g.real[k] + g.proj[k] > l.valor) g.proj[k] = Math.max(0, l.valor - g.real[k]);
+    }
+  });
 
   projOutrosNomes = [...outrosNomes].sort();
   return { ano, mesAtual, rec, desp };
@@ -7322,10 +7369,12 @@ function projGuardarPrevisoes(calc) {
   if (mudou) saveState();
 }
 
-function setLimiteCategoria(grupo, valor) {
+function setLimiteCategoria(grupo, valor, acumula) {
   state.limites = state.limites || {};
-  const v = parseFloat(String(valor).replace(',', '.'));
-  if (v > 0) state.limites[grupo] = v; else delete state.limites[grupo];
+  const atual = projLimite(grupo);
+  const v = valor === null ? (atual ? atual.valor : 0) : parseFloat(String(valor).replace(',', '.'));
+  const ac = acumula === undefined ? !!(atual && atual.acumula) : acumula;
+  if (v > 0) state.limites[grupo] = ac ? {valor: v, acumula: true} : v; else delete state.limites[grupo];
   saveState();
   renderProjecoes();
 }
@@ -7405,8 +7454,8 @@ function renderProjecoes() {
     <div style="font-size:11px;margin-top:8px;color:var(--text)">${falta > 0 ? `Faltam <strong style="color:var(--gold)">${fmtBRL(falta)}</strong> para chegar aos 6 meses${sobraMedia > 0 ? ` — guardando a sobra média projetada (${fmtBRL(sobraMedia)}/mês), uns ${Math.ceil(falta / sobraMedia)} meses.` : '.'}` : '✅ Meta de 6 meses atingida.'}</div>`;
 
   // ── Alerta de limites (B2) no mês atual ──
-  const limites = state.limites || {};
-  const estourando = Object.entries(limites).filter(([g, lim]) => desp[g] && desp[g].real[mesAtual] >= lim * 0.8);
+  const dispMes = id => projLimiteDisponivel(id, desp[id].real, mesAtual);
+  const estourando = Object.keys(state.limites || {}).filter(g => desp[g] && dispMes(g) > 0 && desp[g].real[mesAtual] >= dispMes(g) * 0.8).map(g => [g, dispMes(g)]);
   $('proj-alerta-limites').innerHTML = estourando.length
     ? `<div onclick="setProjVisao('limites',document.querySelector('#proj-visao-row .filter-btn:nth-child(4)'))" style="cursor:pointer;margin-bottom:14px;padding:10px 14px;border-radius:10px;border:1px solid rgba(192,57,43,0.4);background:var(--red-dim);font-size:12px;">
         ⚠️ ${estourando.map(([g, lim]) => `${projLabelGrupo(g)} em ${Math.round(desp[g].real[mesAtual] / lim * 100)}%`).join(' · ')} do limite de ${MESES_FULL[mesAtual]} — toque para ver</div>`
@@ -7487,12 +7536,13 @@ function renderProjecoes() {
     const linhas = PROJ_GRUPOS_GASTO.filter(d => d.id !== 'inb').map(d => {
       const g = desp[d.id];
       const real = g.real[mesAtual], fim = real + g.proj[mesAtual];
-      const lim = limites[d.id] || 0;
-      const pct = lim ? real / lim * 100 : 0;
+      const conf = projLimite(d.id);
+      const lim = conf ? projLimiteDisponivel(d.id, g.real, mesAtual) : 0;
+      const pct = lim ? real / lim * 100 : (conf ? 100 : 0);
       const cor = !lim ? 'var(--muted)' : pct >= 100 ? 'var(--red)' : pct >= 80 ? 'var(--gold)' : 'var(--green)';
       const status = !lim ? 'sem limite' : pct >= 100 ? '🔴 estourou' : pct >= 80 ? '🟡 atenção' : '🟢 dentro';
       const media = projJanelaVar.length ? soma(g.real, projJanelaVar) / projJanelaVar.length : 0;
-      if (!lim && !real && !fim && !media) return '';
+      if (!conf && !real && !fim && !media) return '';
       return `<div style="padding:12px 0;border-bottom:1px solid rgba(255,255,255,0.05);">
         <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;">
           <span style="font-size:13px;">${d.label}</span>
@@ -7502,18 +7552,23 @@ function renderProjecoes() {
           <div style="height:100%;width:${lim ? Math.min(100, pct).toFixed(1) : 0}%;background:${cor};"></div>
         </div>
         <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;font-size:11px;color:var(--muted);">
-          <span>Gasto: <strong style="color:var(--text)">${fmtBRL(real)}</strong>${lim ? ` de ${fmtBRL(lim)} (${pct.toFixed(0)}%)` : ''} · fecha o mês em ~${fmtBRL(fim)} · média ${fmtBRL(media)}</span>
-          <label style="display:flex;align-items:center;gap:6px;">Limite R$
-            <input type="number" min="0" step="10" id="lim-${d.id}" value="${lim || ''}" placeholder="${Math.round(media / 10) * 10 || ''}"
-              onchange="setLimiteCategoria('${d.id}', this.value)"
-              style="width:80px;background:var(--dark);border:1px solid var(--border);border-radius:6px;color:var(--text);padding:5px 6px;font-family:inherit;font-size:12px;">
-          </label>
+          <span>Gasto: <strong style="color:var(--text)">${fmtBRL(real)}</strong>${conf ? ` de ${fmtBRL(lim)} disponível (${pct.toFixed(0)}%)` : ''} · fecha o mês em ~${fmtBRL(fim)} · média ${fmtBRL(media)}${conf && conf.acumula && lim > conf.valor ? ` · <span style="color:var(--green)">inclui ${fmtBRL(lim - conf.valor)} de sobra acumulada</span>` : ''}</span>
+          <span style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
+            <label style="display:flex;align-items:center;gap:6px;">Limite R$
+              <input type="number" min="0" step="10" id="lim-${d.id}" value="${conf ? conf.valor : ''}" placeholder="${Math.round(media / 10) * 10 || ''}"
+                onchange="setLimiteCategoria('${d.id}', this.value)"
+                style="width:80px;background:var(--dark);border:1px solid var(--border);border-radius:6px;color:var(--text);padding:5px 6px;font-family:inherit;font-size:12px;">
+            </label>
+            <label style="display:flex;align-items:center;gap:4px;text-transform:none;letter-spacing:0;font-size:11px;white-space:nowrap;" title="A sobra dos meses em que gastou menos fica guardada para os meses de gasto maior">
+              <input type="checkbox" id="lim-ac-${d.id}" ${conf && conf.acumula ? 'checked' : ''} ${conf ? '' : 'disabled'} onchange="setLimiteCategoria('${d.id}', null, this.checked)"> 🔁 acumular sobra
+            </label>
+          </span>
         </div>
       </div>`;
     }).join('');
     extra.innerHTML = `<div class="chart-container">
       <div class="chart-title">🎯 Limite por categoria · ${MESES_FULL[mesAtual]}</div>
-      <div style="font-size:11px;color:var(--muted);margin-bottom:6px;">Defina quanto quer gastar por mês em cada grupo. A partir de 80% aparece um aviso no topo desta aba. A sugestão em cinza é a sua média recente.</div>
+      <div style="font-size:11px;color:var(--muted);margin-bottom:6px;">Defina quanto quer gastar por mês em cada grupo. A partir de 80% aparece um aviso no topo desta aba, e a projeção dos próximos meses passa a usar o limite. A sugestão em cinza é a sua média recente. Com 🔁 acumular sobra, o que não foi gasto num mês fica para os meses de gasto maior.</div>
       ${linhas || '<div style="color:var(--muted);font-size:12px;">Sem gastos lançados ainda.</div>'}
     </div>`;
   }
@@ -7601,6 +7656,8 @@ function renderProjecoes() {
     • ${forte('Shows')}: os já cadastrados com data (pagos = realizado; confirmados e previstos = projeção).<br>
     • ${forte('Despesas fixas e parcelas')}: valor cheio em cada mês que falta (parcelas só até o mês final, inclusive as que passam da virada do ano).<br>
     • ${forte('Cotidiano e Gastos NB')}: média dos últimos 3 meses com lançamento (${projJanelaVar.map(i => MESES_LABEL[i]).reverse().join(', ')}), separada por categoria.<br>
+    • ${forte('Impostos & Contador')}: gasto pontual, não é repetido na projeção (só as parcelas já combinadas).<br>
+    • ${forte('Limites')}: nos meses futuros, a categoria com limite é projetada no máximo pelo limite (menos no cenário conservador).<br>
     • ${forte('Saldo')}: parte de ${fmtBRL(SALDO_ANTERIOR_ANO)} (saldo em 01/01, o mesmo do Painel) e soma o resultado de cada mês.
     ${projOutrosNomes.length ? `<br><br>📦 ${forte('Caíram em "Outros"')}: ${projOutrosNomes.map(n => `<span style="color:var(--gold)">${n}</span>`).join(', ')} — <a href="#" onclick="setProjVisao('categorias',document.querySelector('#proj-visao-row .filter-btn:nth-child(6)'));return false;" style="color:var(--gold)">escolher o grupo</a>` : ''}`;
 }

@@ -63,3 +63,8 @@ Substituiu a aba **Lançar** (tudo que ela lançava já existia em Despesas, Sho
 - Chat IA: mensalidade/aluno/gasto INB → avisa que é no Programa Nego Batera; "paguei a luz" marca a fixa existente como paga (não cria fixa nova); sem fixa parecida → Cotidiano com o nome.
 - Painel: gráfico mensal usa `calcProjecoes()` (INB ao vivo + fixas + parcelas). `wppTipo` declarado. Funções mortas da aba Lançar removidas.
 - Novos campos do estado entram em `saveState`, no blob do `dbPushAll` e nas duas cargas (`dbLoad`, `dbPullAll`).
+
+## Ajustes do Raio-X 29/10/2026 (D1, D3, D4, D5)
+
+- Grupos pela natureza do gasto: novos 🧾 Impostos & Contador (`pontual:true`, não entra na média; Contador, DARF, Receita Federal, Dívida Ativa) e 👪 Família & Ajuda (Márcia). Cartão ML e Infinit Pay → 🛍️ Compras & Vestuário (são compras, confirmado por Leandro); Cartão Nubank/Itaú são fixos de verdade (assinaturas). A palavra-chave mais longa vence (`projGrupoPorPalavra`).
+- Limites: `state.limites[id]` = número ou `{valor, acumula}`; com acumula, a sobra desde o 1º mês com gasto no ano fica disponível (`projLimiteDisponivel`). Nos meses futuros a projeção usa no máximo o limite (menos no Conservador). Padrão aplicado uma vez (`_migLimites2910`, sincronizado na nuvem): Alimentação 1200, Igreja 300 acumulativo.
