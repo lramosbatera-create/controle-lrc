@@ -5181,7 +5181,7 @@ function removerShow(id) {
   const itemShow = state.shows.find(s => s.id === id);
   paraLixeira('shows', itemShow, `Show · ${itemShow?.artista || ''} ${itemShow?.cidade || ''} ${itemShow?.data ? itemShow.data.split('-').reverse().join('/') : ''}`);
   state.shows = state.shows.filter(s => s.id !== id);
-  dbDelete('shows', id);
+  saveState();
   renderShows(); updatePainel(); toast('Show removido');
 }
 
@@ -5191,7 +5191,7 @@ function confirmarShow(id) {
   const novoCache = parseFloat(prompt('Cachê confirmado (R$):', s.cache || '')) || s.cache;
   s.status = 'confirmado';
   s.cache = novoCache;
-  dbSave('shows', {...s});
+  saveState();
   renderShows(); updatePainel(); toast('✓ Show confirmado!');
 }
 
@@ -5204,7 +5204,7 @@ function marcarShowPago(id) {
     s.cache = c;
   }
   s.status = 'pago';
-  dbSave('shows', {...s});
+  saveState();
   renderShows(); updatePainel(); toast(`✓ Cachê ${fmtBRL(s.cache)} registrado!`);
 }
 
@@ -5659,7 +5659,7 @@ function adicionarShowV2() {
   const novoId = state.shows.length ? Math.max(...state.shows.map(s=>s.id||0))+1 : 1;
   const show = {id:novoId,data,artista,tipo,cidade,estado,cache,status,obs};
   state.shows.push(show);
-  dbSave('shows', show);
+  saveState();
   renderShows(); updatePainel();
   // Limpar campos
   ['f-show-data2','f-show-cidade2','f-show-estado2','f-show-cache2','f-show-obs2'].forEach(id=>{
@@ -7002,7 +7002,7 @@ function removerShow(id) {
   const itemShow = state.shows.find(s => s.id === id);
   paraLixeira('shows', itemShow, `Show · ${itemShow?.artista || ''} ${itemShow?.cidade || ''} ${itemShow?.data ? itemShow.data.split('-').reverse().join('/') : ''}`);
   state.shows = state.shows.filter(s => s.id !== id);
-  dbDelete('shows', id);
+  saveState();
   renderShows(); updatePainel(); toast('Show removido');
 }
 
@@ -7942,7 +7942,8 @@ function importarExtrato() {
 // remover aparece "Desfazer" por 10 segundos. Restaurar devolve o item
 // inteiro (com histórico de pagamentos, no caso das parcelas).
 const LIXEIRA_DIAS = 30;
-const LIXEIRA_NUVEM = ['shows', 'despesas_fixas', 'gastos_inb', 'gastos_nb'];
+// Shows não vão mais pra tabela 'shows' (desde 29/10/2026 só existem no full_state)
+const LIXEIRA_NUVEM = ['despesas_fixas', 'gastos_inb', 'gastos_nb'];
 
 function paraLixeira(colecao, item, rotulo, semAviso) {
   if (!item) return;
@@ -8360,7 +8361,7 @@ async function executarAcao(parsed) {
       obs: ''
     };
     state.shows.push(novo);
-    await dbSave('shows', novo);
+    saveState();
     updatePainel();
     addMessage(parsed.confirmacao, 'success');
   }
@@ -8403,7 +8404,7 @@ async function executarAcao(parsed) {
     if (show) {
       show.status = 'pago';
       if (parsed.cache) show.cache = parsed.cache;
-      await dbSave('shows', {...show});
+      saveState();
     }
     updatePainel(); renderShows();
     addMessage(parsed.confirmacao, 'success');
@@ -8414,7 +8415,7 @@ async function executarAcao(parsed) {
       (!parsed.artista || s.artista.toLowerCase().includes(parsed.artista.toLowerCase())) &&
       (!parsed.cidade || s.cidade.toLowerCase().includes(parsed.cidade.toLowerCase()))
     );
-    if (show) { state.shows = state.shows.filter(s => s.id !== show.id); dbDelete('shows', show.id); }
+    if (show) { state.shows = state.shows.filter(s => s.id !== show.id); saveState(); }
     updatePainel();
     addMessage(parsed.confirmacao, 'success');
   }
