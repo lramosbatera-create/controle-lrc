@@ -7013,7 +7013,7 @@ function addDespesaFixa() {
   if (!nome || !valor) { toast('⚠️ Preencha descrição e valor'); return; }
   const novo = { nome, vencimento: venc || '—', valor };
   state.despesas_fixas.push(novo);
-  dbSave('despesas_fixas', novo);
+  saveState();
   document.getElementById('add-fixa-nome').value = '';
   document.getElementById('add-fixa-venc').value = '';
   document.getElementById('add-fixa-valor').value = '';
@@ -7023,7 +7023,7 @@ function addDespesaFixa() {
 function removerFixa(i) {
   if (!confirm('Remover esta despesa fixa?')) return;
   const row = state.despesas_fixas[i]; paraLixeira('despesas_fixas', row, `Despesa fixa · ${row?.nome || ''}`); state.despesas_fixas.splice(i,1);
-  if(row&&row.id) dbDelete('despesas_fixas', row.id); else saveState();
+  saveState();
   renderDespesas(); updatePainel(); toast('Despesa removida');
 }
 function editarFixa(i) {
@@ -7042,13 +7042,13 @@ function editarFixa(i) {
 function removerINB(i) {
   if (!confirm('Remover este gasto?')) return;
   const row = state.gastos_inb[i]; paraLixeira('gastos_inb', row, `Gasto INB · ${row?.nome || ''} ${fmtBRL(row?.valor)}`); state.gastos_inb.splice(i,1);
-  if(row&&row.id) dbDelete('gastos_inb', row.id); else saveState();
+  saveState();
   renderDespesas(); updatePainel(); toast('Gasto removido');
 }
 function removerNB(i) {
   if (!confirm('Remover este gasto?')) return;
   const row = state.gastos_nb[i]; paraLixeira('gastos_nb', row, `Gasto NB · ${row?.nome || ''} ${fmtBRL(row?.valor)}`); state.gastos_nb.splice(i,1);
-  if(row&&row.id) dbDelete('gastos_nb', row.id); else saveState();
+  saveState();
   renderDespesas(); updatePainel(); toast('Gasto removido');
 }
 
@@ -7942,8 +7942,6 @@ function importarExtrato() {
 // remover aparece "Desfazer" por 10 segundos. Restaurar devolve o item
 // inteiro (com histórico de pagamentos, no caso das parcelas).
 const LIXEIRA_DIAS = 30;
-// Shows não vão mais pra tabela 'shows' (desde 29/10/2026 só existem no full_state)
-const LIXEIRA_NUVEM = ['despesas_fixas', 'gastos_inb', 'gastos_nb'];
 
 function paraLixeira(colecao, item, rotulo, semAviso) {
   if (!item) return;
@@ -7973,7 +7971,6 @@ function restaurarLixeira(id) {
   const reg = (state.lixeira || []).find(x => x.id === id);
   if (!reg) return;
   (state[reg.colecao] = state[reg.colecao] || []).push(reg.item);
-  if (LIXEIRA_NUVEM.includes(reg.colecao) && reg.item.id) dbSave(reg.colecao, reg.item);
   state.lixeira = state.lixeira.filter(x => x.id !== id);
   saveState();
   const bar = document.getElementById('undo-bar'); if (bar) bar.style.display = 'none';
@@ -8337,7 +8334,7 @@ async function executarAcao(parsed) {
       saveState();
       addMessage(`✅ ${fixa.nome} marcada como paga em ${MESES_FULL[MESES.indexOf(parsed.mes)] || parsed.mes}: ${fmtBRL(parsed.valor)}`, 'success');
     } else if (parsed.categoria === 'nb') {
-      state.gastos_nb.push(novo); await dbSave('gastos_nb', novo);
+      state.gastos_nb.push(novo); saveState();
       addMessage(parsed.confirmacao, 'success');
     } else {
       state.cotidiano = state.cotidiano || [];
@@ -8384,13 +8381,13 @@ async function executarAcao(parsed) {
     const nomeBusca = (parsed.nome || '').toLowerCase();
     if (cat === 'fixa') {
       const idx = state.despesas_fixas.findIndex(d => d.nome.toLowerCase().includes(nomeBusca));
-      if (idx >= 0) { const row = state.despesas_fixas.splice(idx,1)[0]; if(row.id) dbDelete('despesas_fixas', row.id); else saveState(); }
+      if (idx >= 0) { const row = state.despesas_fixas.splice(idx,1)[0]; saveState(); }
     } else if (cat === 'inb') {
       const idx = state.gastos_inb.findIndex(d => d.nome.toLowerCase().includes(nomeBusca));
-      if (idx >= 0) { const row = state.gastos_inb.splice(idx,1)[0]; if(row.id) dbDelete('gastos_inb', row.id); else saveState(); }
+      if (idx >= 0) { const row = state.gastos_inb.splice(idx,1)[0]; saveState(); }
     } else if (cat === 'nb') {
       const idx = state.gastos_nb.findIndex(d => d.nome.toLowerCase().includes(nomeBusca));
-      if (idx >= 0) { const row = state.gastos_nb.splice(idx,1)[0]; if(row.id) dbDelete('gastos_nb', row.id); else saveState(); }
+      if (idx >= 0) { const row = state.gastos_nb.splice(idx,1)[0]; saveState(); }
     }
     updatePainel();
     addMessage(parsed.confirmacao, 'success');
