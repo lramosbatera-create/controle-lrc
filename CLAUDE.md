@@ -53,3 +53,13 @@ Substituiu a aba **Lançar** (tudo que ela lançava já existia em Despesas, Sho
 2. **Melhorias com base no mercado**: comparar com Mobills, Organizze, Monarch, YNAB, Copilot e afins.
 3. **Apresentar as sugestões dentro do contexto** num artefato visual (itens A1…/B1…), e **só aplicar o que Leandro aprovar**.
 4. Fazer isso **mesmo que as sugestões da vez anterior não tenham sido aprovadas**.
+
+## Vasculha 29/10/2026 aplicada (A2–A5, B1–B9)
+
+- **Projeções** ganhou: cenários Conservador/Realista/Otimista, "Próximos 12 meses" (cálculo cobre 24 meses, `PROJ_N`), 🎯 Limites por categoria (`state.limites`, aviso a partir de 80%), 📏 Previsto × Real (`state.previsoes` = foto da projeção realista tirada antes de cada mês; sem foto, usa média dos 3 meses anteriores), 🏷️ Categorias editáveis (`state.regrasCategoria`, nome → grupo) e card de Reserva de emergência (meta 6 meses).
+- **Importar Extrato** (Despesas): CSV da fatura Nubank (`date,title,amount`, compra positiva), CSV de conta (saída negativa) e OFX (Itaú). Vira Cotidiano com `grupo` e `origem:'extrato'`; pode tirar o "Saídas <banco>" resumido do mês (vai pra Lixeira).
+- **Lixeira** (`state.lixeira`, 30 dias) + barra "Desfazer" 10 s em todos os remover do financeiro, agenda, shows e alunos especiais (`paraLixeira`/`restaurarLixeira`). O `confirm()` continua.
+- **Salvamento automático na nuvem**: `saveState()` → `agendarAutoSaveNuvem()` → `dbPushAll(true)` 5 s depois, só `full_state`. Trava: o blob leva `atualizadoEm` e o aparelho guarda `lrc-nuvem-versao`. Nuvem mais nova → pausa e pede ↓ Importar. Aparelho sem versão → só liga depois de um Enviar/Importar manual. No boot, `verificarNuvemNoBoot()` avisa se a nuvem não responde.
+- Chat IA: mensalidade/aluno/gasto INB → avisa que é no Programa Nego Batera; "paguei a luz" marca a fixa existente como paga (não cria fixa nova); sem fixa parecida → Cotidiano com o nome.
+- Painel: gráfico mensal usa `calcProjecoes()` (INB ao vivo + fixas + parcelas). `wppTipo` declarado. Funções mortas da aba Lançar removidas.
+- Novos campos do estado entram em `saveState`, no blob do `dbPushAll` e nas duas cargas (`dbLoad`, `dbPullAll`).
