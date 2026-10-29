@@ -68,3 +68,7 @@ Substituiu a aba **Lançar** (tudo que ela lançava já existia em Despesas, Sho
 
 - Grupos pela natureza do gasto: novos 🧾 Impostos & Contador (`pontual:true`, não entra na média; Contador, DARF, Receita Federal, Dívida Ativa) e 👪 Família & Ajuda (Márcia). Cartão ML e Infinit Pay → 🛍️ Compras & Vestuário (são compras, confirmado por Leandro); Cartão Nubank/Itaú são fixos de verdade (assinaturas). A palavra-chave mais longa vence (`projGrupoPorPalavra`).
 - Limites: `state.limites[id]` = número ou `{valor, acumula}`; com acumula, a sobra desde o 1º mês com gasto no ano fica disponível (`projLimiteDisponivel`). Nos meses futuros a projeção usa no máximo o limite (menos no Conservador). Padrão aplicado uma vez (`_migLimites2910`, sincronizado na nuvem): Alimentação 1200, Igreja 300 acumulativo.
+
+## Meta Janeiro (desde 29/10/2026)
+
+Card `#proj-meta-janeiro` na aba Projeções, visível de setembro a janeiro (`renderMetaJaneiro`). Meta automática = gastos − receita de janeiro na projeção realista (ou a meta que Leandro digitar); depósitos em `state.metas['jan<ano>'].depositos` (sincronizado na nuvem). Guardar não é gasto, não mexe no saldo. Junto entrou a sazonalidade do INB: nos meses do ano que vem, usa o mesmo mês deste ano quando ele já aconteceu (janeiro de férias entra baixo).
