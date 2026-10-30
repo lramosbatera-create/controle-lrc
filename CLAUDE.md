@@ -84,3 +84,12 @@ Os shows vivem só no `full_state` (app, Projeções e `sync-apps.ps1` leem de l
 - **Atalho do ícone** "🎤 Voz": `shortcuts` no manifest dinâmico → `/#voz`; `abrirVozSePedido()` abre o Chat e liga o microfone. Se o atalho não aparecer, remover e reinstalar o app na tela inicial.
 - **Conferir antes de lançar**: `enviarChat` → `confirmarAcaoChat` mostra o cartão (`resumoAcaoChat`) com ✓ Lançar / ✏️ Corrigir; só o ✓ chama `executarAcao`. Consulta, erro e assuntos do Instituto seguem direto (não gravam nada). Texto da IA passa por `escChat`.
 - Também ficam registrados aqui as migrações únicas de 29/10: `_migChatOutrosMai` (6 lançamentos de maio do Chat saíram de "Outros") e `_migIdsCotidiano` (ids repetidos 145–151 renumerados).
+
+## Vasculha 30/10/2026 (A1–A4, B1–B6) — sw lrc-v19
+
+- **A1 Relatórios**: Mensal, Anual e WhatsApp usam o realizado de `calcProjecoes('realista')` (`relResumoMes`, `relBloco`, `relSaldoFinal`). Antes somavam as fixas uma vez só, sem INB nem parcelas, com saldo anterior 2.688,66 fixo. Anual mostra também o previsto até dezembro. **A2** `rel-mes-sel` abre no mês atual.
+- **A3** `sincronizarContadores()` depois de ↓ Importar (origem dos ids repetidos 145–151); `migrarIdsCotidiano` roda sempre e só mexe se houver repetido.
+- **A4** Sem resposta do Programa Nego Batera (`pnbResumoAno` nulo): Receitas INB, A Receber e o Saldo mostram "—" com aviso (`pnbAnoCarregando`), em vez dos alunos locais congelados.
+- **B1** `renderContasMes()` no Painel: fixas e parcelas do mês (atrasada / vence em X dias / paga) com ✓ (`pagarFixaPainel`, `pagarParcelaPainel`). **B2** Fechamento do mês anterior: aba Relatórios → 🗓️ Fechamento, aviso no Painel nos dias 1–7, imagem PNG (`imagemFechamento`). **B3** `buscarDespesas()` no topo de Despesas. **B4** Cotidiano monta só o mês aberto (`abrirCotMes`), de ~900 para ~300 botões.
+- **B5** Cópia diária `app_meta` key `backup_AAAA-MM-DD` (7 mais recentes) em `dbPushAll`; menu da nuvem → 🛟 Cópias de segurança → "Voltar para esta" (guarda a atual em `restaurar_antes`).
+- **B6** `state.conferencias` (no saveState, blob e nas duas cargas): saldo real das contas × `window._saldoApp`; só mostra a diferença, não lança nem mexe em Outros.

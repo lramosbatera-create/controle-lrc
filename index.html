@@ -684,6 +684,11 @@
     <div class="saldo-sub" id="saldo-sub">Receitas R$29.620 · Despesas R$31.205 · Saldo Anterior R$3.600</div>
   </div>
 
+  <!-- B1/B2/B6 (vasculha 30/10/2026): fechamento, contas do mês e conferir com o banco -->
+  <div id="painel-fechamento"></div>
+  <div id="painel-contas"></div>
+  <div id="painel-conferir"></div>
+
   <div class="cards-grid four" style="margin-bottom:20px;">
     <div class="kpi-card">
       <div class="kpi-label">Receitas INB</div>
@@ -901,6 +906,13 @@
 <div class="page" id="page-despesas">
   <p class="section-title">Despesas LRC</p>
   <p class="section-sub">CONTROLE FINANCEIRO PESSOAL · 2026</p>
+
+  <!-- B3 (30/10/2026): busca em todas as despesas do ano -->
+  <div class="form-card" style="margin-bottom:12px;padding:12px;">
+    <input id="busca-desp" type="search" autocomplete="off" placeholder="🔎 Buscar nas despesas do ano (nome ou valor)" oninput="buscarDespesas()"
+      style="width:100%;box-sizing:border-box;background:var(--card2);border:1px solid rgba(201,168,76,0.25);border-radius:8px;color:var(--text);font-family:inherit;font-size:13px;padding:9px 10px;outline:none;">
+    <div id="busca-desp-res"></div>
+  </div>
 
   <!-- KPIs dinâmicos -->
   <div class="cards-grid" style="margin-bottom:12px;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));">
@@ -1281,6 +1293,7 @@
     <button class="filter-btn" onclick="setRelTab('anual',this)">📆 Anual</button>
     <button class="filter-btn" onclick="setRelTab('shows',this)">🎸 Shows</button>
     <button class="filter-btn" onclick="setRelTab('despesas',this)">💸 Despesas</button>
+    <button class="filter-btn" id="rel-tab-fechamento" onclick="setRelTab('fechamento',this)">🗓️ Fechamento</button>
   </div>
 
 
@@ -1445,6 +1458,7 @@ function saveState() {
       regrasCategoria: state.regrasCategoria,
       lixeira: state.lixeira,
       previsoes: state.previsoes,
+      conferencias: state.conferencias,
       agenda: state.agenda,
       recital: state.recital,
       nextId: state.nextId,
@@ -1586,6 +1600,7 @@ async function carregarResumoINB() {
 // resultado; enquanto for null (RPC ainda não existe ou falhou), updatePainel()
 // cai de volta no cálculo local antigo, pra nunca quebrar o Painel.
 let pnbResumoAno = null;
+let pnbAnoCarregando = true; // A4: até a 1ª resposta, "carregando" em vez de número antigo
 
 async function carregarResumoAnoINB() {
   try {
@@ -1604,9 +1619,10 @@ async function carregarResumoAnoINB() {
       aReceber: parseFloat(r.total_a_receber) || 0,
     };
   } catch (e) {
-    console.warn('Resumo anual INB (Programa Nego Batera) indisponível, usando dado local congelado:', e);
+    console.warn('Resumo anual INB (Programa Nego Batera) indisponível:', e);
     pnbResumoAno = null;
   }
+  pnbAnoCarregando = false;
   try { updatePainel(); } catch(e) {}
 }
 
@@ -1700,6 +1716,52 @@ let state = {
 };
 
 // ============ DB LAYER (Supabase ↔ localStorage fallback) ============
+// B5 (30/10/2026): além do full_state, uma cópia por dia (backup_AAAA-MM-DD),
+// guardando as 7 mais recentes. Restaurar: menu da nuvem → 🛟 Cópias de segurança.
+async function salvarCopiaDoDia(blob) {
+  const dia = new Date().toISOString().slice(0, 10);
+  await sb.from('app_meta').upsert({key: 'backup_' + dia, value: blob});
+  if (window._copiasLimpas) return;
+  window._copiasLimpas = true;
+  const {data} = await sb.from('app_meta').select('key').like('key', 'backup_%').order('key', {ascending: false});
+  const velhas = (data || []).slice(7).map(r => r.key);
+  if (velhas.length) await sb.from('app_meta').delete().in('key', velhas);
+}
+async function abrirCopias() {
+  document.getElementById('sync-menu')?.remove();
+  if (!supabaseReady) { toast('⚠️ Supabase não conectado'); return; }
+  const {data, error} = await sb.from('app_meta').select('key,value').like('key', 'backup_%').order('key', {ascending: false});
+  if (error) { toast('❌ Não consegui ler as cópias: ' + error.message); return; }
+  const fundo = document.createElement('div');
+  fundo.id = 'modal-copias';
+  fundo.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.7);z-index:2000;display:flex;align-items:center;justify-content:center;padding:16px;';
+  fundo.onclick = e => { if (e.target === fundo) fundo.remove(); };
+  const linhas = (data || []).map(r => {
+    const v = r.value || {};
+    const quando = v.atualizadoEm ? new Date(v.atualizadoEm).toLocaleString('pt-BR', {weekday: 'short', day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit'}) : r.key.slice(7);
+    return `<div style="display:flex;align-items:center;gap:8px;padding:8px 0;border-bottom:1px solid rgba(201,168,76,0.12);font-size:13px;">
+      <span style="flex:1;color:#F0E8D5;">${quando}<br><span style="font-size:11px;color:#7A7060;">${(v.cotidiano || []).length} lançamentos · ${(v.shows || []).length} shows</span></span>
+      <button onclick="restaurarCopia('${r.key}')" style="background:none;border:1px solid rgba(201,168,76,0.5);color:#C9A84C;border-radius:7px;padding:5px 10px;font-size:12px;cursor:pointer;font-family:inherit;">Voltar para esta</button></div>`;
+  }).join('');
+  fundo.innerHTML = `<div style="background:#1C1C1C;border:1px solid rgba(201,168,76,0.4);border-radius:12px;padding:18px;max-width:420px;width:100%;max-height:80vh;overflow:auto;">
+    <div style="font-size:14px;color:#C9A84C;font-weight:700;margin-bottom:4px;">🛟 Cópias de segurança</div>
+    <div style="font-size:11px;color:#7A7060;margin-bottom:10px;">Uma por dia, as 7 mais recentes. Voltar para uma cópia troca os dados da nuvem e deste aparelho por ela (a versão de agora fica guardada antes).</div>
+    ${linhas || '<div style="font-size:12px;color:#7A7060;">Ainda não há cópias: a primeira é feita no próximo salvamento na nuvem.</div>'}
+    <button onclick="document.getElementById('modal-copias').remove()" style="margin-top:12px;background:none;border:1px solid #444;color:#aaa;border-radius:7px;padding:6px 14px;font-size:12px;cursor:pointer;font-family:inherit;">Fechar</button></div>`;
+  document.body.appendChild(fundo);
+}
+async function restaurarCopia(key) {
+  if (!confirm('Voltar os dados para esta cópia? A versão de agora fica guardada como "antes de restaurar".')) return;
+  const {data, error} = await sb.from('app_meta').select('value').eq('key', key).single();
+  if (error || !data) { toast('❌ Não consegui ler a cópia'); return; }
+  const atual = await sb.from('app_meta').select('value').eq('key', 'full_state').single();
+  if (atual.data) await sb.from('app_meta').upsert({key: 'restaurar_antes', value: atual.data.value});
+  const {error: e2} = await sb.from('app_meta').upsert({key: 'full_state', value: {...data.value, atualizadoEm: Date.now()}});
+  if (e2) { toast('❌ Não consegui restaurar: ' + e2.message); return; }
+  document.getElementById('modal-copias')?.remove();
+  await dbPullAll();
+}
+
 async function dbLoad() {
   if (supabaseReady) {
     // Carrega localStorage primeiro para preservar campos fora do Supabase
@@ -1738,6 +1800,7 @@ async function dbLoad() {
         if (b.regrasCategoria) state.regrasCategoria = b.regrasCategoria;
         if (b.lixeira) state.lixeira = b.lixeira;
         if (b.previsoes) state.previsoes = b.previsoes;
+        if (b.conferencias) state.conferencias = b.conferencias;
       }
       if (!state.alunosEspeciais) state.alunosEspeciais = [];
       if (!state.parceladas) state.parceladas = [];
@@ -1843,7 +1906,8 @@ function showSyncMenu() {
   const btn = (s,dis) => `display:block;width:100%;text-align:left;background:none;border:none;font-family:inherit;font-size:12px;padding:7px 10px;border-radius:6px;${dis?'color:#555;cursor:default;':'color:#F0E8D5;cursor:pointer;'}${s}`;
   const sbBtns = supabaseReady ? `
     <button style="${btn('')}" onmouseover="this.style.background='rgba(201,168,76,0.1)'" onmouseout="this.style.background=''" onclick="dbPushAll();document.getElementById('sync-menu')?.remove()">↑ Enviar para a nuvem</button>
-    <button style="${btn('')}" onmouseover="this.style.background='rgba(201,168,76,0.1)'" onmouseout="this.style.background=''" onclick="dbPullAll();document.getElementById('sync-menu')?.remove()">↓ Importar da nuvem</button>` :
+    <button style="${btn('')}" onmouseover="this.style.background='rgba(201,168,76,0.1)'" onmouseout="this.style.background=''" onclick="dbPullAll();document.getElementById('sync-menu')?.remove()">↓ Importar da nuvem</button>
+    <button style="${btn('')}" onmouseover="this.style.background='rgba(201,168,76,0.1)'" onmouseout="this.style.background=''" onclick="abrirCopias()">🛟 Cópias de segurança</button>` :
     `<div style="font-size:11px;color:#555;padding:4px 10px 6px">Supabase não conectado</div>`;
   menu.innerHTML = `
     <div style="font-size:10px;color:#555;padding:2px 8px 6px;border-bottom:1px solid rgba(201,168,76,0.1);margin-bottom:4px">v16Jun-v5</div>
@@ -2001,6 +2065,7 @@ async function dbPushAll(silencioso) {
       regrasCategoria: state.regrasCategoria || {},
       lixeira: state.lixeira || [],
       previsoes: state.previsoes || {},
+      conferencias: state.conferencias || [],
       nextId:         state.nextId,
       _migAlunosExcel26:        state._migAlunosExcel26,
       _migFixasExcel26:         state._migFixasExcel26,
@@ -2021,6 +2086,7 @@ async function dbPushAll(silencioso) {
     {
       const {error} = await sb.from('app_meta').upsert({key:'full_state', value: blob});
       if (error) erros.push('full_state: ' + error.message);
+      else { try { await salvarCopiaDoDia(blob); } catch(e) { console.warn('cópia do dia:', e); } }
     }
     if (!erros.length) {
       nuvemMarcarVersao(atualizadoEm);
@@ -2071,6 +2137,7 @@ async function dbPullAll() {
       if (b.regrasCategoria) state.regrasCategoria = b.regrasCategoria;
       if (b.lixeira) state.lixeira = b.lixeira;
       if (b.previsoes) state.previsoes = b.previsoes;
+      if (b.conferencias) state.conferencias = b.conferencias;
       if (b.nextId)                 state.nextId         = b.nextId;
       if (b._migAlunosExcel26)        state._migAlunosExcel26        = b._migAlunosExcel26;
       if (b._migFixasExcel26)         state._migFixasExcel26         = b._migFixasExcel26;
@@ -2086,6 +2153,7 @@ async function dbPullAll() {
     nuvemMarcarVersao(meta.data?.value?.atualizadoEm || 1);
     try { migrarChatOutrosMai(); } catch(e) {}
     try { migrarIdsCotidiano(); } catch(e) {}
+    sincronizarContadores();
     autoSavePausado = false;
     saveState();
     try { renderAlunos(); updatePainel(); renderProjecoes(); } catch(e) {}
@@ -4109,6 +4177,7 @@ function gerarRelatorio() {
   else if (relTabAtual === 'inb')        html = gerarRelINB(mes, mesNome);
   else if (relTabAtual === 'shows')      html = gerarRelShows();
   else if (relTabAtual === 'despesas')   html = gerarRelDespesas();
+  else if (relTabAtual === 'fechamento') html = gerarRelFechamento();
   else if (relTabAtual === 'recital')    html = gerarRelRecital();
   container.innerHTML = html;
   document.getElementById('btn-pdf').style.display = 'inline-block';
@@ -4144,52 +4213,142 @@ function relLinha(label, valor, cor) {
   </div>`;
 }
 
+// A1 (vasculha 30/10/2026): Mensal e Anual usam o realizado de calcProjecoes —
+// a mesma conta do Painel e das Projeções (INB ao vivo, fixas pagas de verdade,
+// parcelas, cotidiano e NB). Antes somavam as fixas uma vez só e sem INB/parcelas.
+function relResumoMes(p, k) {
+  const linhas = (grupos, alvo) => grupos.map(g => ({label: g.label, v: (alvo[g.id] && alvo[g.id].real[k]) || 0})).filter(x => x.v > 0.005);
+  const rec = linhas(PROJ_GRUPOS_RECEITA, p.rec);
+  const desp = linhas(PROJ_GRUPOS_GASTO, p.desp).sort((a, b) => b.v - a.v);
+  const soma = l => l.reduce((s, x) => s + x.v, 0);
+  return {rec, desp, totRec: soma(rec), totDesp: soma(desp)};
+}
+function relBloco(titulo, linhas, total, cor) {
+  return `<div style="margin-bottom:16px;"><div style="font-size:11px;color:var(--gold);letter-spacing:1px;text-transform:uppercase;margin-bottom:8px;">${titulo}</div>` +
+    (linhas.length ? linhas.map(x => relLinha(x.label, fmtBRL(x.v), cor)).join('') : relLinha('Nada lançado', fmtBRL(0), 'var(--muted)')) +
+    relLinha('Total', fmtBRL(total), 'var(--gold)') + `</div>`;
+}
+function relSaldoFinal(label, v) {
+  return `<div style="display:flex;justify-content:space-between;padding:12px 0;margin-top:4px;border-top:1px solid var(--border);">
+    <span style="font-size:15px;font-weight:700;color:var(--gold);">${label}</span>
+    <span style="font-family:'Cormorant Garamond',serif;font-size:22px;font-weight:700;color:${v >= 0 ? 'var(--green)' : '#E74C3C'};">${fmtBRL(v)}</span></div>`;
+}
+function relAvisoINB() {
+  return pnbResumoMensal ? '' : `<div style="font-size:11px;color:#E74C3C;margin-bottom:12px;">⚠️ Sem conexão com o Programa Nego Batera: a receita do Instituto pode estar incompleta.</div>`;
+}
 function gerarRelMensal(mes, mesNome) {
-  const recShows = state.shows.filter(s=>s.status==='pago'&&s.data&&MESES[new Date(s.data+'T12:00:00').getMonth()]===mes).reduce((s,x)=>s+(parseFloat(x.cache)||0),0);
-  const despFixas = state.despesas_fixas.reduce((s,d)=>s+d.valor,0);
-  const despNB = state.gastos_nb.filter(g=>g.mes===mes).reduce((s,d)=>s+d.valor,0);
-  const despCot = (state.cotidiano||[]).filter(d=>getMesDaCot(d)===mes).reduce((s,d)=>s+d.valor,0);
-
-  return relHeader(`Relatório Mensal — ${mesNome}`, `Gerado em ${new Date().toLocaleDateString('pt-BR')}`) +
-    `<div style="margin-bottom:16px;"><div style="font-size:11px;color:var(--gold);letter-spacing:1px;text-transform:uppercase;margin-bottom:8px;">RECEITAS</div>` +
-    relLinha('Shows/Cachês', fmtBRL(recShows), 'var(--green)') +
-    relLinha('Total Receitas', fmtBRL(recShows), 'var(--gold)') + `</div>` +
-    `<div style="margin-bottom:16px;"><div style="font-size:11px;color:var(--gold);letter-spacing:1px;text-transform:uppercase;margin-bottom:8px;">DESPESAS</div>` +
-    relLinha('Fixas (rateio mês)', fmtBRL(despFixas), '#E74C3C') +
-    relLinha('Gastos NB', fmtBRL(despNB), '#E74C3C') +
-    relLinha('Cotidiano', fmtBRL(despCot), '#E74C3C') +
-    relLinha('Total Despesas', fmtBRL(despFixas+despNB+despCot), '#E74C3C') + `</div>` +
-    `<div style="font-size:11px;color:var(--muted);line-height:1.6;">ℹ️ Financeiro do Instituto Nego Batera (mensalidades, matrículas e inadimplência) agora é acompanhado no <strong style="color:var(--gold);">Programa Nego Batera</strong>.</div>`;
+  const p = calcProjecoes('realista');
+  const k = MESES.indexOf(mes);
+  const r = relResumoMes(p, k);
+  return relHeader(`Relatório Mensal — ${mesNome}`, `Gerado em ${new Date().toLocaleDateString('pt-BR')} · mesma conta do Painel e das Projeções`) + relAvisoINB() +
+    relBloco('Receitas', r.rec, r.totRec, 'var(--green)') +
+    relBloco('Despesas por grupo', r.desp, r.totDesp, '#E74C3C') +
+    relSaldoFinal('Resultado do mês', r.totRec - r.totDesp) +
+    (k > p.mesAtual ? `<div style="font-size:11px;color:var(--muted);margin-top:8px;">Mês que ainda não chegou: só aparece o que já foi lançado ou pago.</div>` : '');
+}
+function gerarRelAnual() {
+  const p = calcProjecoes('realista');
+  const somaAno = (grupos, alvo, campo) => grupos.map(g => ({label: g.label, v: alvo[g.id][campo].slice(0, 12).reduce((s, v) => s + v, 0)})).filter(x => x.v > 0.005);
+  const rec = somaAno(PROJ_GRUPOS_RECEITA, p.rec, 'real');
+  const desp = somaAno(PROJ_GRUPOS_GASTO, p.desp, 'real').sort((a, b) => b.v - a.v);
+  const tR = rec.reduce((s, x) => s + x.v, 0), tD = desp.reduce((s, x) => s + x.v, 0);
+  const projR = somaAno(PROJ_GRUPOS_RECEITA, p.rec, 'proj').reduce((s, x) => s + x.v, 0);
+  const projD = somaAno(PROJ_GRUPOS_GASTO, p.desp, 'proj').reduce((s, x) => s + x.v, 0);
+  const saldo = SALDO_ANTERIOR_ANO + tR - tD;
+  return relHeader(`Relatório Anual ${p.ano}`, `Gerado em ${new Date().toLocaleDateString('pt-BR')} · mesma conta do Painel e das Projeções`) + relAvisoINB() +
+    relBloco('Receitas do ano (realizado)', rec, tR, 'var(--green)') +
+    relBloco('Despesas do ano por grupo', desp, tD, '#E74C3C') +
+    `<div style="font-size:11px;color:var(--gold);letter-spacing:1px;text-transform:uppercase;margin-bottom:8px;">Resultado</div>` +
+    relLinha('Saldo anterior', fmtBRL(SALDO_ANTERIOR_ANO), 'var(--muted)') +
+    relLinha('Receitas', fmtBRL(tR), 'var(--green)') +
+    relLinha('Despesas', fmtBRL(tD), '#E74C3C') +
+    relSaldoFinal('Saldo atual', saldo) +
+    `<div style="margin-top:16px;">` +
+    relLinha('Ainda previsto até dezembro · receitas', fmtBRL(projR), 'var(--green)') +
+    relLinha('Ainda previsto até dezembro · despesas', fmtBRL(projD), '#E74C3C') +
+    relSaldoFinal('Saldo previsto em 31/12 (realista)', saldo + projR - projD) + `</div>`;
 }
 
-function gerarRelAnual() {
-  const totalRecShows = state.shows.filter(s=>s.status==='pago').reduce((s,x)=>s+(parseFloat(x.cache)||0),0);
-  const totalFixas = state.despesas_fixas.reduce((s,d)=>s+d.valor,0);
-  const totalNB = state.gastos_nb.reduce((s,d)=>s+d.valor,0);
-  const totalCot = (state.cotidiano||[]).reduce((s,d)=>s+d.valor,0);
-  const saldoAnterior = 2688.66;
-  const totalRec = totalRecShows;
-  const totalDesp = totalFixas + totalNB + totalCot;
-  const saldo = saldoAnterior + totalRec - totalDesp;
-
-  return relHeader('Relatório Anual 2026', `Gerado em ${new Date().toLocaleDateString('pt-BR')}`) +
-    `<div style="margin-bottom:16px;"><div style="font-size:11px;color:var(--gold);letter-spacing:1px;text-transform:uppercase;margin-bottom:8px;">RECEITAS ANUAIS</div>` +
-    relLinha('Shows — Cachês', fmtBRL(totalRecShows), 'var(--green)') +
-    relLinha('Total Receitas', fmtBRL(totalRec), 'var(--gold)') + `</div>` +
-    `<div style="margin-bottom:16px;"><div style="font-size:11px;color:var(--gold);letter-spacing:1px;text-transform:uppercase;margin-bottom:8px;">DESPESAS ANUAIS</div>` +
-    relLinha('Despesas Fixas', fmtBRL(totalFixas), '#E74C3C') +
-    relLinha('Cotidiano', fmtBRL(totalCot), '#E74C3C') +
-    relLinha('Gastos NB', fmtBRL(totalNB), '#E74C3C') +
-    relLinha('Total Despesas', fmtBRL(totalDesp), '#E74C3C') + `</div>` +
-    `<div style="margin-bottom:16px;"><div style="font-size:11px;color:var(--gold);letter-spacing:1px;text-transform:uppercase;margin-bottom:8px;">RESULTADO</div>` +
-    relLinha('Saldo Anterior', fmtBRL(saldoAnterior), 'var(--muted)') +
-    relLinha('Receitas', fmtBRL(totalRec), 'var(--green)') +
-    relLinha('Despesas', fmtBRL(totalDesp), '#E74C3C') +
-    `<div style="display:flex;justify-content:space-between;padding:12px 0;margin-top:4px;border-top:1px solid var(--border);">
-      <span style="font-size:15px;font-weight:700;color:var(--gold);">SALDO FINAL</span>
-      <span style="font-family:'Cormorant Garamond',serif;font-size:22px;font-weight:700;color:${saldo>=0?'var(--green)':'#E74C3C'};">${fmtBRL(saldo)}</span>
-    </div></div>` +
-    `<div style="font-size:11px;color:var(--muted);line-height:1.6;margin-top:16px;">ℹ️ Financeiro do Instituto Nego Batera agora é acompanhado no <strong style="color:var(--gold);">Programa Nego Batera</strong>.</div>`;
+// ============ B2 (30/10/2026): fechamento do mês que terminou ============
+function dadosFechamento() {
+  const p = calcProjecoes('realista');
+  const k = p.mesAtual - 1;
+  if (k < 0) return null;
+  const r = relResumoMes(p, k);
+  const ant = k > 0 ? relResumoMes(p, k - 1) : null;
+  const estouros = PROJ_GRUPOS_GASTO.map(g => ({g, l: projLimite(g.id), v: p.desp[g.id].real[k]}))
+    .filter(x => x.l && x.v > x.l.valor).map(x => `${x.g.label}: ${fmtBRL(x.v)} (limite ${fmtBRL(x.l.valor)})`);
+  const chave = `${p.ano}-${String(k + 1).padStart(2, '0')}`;
+  const guardado = Object.values(state.metas || {}).flatMap(m => m.depositos || []).filter(d => (d.data || '').startsWith(chave)).reduce((s, d) => s + d.valor, 0);
+  return {k, ano: p.ano, nome: MESES_FULL[k], nomeAnt: k > 0 ? MESES_FULL[k - 1] : '', r, ant, estouros, guardado};
+}
+function comparaFechamento(f) {
+  if (!f.ant || !f.ant.totDesp) return '';
+  const d = f.r.totDesp - f.ant.totDesp;
+  const pct = Math.round(Math.abs(d) / f.ant.totDesp * 100);
+  return d > 0 ? `gastou ${fmtBRL(d)} a mais que em ${f.nomeAnt.toLowerCase()} (+${pct}%)` : `gastou ${fmtBRL(-d)} a menos que em ${f.nomeAnt.toLowerCase()} (−${pct}%)`;
+}
+function gerarRelFechamento() {
+  const f = dadosFechamento();
+  if (!f) return relHeader('Fechamento do mês', '') + `<p style="color:var(--muted);font-size:13px;">Em janeiro, o fechamento de dezembro fica no Relatório Anual do ano passado.</p>`;
+  const top = f.r.desp.slice(0, 3);
+  return relHeader(`Fechamento de ${f.nome}`, `${f.ano} · resumo do mês que terminou`) + relAvisoINB() +
+    relLinha('Entrou', fmtBRL(f.r.totRec), 'var(--green)') +
+    relLinha('Saiu', fmtBRL(f.r.totDesp), '#E74C3C') +
+    relSaldoFinal('Resultado do mês', f.r.totRec - f.r.totDesp) +
+    `<div style="font-size:11px;color:var(--gold);letter-spacing:1px;text-transform:uppercase;margin:14px 0 8px;">O que mais pesou</div>` +
+    (top.map(x => relLinha(x.label, fmtBRL(x.v), 'var(--text)')).join('') || relLinha('Nada lançado', fmtBRL(0))) +
+    (comparaFechamento(f) ? `<p style="font-size:13px;color:var(--text);margin:12px 0 4px;">📊 Você ${comparaFechamento(f)}.</p>` : '') +
+    (f.estouros.length ? `<p style="font-size:13px;color:#E74C3C;margin:8px 0 4px;">🎯 Passou do limite: ${f.estouros.join(' · ')}</p>` : `<p style="font-size:13px;color:var(--green);margin:8px 0 4px;">🎯 Nenhum limite estourado.</p>`) +
+    (f.guardado ? `<p style="font-size:13px;color:var(--gold);margin:8px 0 4px;">🗓️ Guardou ${fmtBRL(f.guardado)} para a Meta Janeiro.</p>` : '') +
+    `<button class="btn btn-gold" style="margin-top:14px;font-size:12px;padding:8px 16px;" onclick="imagemFechamento()">📸 Imagem do fechamento</button>`;
+}
+function textoFechamento(f) {
+  let t = `🗓️ *Fechamento de ${f.nome} ${f.ano}*\n\n✅ Entrou: *${fmtBRL(f.r.totRec)}*\n❌ Saiu: *${fmtBRL(f.r.totDesp)}*\n💰 Resultado: *${fmtBRL(f.r.totRec - f.r.totDesp)}*\n`;
+  f.r.desp.slice(0, 3).forEach(x => { t += `• ${x.label}: ${fmtBRL(x.v)}\n`; });
+  if (comparaFechamento(f)) t += `📊 Você ${comparaFechamento(f)}.\n`;
+  if (f.estouros.length) t += `🎯 Passou do limite: ${f.estouros.join(' · ')}\n`;
+  if (f.guardado) t += `🗓️ Guardou ${fmtBRL(f.guardado)} para a Meta Janeiro.\n`;
+  return t;
+}
+async function imagemFechamento() {
+  const f = dadosFechamento();
+  if (!f) return;
+  const W = 1080, M = 80;
+  const linhas = [
+    ['Entrou', fmtBRL(f.r.totRec), '#5FB37A'], ['Saiu', fmtBRL(f.r.totDesp), '#D9695B'],
+    ['Resultado', fmtBRL(f.r.totRec - f.r.totDesp), f.r.totRec >= f.r.totDesp ? '#5FB37A' : '#D9695B'],
+    ...f.r.desp.slice(0, 3).map(x => [x.label.replace(/^\S+\s/, ''), fmtBRL(x.v), '#F0E8D5']),
+  ];
+  const notas = [comparaFechamento(f) ? `Você ${comparaFechamento(f)}.` : '', f.estouros.length ? `Passou do limite: ${f.estouros.length} grupo(s).` : 'Nenhum limite estourado.', f.guardado ? `Guardou ${fmtBRL(f.guardado)} para a Meta Janeiro.` : ''].filter(Boolean);
+  const H = 360 + linhas.length * 74 + notas.length * 46;
+  const cv = document.createElement('canvas'); cv.width = W; cv.height = H;
+  const c = cv.getContext('2d');
+  c.fillStyle = '#0E0D0B'; c.fillRect(0, 0, W, H);
+  c.fillStyle = '#C9A84C'; c.fillRect(0, 0, W, 12);
+  c.font = "700 26px 'DM Sans', sans-serif"; c.fillText('CONTROLE LRC · FECHAMENTO', M, 100);
+  c.fillStyle = '#F0E8D5'; c.font = "700 76px 'Cormorant Garamond', serif"; c.fillText(`${f.nome} ${f.ano}`, M, 190);
+  let y = 290;
+  linhas.forEach(([l, v, cor], i) => {
+    if (i === 3) { c.fillStyle = '#C9A84C'; c.font = "700 22px 'DM Sans', sans-serif"; c.fillText('O QUE MAIS PESOU', M, y - 10); y += 40; }
+    c.fillStyle = '#A79E8B'; c.font = "28px 'DM Sans', sans-serif"; c.fillText(l, M, y);
+    c.fillStyle = cor; c.font = "700 34px 'DM Sans', sans-serif"; c.textAlign = 'right'; c.fillText(v, W - M, y); c.textAlign = 'left';
+    c.strokeStyle = 'rgba(201,168,76,.22)'; c.beginPath(); c.moveTo(M, y + 22); c.lineTo(W - M, y + 22); c.stroke();
+    y += 74;
+  });
+  c.fillStyle = '#E6DCC4'; c.font = "26px 'DM Sans', sans-serif";
+  notas.forEach(n => { c.fillText(n, M, y + 10); y += 46; });
+  const blob = await new Promise(ok => cv.toBlob(ok, 'image/png'));
+  const nome = `Fechamento ${f.nome} ${f.ano}.png`;
+  const arq = new File([blob], nome, {type: 'image/png'});
+  if (matchMedia('(pointer: coarse)').matches && navigator.canShare?.({files: [arq]})) {
+    try { await navigator.share({files: [arq], title: nome}); return; } catch(e) {}
+  }
+  const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = nome; a.click();
+}
+function abrirFechamento() {
+  showPage('relatorios');
+  setTimeout(() => setRelTab('fechamento', document.getElementById('rel-tab-fechamento')), 50);
 }
 
 function gerarRelINB(mes, mesNome) {
@@ -4468,12 +4627,15 @@ function compartilharRelWpp() {
   let msg = `📊 *CONTROLE LRC — Relatório*\n`;
 
   if (tipo === 'mensal') {
-    const recINB = state.alunos.reduce((s,a) => s + (a.pag[mes]||0), 0);
-    const despFixas = state.despesas_fixas.reduce((s,d)=>s+d.valor,0);
-    msg += `📅 *${mesNome} 2026*\n\n`;
-    msg += `✅ Receitas INB: *${fmtBRL(recINB)}*\n`;
-    msg += `❌ Despesas: *${fmtBRL(despFixas)}*\n`;
-    msg += `👤 Inadimplentes: *${state.alunos.filter(isInadimplente).length} alunos*\n`;
+    const r = relResumoMes(calcProjecoes('realista'), MESES.indexOf(mes));
+    msg += `📅 *${mesNome} ${new Date().getFullYear()}*\n\n`;
+    msg += `✅ Receitas: *${fmtBRL(r.totRec)}*\n`;
+    msg += `❌ Despesas: *${fmtBRL(r.totDesp)}*\n`;
+    msg += `💰 Resultado: *${fmtBRL(r.totRec - r.totDesp)}*\n`;
+    r.desp.slice(0, 3).forEach(x => { msg += `• ${x.label}: ${fmtBRL(x.v)}\n`; });
+  } else if (tipo === 'fechamento') {
+    const f = dadosFechamento();
+    if (f) msg += textoFechamento(f);
   } else if (tipo === 'shows') {
     const total = state.shows.filter(s=>s.status==='pago').reduce((s,x)=>s+(parseFloat(x.cache)||0),0);
     msg += `🎸 *Shows 2026*\n\n`;
@@ -5010,6 +5172,38 @@ function renderTabelaFixas() {
     <td style="text-align:right;padding:8px;font-family:'Cormorant Garamond',serif;font-size:15px;color:var(--gold);font-weight:700;">${fmtBRL(fixas.reduce((s,d)=>s+MESES.reduce((ss,m)=>{ const v=(state.pagFixas[d.nome]||{})[m]; return ss+(v===true?d.valor:(v||0)); },0),0))}</td>
   </tr></tbody></table>`;
   container.innerHTML = html;
+}
+
+// B3 (30/10/2026): busca por nome ou valor em todas as despesas do ano.
+function buscarDespesas() {
+  const el = document.getElementById('busca-desp-res');
+  const q = (document.getElementById('busca-desp')?.value || '').trim();
+  if (!el) return;
+  if (q.length < 2) { el.innerHTML = ''; return; }
+  const norm = t => String(t || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+  const qn = norm(q), qv = parseFloat(q.replace(/\./g, '').replace(',', '.'));
+  const bate = (texto, valor) => norm(texto).includes(qn) || (!isNaN(qv) && Math.abs(valor - qv) < 0.01);
+  const ano = new Date().getFullYear();
+  const achados = [];
+  (state.cotidiano || []).forEach(d => { if (bate(`${d.cat} ${d.desc}`, d.valor)) achados.push({quando: d.data || `${ano}-${String(MESES.indexOf(getMesDaCot(d)) + 1).padStart(2, '0')}-01`, nome: d.cat + (d.desc ? ' · ' + d.desc : ''), onde: 'Cotidiano', valor: d.valor}); });
+  (state.gastos_nb || []).forEach(d => { if (bate(d.nome, d.valor)) achados.push({quando: `${ano}-${String(MESES.indexOf(d.mes) + 1).padStart(2, '0')}-01`, nome: d.nome, onde: 'Gastos NB', valor: d.valor}); });
+  (state.despesas_fixas || []).forEach(d => {
+    const pf = (state.pagFixas || {})[d.nome] || {};
+    MESES.forEach((m, i) => { const v = pf[m] === true ? d.valor : parseFloat(pf[m]) || 0; if (v && bate(d.nome, v)) achados.push({quando: `${ano}-${String(i + 1).padStart(2, '0')}-01`, nome: d.nome, onde: 'Fixa', valor: v}); });
+  });
+  (state.parceladas || []).forEach(p => (p.pagos || []).forEach(k => {
+    const [m, a] = k.split('/');
+    if (bate(p.nome, p.valorParcela)) achados.push({quando: `${a}-${String(MESES.indexOf(m) + 1).padStart(2, '0')}-01`, nome: p.nome, onde: 'Parcela', valor: p.valorParcela});
+  }));
+  achados.sort((a, b) => b.quando.localeCompare(a.quando));
+  const total = achados.reduce((s, x) => s + x.valor, 0);
+  const dataBR = d => d.endsWith('-01') && d.length === 10 ? MESES_LABEL[parseInt(d.slice(5, 7)) - 1] : d.split('-').reverse().slice(0, 2).join('/');
+  el.innerHTML = `<div style="font-size:12px;color:var(--muted);margin:10px 0 6px;">${achados.length} encontrado${achados.length === 1 ? '' : 's'} · total <strong style="color:var(--gold)">${fmtBRL(total)}</strong></div>` +
+    achados.slice(0, 60).map(x => `<div style="display:flex;gap:8px;font-size:12px;padding:5px 0;border-bottom:1px solid rgba(201,168,76,0.08);">
+      <span style="color:var(--gold);width:44px;flex-shrink:0;">${dataBR(x.quando)}</span>
+      <span style="flex:1;min-width:0;color:var(--text);">${x.nome} <span style="color:var(--muted);">· ${x.onde}</span></span>
+      <span style="color:var(--text);white-space:nowrap;">${fmtBRL(x.valor)}</span></div>`).join('') +
+    (achados.length > 60 ? `<div style="font-size:11px;color:var(--muted);margin-top:6px;">Mostrando os 60 mais recentes.</div>` : '');
 }
 
 function toggleFixaPag(nome, mes, valorDefault) {
@@ -5844,8 +6038,17 @@ function migrarChatOutrosMai() {
 // ou mudava os outros com o mesmo id. Mantém o 1º de cada id e dá um id novo
 // aos demais — valor, data e nome não mudam. Roda depois de migrarChatOutrosMai
 // (que procura pelos ids antigos).
+// A3 (30/10/2026): depois de ↓ Importar os contadores não eram recalculados e o
+// próximo lançamento repetia números da nuvem (origem dos ids 145–151).
+function sincronizarContadores() {
+  agendaNextId = Math.max(agendaNextId, ...(state.agenda || []).map(a => a.id || 0)) + 1;
+  cotNextId = Math.max(cotNextId, ...(state.cotidiano || []).map(c => c.id || 0)) + 1;
+  parcNextId = Math.max(parcNextId, ...(state.parceladas || []).map(p => p.id || 0)) + 1;
+}
+
+// Roda em toda abertura e importação: só mexe se houver número repetido.
 function migrarIdsCotidiano() {
-  if (state._migIdsCotidiano || !state.cotidiano) return;
+  if (!state.cotidiano) return;
   const vistos = new Set();
   let proximo = Math.max(cotNextId || 0, ...state.cotidiano.map(d => d.id || 0)) + 1, n = 0;
   state.cotidiano.forEach(d => {
@@ -5853,8 +6056,9 @@ function migrarIdsCotidiano() {
     vistos.add(d.id);
   });
   cotNextId = proximo;
+  const primeira = !state._migIdsCotidiano;
   state._migIdsCotidiano = true;
-  saveState();
+  if (n || primeira) saveState();
   if (n) console.info(`Cotidiano: ${n} lançamento(s) ganharam id novo (eram repetidos)`);
 }
 
@@ -6301,7 +6505,7 @@ function renderCotidianoCards() {
 
     html += `
     <div class="toggle-section" style="margin-bottom:10px;">
-      <div class="toggle-header ${isOpen?'open':''}" onclick="toggleSection(this)" style="display:flex;justify-content:space-between;align-items:center;">
+      <div class="toggle-header ${isOpen?'open':''}" onclick="abrirCotMes(this,'${m}')" style="display:flex;justify-content:space-between;align-items:center;">
         <span class="toggle-title">${MESES_FULL[i]}</span>
         <div style="display:flex;align-items:center;gap:12px;">
           <span id="cot-hdr-total-${m}" style="font-family:'Cormorant Garamond',serif;font-size:16px;color:${total>0?'var(--gold)':'var(--muted)'};">${totalLabel}</span>
@@ -6309,7 +6513,7 @@ function renderCotidianoCards() {
         </div>
       </div>
       <div class="toggle-body ${isOpen?'open':''}" id="cot-body-${m}">
-        ${buildCotBody(m, items, total, i)}
+        ${isOpen ? buildCotBody(m, items, total, i) : ''}
       </div>
     </div>`;
   });
@@ -6317,6 +6521,17 @@ function renderCotidianoCards() {
   container.innerHTML = html;
 }
 
+
+// B4 (30/10/2026): só o mês aberto é montado; os outros na hora do toque
+// (a aba montava ~900 botões de uma vez e ficava lenta no celular).
+function abrirCotMes(header, m) {
+  const body = header.nextElementSibling;
+  if (body && !body.innerHTML.trim()) {
+    const items = (state.cotidiano || []).filter(d => getMesDaCot(d) === m);
+    body.innerHTML = buildCotBody(m, items, items.reduce((s, d) => s + d.valor, 0), MESES.indexOf(m));
+  }
+  toggleSection(header);
+}
 
 function renderCotidianoLancamentos() {
   renderCotidianoCards();
@@ -7749,9 +7964,10 @@ function updatePainel() {
   // state.alunos/state.gastos_inb locais ficaram congelados na migração de
   // 13/08/2026 — só entram aqui como fallback se o resumo ao vivo ainda não
   // carregou ou a RPC financeiro_resumo_ano não existir no Supabase.
-  const recINB = pnbResumoAno
-    ? pnbResumoAno.arrecadado
-    : state.alunos.reduce((s,a) => s + calcPago(a), 0) + (state.avulsos||[]).reduce((s,av) => s + av.valor, 0);
+  // A4 (30/10/2026): sem resposta do Programa, o Instituto fica fora (com aviso)
+  // em vez de voltar aos alunos locais congelados desde 13/08.
+  const semINB = !pnbResumoAno;
+  const recINB = semINB ? 0 : pnbResumoAno.arrecadado;
   const recShows = state.shows.filter(s=>s.status==='pago').reduce((s,x)=>s+(parseFloat(x.cache)||0),0);
   const recShowsConf = state.shows.filter(s=>s.status==='confirmado').reduce((s,x)=>s+(parseFloat(x.cache)||0),0);
   const recTotal = recINB + recShows;
@@ -7761,7 +7977,7 @@ function updatePainel() {
       const v = pf[m];
       return ss + (v === true ? d.valor : (v || 0));
     }, 0), 0);
-  const despINB = pnbResumoAno ? pnbResumoAno.gasto : state.gastos_inb.reduce((s,d)=>s+d.valor,0);
+  const despINB = semINB ? 0 : pnbResumoAno.gasto;
   const despNB = state.gastos_nb.reduce((s,d)=>s+d.valor,0);
   const despCot = (state.cotidiano||[]).reduce((s,d)=>s+d.valor,0);
   const despParc = (state.parceladas||[]).reduce((s,p)=>s+parcPagas(p)*p.valorParcela,0);
@@ -7778,7 +7994,13 @@ function updatePainel() {
 
   document.getElementById('saldo-total').textContent = fmtBRL(saldo);
   document.getElementById('saldo-total').className = 'saldo-value ' + (saldo >= 0 ? '' : 'red');
-  document.getElementById('kpi-rec-inb').textContent = fmtBRL(recINB);
+  const avisoINB = pnbAnoCarregando ? 'Carregando do Programa Nego Batera…' : 'Sem conexão com o Programa Nego Batera';
+  const elRecINB = document.getElementById('kpi-rec-inb');
+  elRecINB.textContent = semINB ? '—' : fmtBRL(recINB);
+  if (elRecINB.nextElementSibling) elRecINB.nextElementSibling.textContent = semINB ? avisoINB : 'Mensalidades + Matrículas';
+  window._saldoApp = saldo;
+  // Sem o Instituto o saldo ficaria muito negativo e enganaria: mostra "—".
+  if (semINB) { document.getElementById('saldo-total').textContent = '—'; window._saldoApp = null; }
   document.getElementById('kpi-rec-shows').textContent = fmtBRL(recShows);
   const confEl = document.getElementById('kpi-shows-confirmados');
   if (confEl) confEl.textContent = recShowsConf > 0 ? `+ ${fmtBRL(recShowsConf)} a receber` : '';
@@ -7786,17 +8008,121 @@ function updatePainel() {
   const kpiDespSub = document.getElementById('kpi-desp-sub');
   if (kpiDespSub) kpiDespSub.textContent = `Fixas ${fmtBRL(despFixas)} · Parc. ${fmtBRL(despParc)} · Cot. ${fmtBRL(despCot)} · NB/INB ${fmtBRL(despINB+despNB)}`;
   document.getElementById('saldo-sub').textContent =
-    `Receitas ${fmtBRL(recTotal)} · Despesas ${fmtBRL(despTotal)} · Saldo Anterior ${fmtBRL(saldoAnterior)}`;
+    `Receitas ${fmtBRL(recTotal)} · Despesas ${fmtBRL(despTotal)} · Saldo Anterior ${fmtBRL(saldoAnterior)}` + (semINB ? ' · sem o Instituto (' + avisoINB.toLowerCase() + ')' : '');
 
   // A receber
-  const aReceber = pnbResumoAno ? pnbResumoAno.aReceber : state.alunos.filter(a=>a.status==='Ativo').reduce((s,a)=>s+calcDevedor(a),0);
-  document.getElementById('kpi-a-receber').textContent = fmtBRL(aReceber);
+  const elAReceber = document.getElementById('kpi-a-receber');
+  elAReceber.textContent = semINB ? '—' : fmtBRL(pnbResumoAno.aReceber);
+  if (elAReceber.nextElementSibling) elAReceber.nextElementSibling.textContent = semINB ? avisoINB : 'Saldo devedor 2026';
 
   // KPI parceladas (se função disponível)
   try { atualizarKpiParceladas(); } catch(e) {}
 
   // Gráficos dinâmicos
   renderPainelCharts(recINB, recShows, despFixas, despINB, despNB, despCot, despParc);
+  try { renderContasMes(); } catch(e) { console.warn(e); }
+  try { renderFechamentoAviso(); } catch(e) { console.warn(e); }
+  try { renderConferir(); } catch(e) { console.warn(e); }
+}
+
+// ============ B1 (30/10/2026): contas do mês no Painel ============
+function renderContasMes() {
+  const el = document.getElementById('painel-contas');
+  if (!el) return;
+  const hoje = new Date(), i = hoje.getMonth(), ano = hoje.getFullYear(), dia = hoje.getDate(), m = MESES[i];
+  const itens = [];
+  (state.despesas_fixas || []).forEach((d, idx) => {
+    const v = ((state.pagFixas || {})[d.nome] || {})[m];
+    const pago = v === true || v > 0;
+    itens.push({nome: d.nome, valor: pago && v !== true ? v : d.valor, dia: parseInt(d.vencimento) || null, pago, acao: `pagarFixaPainel(${idx})`});
+  });
+  (state.parceladas || []).forEach((p, idx) => {
+    if (!parcAtivaNaMes(p, i, ano)) return;
+    const pago = (p.pagos || []).includes(`${m}/${ano}`);
+    itens.push({nome: `${p.nome} (parcela)`, valor: p.valorParcela, dia: null, pago, acao: `pagarParcelaPainel(${idx})`});
+  });
+  const situ = it => it.pago ? 3 : it.dia && it.dia < dia ? 0 : it.dia && it.dia - dia <= 3 ? 1 : 2;
+  itens.sort((a, b) => situ(a) - situ(b) || (a.dia || 99) - (b.dia || 99));
+  const abertos = itens.filter(x => !x.pago), pagos = itens.filter(x => x.pago);
+  const atrasadas = abertos.filter(x => situ(x) === 0).length;
+  const falta = abertos.reduce((s, x) => s + x.valor, 0);
+  const linha = it => {
+    const s = situ(it);
+    const etiqueta = it.pago ? '<span style="color:var(--green)">✓ paga</span>'
+      : s === 0 ? `<span style="color:#E74C3C;font-weight:700">atrasada · dia ${it.dia}</span>`
+      : s === 1 ? `<span style="color:var(--gold);font-weight:700">${it.dia === dia ? 'vence hoje' : `vence em ${it.dia - dia} dia${it.dia - dia > 1 ? 's' : ''}`}</span>`
+      : `<span style="color:var(--muted)">${it.dia ? 'vence dia ' + it.dia : 'neste mês'}</span>`;
+    return `<div style="display:flex;align-items:center;gap:8px;padding:7px 0;border-bottom:1px solid rgba(201,168,76,0.08);font-size:13px;">
+      <span style="flex:1;min-width:0;color:var(--text);">${it.nome}<br><span style="font-size:11px;">${etiqueta}</span></span>
+      <span style="font-weight:600;color:var(--text);white-space:nowrap;">${fmtBRL(it.valor)}</span>
+      ${it.pago ? '' : `<button onclick="${it.acao}" style="background:none;border:1px solid rgba(39,174,96,0.4);color:var(--green);border-radius:7px;padding:4px 9px;font-size:12px;cursor:pointer;font-family:inherit;">✓</button>`}
+    </div>`;
+  };
+  el.innerHTML = itens.length ? `<div class="form-card" style="margin-bottom:16px;">
+    <div style="display:flex;justify-content:space-between;align-items:baseline;gap:8px;flex-wrap:wrap;margin-bottom:6px;">
+      <div style="font-size:12px;color:var(--gold);font-weight:700;letter-spacing:.5px;">📅 CONTAS DE ${MESES_FULL[i].toUpperCase()}</div>
+      <div style="font-size:12px;color:var(--muted);">${abertos.length ? `falta pagar <strong style="color:var(--text)">${fmtBRL(falta)}</strong>${atrasadas ? ` · <span style="color:#E74C3C">${atrasadas} atrasada${atrasadas > 1 ? 's' : ''}</span>` : ''}` : '<span style="color:var(--green)">tudo pago ✓</span>'}</div>
+    </div>
+    ${abertos.map(linha).join('')}
+    ${pagos.length ? `<details style="margin-top:6px;"><summary style="font-size:12px;color:var(--muted);cursor:pointer;">${pagos.length} já paga${pagos.length > 1 ? 's' : ''}</summary>${pagos.map(linha).join('')}</details>` : ''}
+  </div>` : '';
+}
+function pagarFixaPainel(idx) {
+  const d = (state.despesas_fixas || [])[idx];
+  if (!d) return;
+  toggleFixaPag(d.nome, MESES[new Date().getMonth()], d.valor);
+  updatePainel();
+}
+function pagarParcelaPainel(idx) {
+  const h = new Date();
+  pagarParcela(idx, `${MESES[h.getMonth()]}/${h.getFullYear()}`);
+}
+function renderFechamentoAviso() {
+  const el = document.getElementById('painel-fechamento');
+  if (!el) return;
+  const h = new Date();
+  if (h.getDate() > 7 || h.getMonth() === 0) { el.innerHTML = ''; return; }
+  el.innerHTML = `<div onclick="abrirFechamento()" class="form-card" style="margin-bottom:16px;cursor:pointer;display:flex;align-items:center;gap:10px;border-color:rgba(201,168,76,0.5);">
+    <span style="font-size:22px;">🗓️</span>
+    <span style="flex:1;font-size:13px;color:var(--text);">O fechamento de <strong>${MESES_FULL[h.getMonth() - 1]}</strong> está pronto: quanto entrou, quanto saiu e o que mais pesou.</span>
+    <span style="color:var(--gold);font-size:13px;">Ver →</span></div>`;
+}
+
+// ============ B6 (30/10/2026): conferir com o saldo do banco ============
+// Só mostra a diferença: não lança nada e não mexe em "Outros".
+function renderConferir() {
+  const el = document.getElementById('painel-conferir');
+  if (!el) return;
+  const ult = (state.conferencias || [])[0];
+  const s = 'background:var(--card2);border:1px solid rgba(201,168,76,0.25);border-radius:8px;color:var(--text);font-family:inherit;font-size:13px;padding:8px;outline:none;width:100%;box-sizing:border-box;';
+  const campo = (id, rot) => `<label style="font-size:10px;color:var(--muted);letter-spacing:1px;text-transform:uppercase;">${rot}<input id="conf-${id}" inputmode="decimal" placeholder="0,00" value="${ult && ult.contas[id] ? String(ult.contas[id]).replace('.', ',') : ''}" style="${s}margin-top:4px;"></label>`;
+  let res = '';
+  if (ult) {
+    const dif = ult.total - ult.app;
+    res = `<div style="font-size:12px;color:var(--muted);margin-top:10px;line-height:1.6;">Última conferência: ${new Date(ult.data + 'T12:00').toLocaleDateString('pt-BR')} · bancos ${fmtBRL(ult.total)} · app ${fmtBRL(ult.app)}<br>
+      ${Math.abs(dif) < 1 ? '<span style="color:var(--green)">✓ Bateu com o app.</span>' : dif < 0
+        ? `<span style="color:#E74C3C">No banco tem ${fmtBRL(-dif)} a menos que no app: pode ter gasto que não foi lançado.</span>`
+        : `<span style="color:var(--gold)">No banco tem ${fmtBRL(dif)} a mais que no app: pode ter entrada que não foi lançada.</span>`}</div>`;
+  }
+  el.innerHTML = `<details class="form-card" style="margin-bottom:16px;">
+    <summary style="font-size:12px;color:var(--gold);font-weight:700;letter-spacing:.5px;cursor:pointer;">🏦 CONFERIR COM O SALDO DO BANCO</summary>
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(110px,1fr));gap:8px;margin-top:10px;">
+      ${campo('nubank', 'Nubank')}${campo('itau', 'Itaú')}${campo('dinheiro', 'Dinheiro / outras')}
+    </div>
+    <button class="btn btn-gold" style="margin-top:10px;font-size:12px;padding:8px 16px;" onclick="conferirSaldo()">Conferir</button>
+    ${res}</details>`;
+}
+function conferirSaldo() {
+  const num = id => parseFloat((document.getElementById('conf-' + id)?.value || '').replace(/\./g, '').replace(',', '.')) || 0;
+  const contas = {nubank: num('nubank'), itau: num('itau'), dinheiro: num('dinheiro')};
+  const total = contas.nubank + contas.itau + contas.dinheiro;
+  if (!total) { toast('⚠️ Digite o saldo de pelo menos uma conta'); return; }
+  if (window._saldoApp == null) { toast('⚠️ Espere o app carregar o Instituto (precisa de internet) para conferir'); return; }
+  state.conferencias = [{data: new Date().toISOString().slice(0, 10), contas, total, app: window._saldoApp || 0}, ...(state.conferencias || [])].slice(0, 12);
+  saveState();
+  renderConferir();
+  const det = document.querySelector('#painel-conferir details');
+  if (det) det.open = true;
 }
 
 function renderPainelCharts(recINB, recShows, despFixas, despINB, despNB, despCot, despParc) {
@@ -8338,6 +8664,7 @@ function toggleMic() {
   try { loadState(); } catch(e) {}
   try { migrarChatOutrosMai(); } catch(e) { console.warn(e); }
   try { migrarIdsCotidiano(); } catch(e) { console.warn(e); }
+  try { document.getElementById('rel-mes-sel').value = MESES[new Date().getMonth()]; } catch(e) {}
   if (!state.alunos?.length) {
     state.alunos = SEED_ALUNOS;
     state.shows = [{id:1,data:'2026-01-31',artista:'Aline Brasil',tipo:'Show',cidade:'Poço Fundo',estado:'MG',cache:1000,status:'pago',obs:''},{id:2,data:'2026-02-14',artista:'Aline Brasil',tipo:'Show',cidade:'Telêmaco Borba',estado:'PR',cache:1000,status:'pago',obs:''},{id:3,data:'2026-02-16',artista:'Aline Brasil',tipo:'Show',cidade:'Curitiba',estado:'PR',cache:1000,status:'pago',obs:''},{id:4,data:'2026-02-20',artista:'Aline Brasil',tipo:'Show',cidade:'São Miguel do Tocantins',estado:'TO',cache:1000,status:'pago',obs:''},{id:5,data:'2026-04-24',artista:'Aline Brasil',tipo:'Show',cidade:'São Fidélis',estado:'RJ',cache:1000,status:'pago',obs:''},{id:6,data:'2026-06-04',artista:'Aline Brasil',tipo:'Show',cidade:'Palestina do Pará',estado:'PA',cache:600,status:'pago',obs:''},{id:7,data:'2026-06-12',artista:'Aline Brasil',tipo:'Show',cidade:'Passos de Camaragibe',estado:'AL',cache:1000,status:'confirmado',obs:''},{id:8,data:'2026-06-21',artista:'Aline Brasil',tipo:'Show',cidade:'Cocal dos Alves',estado:'PI',cache:1000,status:'confirmado',obs:''},{id:9,data:'2026-06-23',artista:'Aline Brasil',tipo:'Show',cidade:'Canutama',estado:'AM',cache:1000,status:'confirmado',obs:''},{id:10,data:'2026-06-29',artista:'Aline Brasil',tipo:'Show',cidade:'Concórdia do Pará',estado:'PA',cache:1000,status:'confirmado',obs:''},{id:11,data:'2026-07-11',artista:'Aline Brasil',tipo:'Show',cidade:'Novo Cruzeiro',estado:'MG',cache:1000,status:'confirmado',obs:''},{id:12,data:'2026-07-25',artista:'Aline Brasil',tipo:'Show',cidade:'São Luís dos Montes Belos',estado:'GO',cache:1000,status:'confirmado',obs:''},{id:13,data:'2026-07-26',artista:'Aline Brasil',tipo:'Show',cidade:'Pirapetinga',estado:'MG',cache:1000,status:'confirmado',obs:''},{id:14,data:'2026-08-15',artista:'Aline Brasil',tipo:'Show',cidade:'Lago do Barro',estado:'PI',cache:1000,status:'confirmado',obs:''},{id:15,data:'2026-09-24',artista:'Aline Brasil',tipo:'Show',cidade:'Porto Walter',estado:'AC',cache:1000,status:'confirmado',obs:''}];
