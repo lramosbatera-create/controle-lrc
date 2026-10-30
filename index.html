@@ -1728,7 +1728,7 @@ let state = {
 
 // ============ DB LAYER (Supabase ↔ localStorage fallback) ============
 // B5 (30/10/2026): além do full_state, uma cópia por dia (backup_AAAA-MM-DD),
-// guardando as 7 mais recentes. Restaurar: menu da nuvem → 🛟 Cópias de segurança.
+// guardando as 7 mais recentes. Restaurar: menu da nuvem → 💾 Cópias de segurança.
 async function salvarCopiaDoDia(blob) {
   const dia = new Date().toISOString().slice(0, 10);
   await sb.from('app_meta').upsert({key: 'backup_' + dia, value: blob});
@@ -1755,7 +1755,7 @@ async function abrirCopias() {
       <button onclick="restaurarCopia('${r.key}')" style="background:none;border:1px solid rgba(201,168,76,0.5);color:#C9A84C;border-radius:7px;padding:5px 10px;font-size:12px;cursor:pointer;font-family:inherit;">Voltar para esta</button></div>`;
   }).join('');
   fundo.innerHTML = `<div style="background:#1C1C1C;border:1px solid rgba(201,168,76,0.4);border-radius:12px;padding:18px;max-width:420px;width:100%;max-height:80vh;overflow:auto;">
-    <div style="font-size:14px;color:#C9A84C;font-weight:700;margin-bottom:4px;">🛟 Cópias de segurança</div>
+    <div style="font-size:14px;color:#C9A84C;font-weight:700;margin-bottom:4px;">💾 Cópias de segurança</div>
     <div style="font-size:11px;color:#7A7060;margin-bottom:10px;">Uma por dia, as 7 mais recentes. Voltar para uma cópia troca os dados da nuvem e deste aparelho por ela (a versão de agora fica guardada antes).</div>
     ${linhas || '<div style="font-size:12px;color:#7A7060;">Ainda não há cópias: a primeira é feita no próximo salvamento na nuvem.</div>'}
     <button onclick="document.getElementById('modal-copias').remove()" style="margin-top:12px;background:none;border:1px solid #444;color:#aaa;border-radius:7px;padding:6px 14px;font-size:12px;cursor:pointer;font-family:inherit;">Fechar</button></div>`;
@@ -1918,7 +1918,7 @@ function showSyncMenu() {
   const sbBtns = supabaseReady ? `
     <button style="${btn('')}" onmouseover="this.style.background='rgba(201,168,76,0.1)'" onmouseout="this.style.background=''" onclick="dbPushAll();document.getElementById('sync-menu')?.remove()">↑ Enviar para a nuvem</button>
     <button style="${btn('')}" onmouseover="this.style.background='rgba(201,168,76,0.1)'" onmouseout="this.style.background=''" onclick="dbPullAll();document.getElementById('sync-menu')?.remove()">↓ Importar da nuvem</button>
-    <button style="${btn('')}" onmouseover="this.style.background='rgba(201,168,76,0.1)'" onmouseout="this.style.background=''" onclick="abrirCopias()">🛟 Cópias de segurança</button>
+    <button style="${btn('')}" onmouseover="this.style.background='rgba(201,168,76,0.1)'" onmouseout="this.style.background=''" onclick="abrirCopias()">💾 Cópias de segurança</button>
     <button style="${btn('')}" onmouseover="this.style.background='rgba(201,168,76,0.1)'" onmouseout="this.style.background=''" onclick="document.getElementById('sync-menu')?.remove();ligarOutroAparelho()">📲 Ligar outro aparelho</button>` :
     `<div style="font-size:11px;color:#555;padding:4px 10px 6px">Supabase não conectado</div>`;
   menu.innerHTML = `
@@ -7560,7 +7560,7 @@ function renderProjecoes() {
   const falta = Math.max(0, META_RESERVA * gastoMedio - saldoHoje);
   const corRes = mesesCobertos >= 6 ? 'var(--green)' : mesesCobertos >= 3 ? 'var(--gold)' : 'var(--red)';
   $('proj-reserva').innerHTML = gastoMedio <= 0 ? '' : `
-    <div class="chart-title" style="margin-bottom:8px;">🛟 Reserva de emergência</div>
+    <div class="chart-title" style="margin-bottom:8px;">💾 Reserva de emergência</div>
     <div style="display:flex;align-items:baseline;gap:10px;flex-wrap:wrap;">
       <span style="font-family:'Cormorant Garamond',serif;font-size:28px;font-weight:700;color:${corRes}">${mesesCobertos.toFixed(1).replace('.', ',')} meses</span>
       <span style="font-size:11px;color:var(--muted)">seu saldo de hoje (${fmtBRL(saldoHoje)}) cobre isso do seu gasto médio (${fmtBRL(gastoMedio)}/mês)</span>
