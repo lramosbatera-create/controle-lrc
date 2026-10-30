@@ -98,3 +98,8 @@ Os shows vivem só no `full_state` (app, Projeções e `sync-apps.ps1` leem de l
 - Sintoma: celular com saldo diferente do notebook após "↓ Importar"; ponto da nuvem amarelo. Causa: quando a nuvem falha (chave/URL antiga no aparelho ou rede), `dbPullAll` dizia "✓ Dados importados" sem mudar nada.
 - Agora `dbPullAll` lança erro se `full_state` não vier, mostra o motivo e não marca versão; `window._nuvemErro` aparece no menu da nuvem (`nuvemStatusTexto`).
 - `ligarOutroAparelho()` (menu da nuvem → 📲): QR (qrcode-generator 1.4.4 do cdnjs, carregado sob demanda) com link `#nuvem=<base64 {u,k}>`. No boot, o hash grava `lrc-sb-url`/`lrc-sb-key`, limpa a URL e, ao conectar, chama `dbPullAll()` (flag `lrc-nuvem-ligada`).
+
+## Encerrar conta fixa 30/10/2026 (sw lrc-v22)
+- Campo opcional `encerradaEm` (chave de mês) em `despesas_fixas`; helper `fixaAtiva(d, k)` (k = mês absoluto, 12+ = ano que vem). Botão ⏹ `encerrarFixa(i)` na lista de fixas (vazio = reativar).
+- Encerrada e não paga: some de Contas do mês, não entra no projetado (`calcProjecoes`) e vira "·" na tabela. O que já foi pago continua somando (totais usam `pagFixas` pelo nome — por isso NUNCA apagar uma fixa com histórico).
+- Uso: Spotify foi para a fatura do Nubank em out/2026.

@@ -5164,10 +5164,11 @@ function renderDespesas() {
   const fixas = el('lista-fixas');
   if (fixas) fixas.innerHTML = state.despesas_fixas.map((d,i) => `
     <div class="despesa-item">
-      <div><div class="despesa-name">${d.nome}</div><div class="despesa-meta">Vence dia ${d.vencimento}</div></div>
+      <div><div class="despesa-name">${d.nome}</div><div class="despesa-meta">Vence dia ${d.vencimento}${d.encerradaEm ? ` · <span style="color:var(--gold)">encerrada a partir de ${MESES_LABEL[MESES.indexOf(d.encerradaEm)]}</span>` : ''}</div></div>
       <div style="display:flex;align-items:center;gap:6px;">
         <div class="despesa-value">${fmtBRL(d.valor)}</div>
         <button onclick="editarFixa(${i})" style="background:var(--gold-glow);border:1px solid var(--border);color:var(--gold);border-radius:5px;padding:3px 8px;font-size:10px;cursor:pointer;">✏️</button>
+        <button onclick="encerrarFixa(${i})" title="Encerrar a partir de um mês (guarda o que já foi pago)" style="background:none;border:1px solid var(--border);color:var(--muted);border-radius:5px;padding:3px 8px;font-size:10px;cursor:pointer;">⏹</button>
         <button class="despesa-delete" onclick="removerFixa(${i})">✕</button>
       </div>
     </div>`).join('') || '<p style="color:var(--muted);font-size:12px">Nenhuma despesa fixa</p>';
@@ -5203,10 +5204,10 @@ function renderTabelaFixas() {
     html += `<tr>
       <td style="position:sticky;left:0;background:${bg};z-index:1;padding:7px 10px;border-bottom:1px solid rgba(255,255,255,0.04);">
         <div style="font-size:12px;font-weight:500;color:var(--text);">${d.nome}</div>
-        <div style="font-size:10px;color:var(--muted);">${fmtBRL(d.valor)}/mês · dia ${d.vencimento}</div>
+        <div style="font-size:10px;color:var(--muted);">${fmtBRL(d.valor)}/mês · dia ${d.vencimento}${d.encerradaEm ? ' · encerrada em ' + MESES_LABEL[MESES.indexOf(d.encerradaEm)] : ''}</div>
       </td>
       ${MESES.map((m,idx)=>{
-        const val = getVal(m); const fut = idx > mesAtual; const paid = val > 0;
+        const val = getVal(m); const paid = val > 0; const fut = idx > mesAtual || (!paid && !fixaAtiva(d, idx));
         const bg2 = fut?'transparent':paid?'rgba(39,174,96,0.15)':'rgba(192,57,43,0.08)';
         const col = fut?'rgba(255,255,255,0.15)':paid?'var(--green)':'#E74C3C';
         const lbl = fut ? '·' : paid ? String(val).replace(/\B(?=(\d{3})+(?!\d))/g,'.') : '×';
@@ -7043,6 +7044,29 @@ function editarFixa(i) {
   if (novoVenc !== null) d.vencimento = novoVenc || d.vencimento;
   saveState(); renderDespesas(); updatePainel(); toast('✓ Despesa atualizada');
 }
+// Conta que acabou ou mudou de forma de pagamento (ex.: Spotify foi pro cartão Nubank em out/2026):
+// some das contas do mês e das projeções a partir de encerradaEm, mas o que já foi pago continua somando.
+// k = mês absoluto (0 = jan do ano atual; 12+ = ano que vem nas Projeções).
+function fixaAtiva(d, k) {
+  return !d.encerradaEm || k < MESES.indexOf(d.encerradaEm);
+}
+function encerrarFixa(i) {
+  const d = state.despesas_fixas[i];
+  if (!d) return;
+  const resp = prompt(`Encerrar "${d.nome}" a partir de qual mês?
+(jan, fev, mar, abr, mai, jun, jul, ago, set, out, nov, dez)
+
+O que já foi pago continua no total.
+Deixe vazio para reativar.`, d.encerradaEm || MESES[new Date().getMonth()]);
+  if (resp === null) return;
+  const m = resp.trim().toLowerCase().slice(0, 3);
+  if (!m) { delete d.encerradaEm; saveState(); renderDespesas(); updatePainel(); toast(`✓ ${d.nome} reativada`); return; }
+  if (!MESES.includes(m)) { toast('⚠️ Mês inválido — use jan, fev, mar…'); return; }
+  d.encerradaEm = m;
+  saveState(); renderDespesas(); updatePainel();
+  try { renderProjecoes(); } catch(e) {}
+  toast(`✓ ${d.nome} encerrada a partir de ${MESES_FULL[MESES.indexOf(m)]}`);
+}
 function removerINB(i) {
   if (!confirm('Remover este gasto?')) return;
   const row = state.gastos_inb[i]; paraLixeira('gastos_inb', row, `Gasto INB · ${row?.nome || ''} ${fmtBRL(row?.valor)}`); state.gastos_inb.splice(i,1);
@@ -7296,7 +7320,7 @@ function calcProjecoes(cenario) {
       const m = MESES[k % 12];
       const v = k < 12 ? (pf[m] === true ? d.valor : (parseFloat(pf[m]) || 0)) : 0;
       g.real[k] += v;
-      if (!v && k >= mesAtual) g.proj[k] += parseFloat(d.valor) || 0;
+      if (!v && k >= mesAtual && fixaAtiva(d, k)) g.proj[k] += parseFloat(d.valor) || 0;
     }
   });
   // Parceladas: parcela do mês paga = realizado; ativa e não paga = projetado
@@ -8088,6 +8112,7 @@ function renderContasMes() {
   (state.despesas_fixas || []).forEach((d, idx) => {
     const v = ((state.pagFixas || {})[d.nome] || {})[m];
     const pago = v === true || v > 0;
+    if (!pago && !fixaAtiva(d, i)) return;
     itens.push({nome: d.nome, valor: pago && v !== true ? v : d.valor, dia: parseInt(d.vencimento) || null, pago, acao: `pagarFixaPainel(${idx})`});
   });
   (state.parceladas || []).forEach((p, idx) => {
