@@ -93,3 +93,8 @@ Os shows vivem só no `full_state` (app, Projeções e `sync-apps.ps1` leem de l
 - **B1** `renderContasMes()` no Painel: fixas e parcelas do mês (atrasada / vence em X dias / paga) com ✓ (`pagarFixaPainel`, `pagarParcelaPainel`). **B2** Fechamento do mês anterior: aba Relatórios → 🗓️ Fechamento, aviso no Painel nos dias 1–7, imagem PNG (`imagemFechamento`). **B3** `buscarDespesas()` no topo de Despesas. **B4** Cotidiano monta só o mês aberto (`abrirCotMes`), de ~900 para ~300 botões.
 - **B5** Cópia diária `app_meta` key `backup_AAAA-MM-DD` (7 mais recentes) em `dbPushAll`; menu da nuvem → 🛟 Cópias de segurança → "Voltar para esta" (guarda a atual em `restaurar_antes`).
 - **B6** `state.conferencias` (no saveState, blob e nas duas cargas): saldo real das contas × `window._saldoApp`; só mostra a diferença, não lança nem mexe em Outros.
+
+## Correção 30/10/2026 — celular sem nuvem (sw lrc-v20)
+- Sintoma: celular com saldo diferente do notebook após "↓ Importar"; ponto da nuvem amarelo. Causa: quando a nuvem falha (chave/URL antiga no aparelho ou rede), `dbPullAll` dizia "✓ Dados importados" sem mudar nada.
+- Agora `dbPullAll` lança erro se `full_state` não vier, mostra o motivo e não marca versão; `window._nuvemErro` aparece no menu da nuvem (`nuvemStatusTexto`).
+- `ligarOutroAparelho()` (menu da nuvem → 📲): QR (qrcode-generator 1.4.4 do cdnjs, carregado sob demanda) com link `#nuvem=<base64 {u,k}>`. No boot, o hash grava `lrc-sb-url`/`lrc-sb-key`, limpa a URL e, ao conectar, chama `dbPullAll()` (flag `lrc-nuvem-ligada`).

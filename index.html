@@ -1507,7 +1507,8 @@ async function nuvemVersaoRemota() {
 }
 
 function nuvemStatusTexto() {
-  if (!supabaseReady) return 'Nuvem não configurada neste aparelho';
+  if (!supabaseReady) return 'Nuvem não configurada neste aparelho. No notebook: ponto da nuvem → 📲 Ligar outro aparelho.';
+  if (window._nuvemErro) return '🔴 A nuvem não respondeu neste aparelho (' + window._nuvemErro + '). Nada foi importado. No notebook: ponto da nuvem → 📲 Ligar outro aparelho.';
   if (autoSavePausado) return '⏸️ Salvamento automático pausado: a nuvem tem dados mais novos. Use ↓ Importar.';
   if (!nuvemVersaoLocal()) return '⚪ Salvamento automático desligado neste aparelho — faça um ↑ Enviar ou ↓ Importar uma vez para ligar.';
   return '🟢 Salvamento automático ligado' + (window._ultimoAutoSave ? ' · último: ' + window._ultimoAutoSave : '');
@@ -1525,6 +1526,7 @@ async function verificarNuvemNoBoot() {
     }
   } catch(e) {
     console.warn('Nuvem não respondeu:', e);
+    window._nuvemErro = e?.message || String(e);
     updateSyncStatus(false);
     const dot = document.getElementById('sync-dot');
     if (dot) dot.title = 'A nuvem não respondeu — salvando só neste aparelho';
@@ -1556,6 +1558,15 @@ const MESES_FULL = ['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho
 
 // ============ SUPABASE CONFIG ============
 // Cole aqui suas credenciais após criar o projeto no Supabase
+// Link "📲 Ligar outro aparelho" (QR no notebook): #nuvem=<base64 {u,k}> grava a nuvem neste aparelho
+try {
+  const m = location.hash.match(/nuvem=([^&]+)/);
+  if (m) {
+    const c = JSON.parse(atob(decodeURIComponent(m[1])));
+    if (c.u && c.k) { localStorage.setItem('lrc-sb-url', c.u); localStorage.setItem('lrc-sb-key', c.k); localStorage.setItem('lrc-nuvem-ligada', '1'); }
+    history.replaceState(null, '', location.pathname);
+  }
+} catch(e) {}
 const SUPABASE_URL = (localStorage.getItem('lrc-sb-url') || '').replace(/\/rest\/v1\/?$/, '').replace(/\/$/, '');
 const SUPABASE_KEY = localStorage.getItem('lrc-sb-key') || '';
 let supabaseReady = false;
@@ -1907,7 +1918,8 @@ function showSyncMenu() {
   const sbBtns = supabaseReady ? `
     <button style="${btn('')}" onmouseover="this.style.background='rgba(201,168,76,0.1)'" onmouseout="this.style.background=''" onclick="dbPushAll();document.getElementById('sync-menu')?.remove()">↑ Enviar para a nuvem</button>
     <button style="${btn('')}" onmouseover="this.style.background='rgba(201,168,76,0.1)'" onmouseout="this.style.background=''" onclick="dbPullAll();document.getElementById('sync-menu')?.remove()">↓ Importar da nuvem</button>
-    <button style="${btn('')}" onmouseover="this.style.background='rgba(201,168,76,0.1)'" onmouseout="this.style.background=''" onclick="abrirCopias()">🛟 Cópias de segurança</button>` :
+    <button style="${btn('')}" onmouseover="this.style.background='rgba(201,168,76,0.1)'" onmouseout="this.style.background=''" onclick="abrirCopias()">🛟 Cópias de segurança</button>
+    <button style="${btn('')}" onmouseover="this.style.background='rgba(201,168,76,0.1)'" onmouseout="this.style.background=''" onclick="document.getElementById('sync-menu')?.remove();ligarOutroAparelho()">📲 Ligar outro aparelho</button>` :
     `<div style="font-size:11px;color:#555;padding:4px 10px 6px">Supabase não conectado</div>`;
   menu.innerHTML = `
     <div style="font-size:10px;color:#555;padding:2px 8px 6px;border-bottom:1px solid rgba(201,168,76,0.1);margin-bottom:4px">v16Jun-v5</div>
@@ -2114,8 +2126,12 @@ async function dbPullAll() {
       qry(sb.from('alunos').select('*').order('nome')),
       qry(sb.from('app_meta').select('*').eq('key','full_state').single()),
     ]);
+    // Sem os dados da nuvem não muda nada aqui (antes dizia "importado" mesmo falhando)
+    if (meta.error || !meta.data?.value) throw new Error(meta.error?.message || 'a nuvem não respondeu');
+    window._nuvemErro = null;
+    updateSyncStatus(true);
     if (!a.error && a.data?.length) state.alunos = a.data.map(r=>({...r, pag: r.pag||{}}));
-    if (!meta.error && meta.data?.value) {
+    {
       const b = meta.data.value;
       if (b.shows?.length)          state.shows          = b.shows;
       if (b.despesas_fixas?.length) state.despesas_fixas = b.despesas_fixas;
@@ -2159,9 +2175,47 @@ async function dbPullAll() {
     try { renderAlunos(); updatePainel(); renderProjecoes(); } catch(e) {}
     toast('✓ Dados importados da nuvem! Salvamento automático ligado.');
   } catch(e) {
-    toast('❌ Erro ao importar: ' + e.message);
+    window._nuvemErro = e.message;
+    updateSyncStatus(false);
+    toast('❌ Não consegui importar (' + e.message + '). Nada mudou neste aparelho — no notebook use 📲 Ligar outro aparelho.');
   } finally {
     setLoading(false);
+  }
+}
+
+// QR com a nuvem deste aparelho: o celular lê com a câmera, grava a nuvem e já oferece ↓ Importar.
+// A chave vai só no #fragmento (não sai do navegador) — mostrar só na tela do Leandro.
+async function ligarOutroAparelho() {
+  if (!supabaseReady) { toast('⚠️ Este aparelho não está ligado à nuvem'); return; }
+  const link = location.origin + location.pathname.replace(/index\.html$/, '') + '#nuvem=' + encodeURIComponent(btoa(JSON.stringify({ u: SUPABASE_URL, k: SUPABASE_KEY })));
+  const modal = document.createElement('div');
+  modal.id = 'modal-ligar';
+  modal.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.8);z-index:9999;display:flex;align-items:center;justify-content:center;padding:20px;';
+  modal.onclick = (e) => { if (e.target === modal) modal.remove(); };
+  modal.innerHTML = `
+    <div style="background:#1C1C1C;border:1px solid rgba(201,168,76,0.5);border-radius:14px;padding:22px;max-width:360px;width:100%;text-align:center;">
+      <div style="font-size:15px;font-weight:600;color:#C9A84C;margin-bottom:8px;">📲 Ligar outro aparelho</div>
+      <div style="font-size:12px;color:#B0A090;line-height:1.5;margin-bottom:14px;">Aponte a câmera do celular para o código, abra o link e toque em <strong style="color:#F0E8D5">OK</strong> para importar. O celular fica com os mesmos dados deste aparelho.</div>
+      <div id="ligar-qr" style="background:#fff;border-radius:10px;padding:12px;display:inline-block;min-width:200px;min-height:200px;color:#333;font-size:12px;">gerando…</div>
+      <div style="display:flex;gap:10px;margin-top:16px;">
+        <button id="ligar-copiar" style="flex:1;background:none;border:1px solid rgba(201,168,76,0.4);color:#C9A84C;border-radius:8px;padding:10px;cursor:pointer;font-family:inherit;font-size:13px;">Copiar link</button>
+        <button onclick="document.getElementById('modal-ligar').remove()" style="flex:1;background:#C9A84C;border:none;color:#111;border-radius:8px;padding:10px;cursor:pointer;font-family:inherit;font-size:13px;font-weight:600;">Fechar</button>
+      </div>
+    </div>`;
+  document.body.appendChild(modal);
+  document.getElementById('ligar-copiar').onclick = async () => {
+    try { await navigator.clipboard.writeText(link); toast('✓ Link copiado — abra no celular'); } catch(e) { prompt('Copie o link:', link); }
+  };
+  try {
+    if (!window.qrcode) await new Promise((ok, erro) => {
+      const s = document.createElement('script');
+      s.src = 'https://cdnjs.cloudflare.com/ajax/libs/qrcode-generator/1.4.4/qrcode.min.js';
+      s.onload = ok; s.onerror = erro; document.head.appendChild(s);
+    });
+    const qr = qrcode(0, 'M'); qr.addData(link); qr.make();
+    document.getElementById('ligar-qr').innerHTML = qr.createSvgTag({ cellSize: 4, margin: 0, scalable: true }).replace('<svg ', '<svg style="width:220px;height:220px;display:block" ');
+  } catch(e) {
+    document.getElementById('ligar-qr').textContent = 'Sem internet para gerar o código — use "Copiar link".';
   }
 }
 
@@ -8714,6 +8768,7 @@ function toggleMic() {
     const connected = await initSupabase();
     updateSyncStatus(connected);
     if (connected) verificarNuvemNoBoot();
+    if (connected && localStorage.getItem('lrc-nuvem-ligada')) { localStorage.removeItem('lrc-nuvem-ligada'); setTimeout(() => dbPullAll(), 800); }
     // Supabase conectado — dados locais preservados
     // Use o ponto verde → "↑ Enviar" ou "↓ Importar" para sincronizar manualmente
   } catch(e) { console.warn('Supabase init error:', e); }
