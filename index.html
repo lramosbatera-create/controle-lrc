@@ -64,6 +64,11 @@
       icons: [
         { src: icon192, sizes: '192x192', type: 'image/png' },
         { src: icon512, sizes: '512x512', type: 'image/png' }
+      ],
+      // Segurar o dedo no ícone → "Lançar por voz" (abre o Chat com o microfone)
+      shortcuts: [
+        { name: 'Lançar por voz', short_name: '🎤 Voz', url: location.origin + '/#voz',
+          icons: [{ src: icon192, sizes: '192x192', type: 'image/png' }] }
       ]
     };
     const blob = new Blob([JSON.stringify(manifest)], {type:'application/manifest+json'});
@@ -76,6 +81,8 @@
 </script>
 <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@400;600;700&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
 <style>
+  /* Chat (gravar áudio) só no celular: some em aparelho com mouse (notebook) */
+  @media (hover: hover) and (pointer: fine) { .so-celular { display: none !important; } }
   :root {
     --gold: #C9A84C;
     --gold-light: #E8C97A;
@@ -659,11 +666,8 @@
   <div class="nav-tab" onclick="showPage('projecoes')" id="tab-projecoes">
     <span class="icon">📈</span> Projeções
   </div>
-  <div class="nav-tab" onclick="showPage('chat')" id="tab-chat">
+  <div class="nav-tab so-celular" onclick="showPage('chat')" id="tab-chat">
     <span class="icon">💬</span> Chat
-  </div>
-  <div class="nav-tab" onclick="showPage('whatsapp')" id="tab-whatsapp">
-    <span class="icon">📱</span> WhatsApp
   </div>
   <div class="nav-tab" onclick="showPage('relatorios')" id="tab-relatorios">
     <span class="icon">📊</span> Relatórios
@@ -1197,7 +1201,7 @@
 
 <div class="page" id="page-chat">
   <p class="section-title">Chat Financeiro</p>
-  <p class="section-sub">DIGA OU DIGITE O QUE ACONTECEU · A IA LANÇA AUTOMATICAMENTE</p>
+  <p class="section-sub">DIGA OU DIGITE O QUE ACONTECEU · A IA MOSTRA, VOCÊ CONFIRMA</p>
 
   <div id="worker-config" class="form-card" style="border-color:rgba(201,168,76,0.4);display:none;">
     <div class="form-title">⚙️ Configuração do Chat IA</div>
@@ -1266,41 +1270,6 @@
   <div style="font-size:10px;color:var(--muted);margin-top:6px;text-align:center;">
     Enter para enviar · Shift+Enter para nova linha
   </div>
-</div>
-
-<div class="page" id="page-whatsapp">
-  <p class="section-title">WhatsApp</p>
-  <p class="section-sub">MENSAGENS PADRÃO · ENVIO DIRETO</p>
-
-
-  <div class="filter-row" id="wpp-filter">
-    <button class="filter-btn active" onclick="setWppTipo('cobranca',this)">💰 Cobrança</button>
-    <button class="filter-btn" onclick="setWppTipo('agenda',this)">📅 Agenda</button>
-    <button class="filter-btn" onclick="setWppTipo('reposicao',this)">🔄 Reposição</button>
-    <button class="filter-btn" onclick="setWppTipo('cancelamento',this)">❌ Cancelamento</button>
-    <button class="filter-btn" onclick="setWppTipo('recital',this)">🎪 Recital</button>
-    <button class="filter-btn" onclick="setWppTipo('aniversario',this)">🎂 Aniversário</button>
-    <button class="filter-btn" onclick="setWppTipo('geral',this)">📢 Geral</button>
-    <button class="filter-btn" onclick="setWppTipo('transmissao',this)">📡 Transmissão</button>
-    <button class="filter-btn" onclick="setWppTipo('personalizada',this)">✏️ Personalizada</button>
-  </div>
-
-
-  <div class="form-card" style="margin-bottom:16px;">
-    <div class="form-title" id="wpp-tipo-label">💰 Cobrança de Inadimplência</div>
-    <div id="wpp-config" style="margin-bottom:12px;"></div>
-    <div style="background:var(--card2);border:1px solid var(--border);border-radius:10px;padding:14px;margin-bottom:12px;">
-      <div style="font-size:10px;color:var(--muted);letter-spacing:1px;text-transform:uppercase;margin-bottom:8px;">Preview da mensagem</div>
-      <div id="wpp-preview" style="font-size:13px;color:var(--text);white-space:pre-wrap;line-height:1.6;"></div>
-    </div>
-    <div class="form-actions">
-      <button class="btn btn-gold" onclick="enviarWppSelecionado()">Abrir WhatsApp ▸</button>
-      <button class="btn btn-outline" onclick="copiarMensagem()">Copiar mensagem</button>
-    </div>
-  </div>
-
-
-  <div id="wpp-lista-alunos"></div>
 </div>
 
 <div class="page" id="page-relatorios">
@@ -3308,8 +3277,6 @@ function renderCadastro() {
       <!-- Botões de ação -->
       <div style="display:flex;gap:8px;flex-wrap:wrap;">
         <button onclick="salvarCadastro(${a.id})" class="btn btn-gold" style="font-size:12px;padding:8px 16px;">💾 Salvar</button>
-        ${temWppFin?`<button onclick="abrirWppRapido('${extra.telFinanceiro}','cobranca',${a.id})" style="background:var(--green-dim);border:1px solid rgba(39,174,96,0.3);color:var(--green);border-radius:7px;padding:6px 10px;font-size:11px;cursor:pointer;font-family:inherit;">💰 WPP</button>`:''}
-        ${temWppPri?`<button onclick="abrirWppRapido('${a.tel}','agenda',${a.id})" style="background:var(--gold-glow);border:1px solid var(--border);color:var(--gold);border-radius:7px;padding:6px 10px;font-size:11px;cursor:pointer;font-family:inherit;">📅 Agenda</button>`:''}
         <button onclick="gerarReciboAluno(${a.id})" style="background:rgba(41,128,185,0.15);border:1px solid rgba(41,128,185,0.3);color:#2980B9;border-radius:7px;padding:6px 10px;font-size:11px;cursor:pointer;font-family:inherit;">🧾 Recibo/IR</button>
       </div>
     </div>`;
@@ -3386,13 +3353,6 @@ function updateTelAluno(id, tel) {
   a.tel = tel;
   dbSave('alunos', {...a});
   toast('✓ Telefone atualizado');
-}
-
-function abrirWppRapido(tel, tipo, alunoId) {
-  const aluno = state.alunos.find(a => a.id === alunoId);
-  const msg = gerarMensagemWpp(tipo, aluno);
-  const telLimpo = tel.replace(/\D/g,'');
-  window.open(`https://wa.me/55${telLimpo}?text=${encodeURIComponent(msg)}`, '_blank');
 }
 
 // ============ RECIBOS & DECLARAÇÃO IR ============
@@ -3952,279 +3912,8 @@ function toggleMatricula(id) {
   toast(a.mat_pago > 0 ? '✓ Matrícula confirmada' : 'Matrícula desmarcada');
 }
 
-let wppTipo = 'cobranca';
-
-function setWppTipo(tipo, btn) {
-  wppTipo = tipo;
-  document.querySelectorAll('#wpp-filter .filter-btn').forEach(b => b.classList.remove('active'));
-  btn.classList.add('active');
-  renderWpp();
-}
-
-const WPP_TITULOS = {
-  cobranca: '💰 Cobrança de Inadimplência',
-  agenda: '📅 Agenda do Dia',
-  reposicao: '🔄 Aviso de Reposição',
-  cancelamento: '❌ Aviso de Cancelamento',
-  recital: '🎪 Taxa do Recital',
-  aniversario: '🎂 Parabéns',
-  geral: '📢 Aviso Geral',
-  transmissao: '📡 Lista de Transmissão',
-  personalizada: '✏️ Mensagem Personalizada',
-};
-
-function gerarMensagemWpp(tipo, aluno) {
-  const hoje = new Date().toLocaleDateString('pt-BR',{weekday:'long',day:'2-digit',month:'long'});
-  const extra = aluno ? (state.cadastroExtra[aluno.id] || {}) : {};
-  const nomeAluno = aluno ? aluno.nome : '[NOME DO ALUNO]';
-  const resp = extra.nomeFinanceiro || extra.nomeContato || 'Responsável';
-
-  switch(tipo) {
-    case 'cobranca': {
-      if (!aluno) return gerarMensagemCobrancaGeral();
-      const devedor = calcDevedor(aluno);
-      const _si = getMesInicioIdx(aluno), _sai = getMesSaidaIdx(aluno), _li = Math.min(new Date().getMonth(), _sai);
-      const mesesDev = MESES.filter((m,i) => i>=_si && i<=_li && i!==0 && (aluno.pag[m]||0)===0).map(m=>MESES_FULL[MESES.indexOf(m)]);
-      return `Olá, ${resp}! 🥁\n\nPassando para informar que existe uma pendência financeira referente às aulas de bateria de *${nomeAluno}* no *Instituto Nego Batera*.\n\n📋 *Situação:*\nMeses em aberto: *${mesesDev.join(', ') || 'verificar'}*\nValor pendente: *${fmtBRL(devedor)}*\nMensalidade: *${fmtBRL(aluno.mensalidade)}/mês*\n\nPedimos que regularize o quanto antes para garantir a continuidade das aulas. 🙏\n\nPara pagamentos: [PIX/CONTA]\n\n_Instituto Nego Batera_`;
-    }
-    case 'agenda': {
-      const diaHoje = ['Domingo','Segunda','Terça','Quarta','Quinta','Sexta','Sábado'][new Date().getDay()];
-      const aulaAluno = aluno ? state.agenda.find(a => a.aluno === aluno.nome) : null;
-      const hora = aulaAluno ? aulaAluno.hora : '[HORÁRIO]';
-      const nomeContato = extra.nomeContato || resp;
-      return `Olá, ${nomeContato}! 🥁\n\nLembrando que hoje, *${hoje}*, tem aula de bateria de *${nomeAluno}* no *Instituto Nego Batera*.\n\n⏰ Horário: *${hora}*\n📍 Local: Instituto Nego Batera\n\nQualquer dúvida, estamos à disposição! 😊\n\n_Instituto Nego Batera_`;
-    }
-    case 'reposicao':
-      return `Olá, ${resp}! 🥁\n\nInformamos que a aula de *${nomeAluno}* que estava prevista foi *remarcada*.\n\n🔄 *Nova data:* [DATA]\n⏰ *Novo horário:* [HORÁRIO]\n\nCaso tenha alguma dúvida, entre em contato.\n\n_Instituto Nego Batera_`;
-    case 'cancelamento':
-      return `Olá, ${resp}! 🥁\n\nInformamos que a aula de *${nomeAluno}* do dia *[DATA]* precisou ser *cancelada*.\n\n❌ Motivo: [MOTIVO]\n\nA aula será reposta. Entraremos em contato para confirmar a nova data.\n\nPedimos desculpas pelo inconveniente! 🙏\n\n_Instituto Nego Batera_`;
-    case 'recital': {
-      const inscricao = state.recital?.inscricoes?.find(i => i.aluno === (aluno?.nome || ''));
-      const taxa = inscricao?.taxa || state.recital?.taxaPadrao || 150;
-      const pago = inscricao?.valorPago || 0;
-      const restante = taxa - pago;
-      return `Olá, ${resp}! 🥁🎉\n\nConvite especial para o *Recital Nego Batera 2026*!\n\n🎪 *Recital Nego Batera*\n📅 Data: [DATA DO RECITAL]\n📍 Local: [LOCAL]\n\n👤 Participante: *${nomeAluno}*\n💰 Taxa de participação: *${fmtBRL(taxa)}*${pago > 0 ? `\n✅ Pago: *${fmtBRL(pago)}*\n⏳ Restante: *${fmtBRL(restante)}*` : ''}\n\nPara confirmar, efetue o pagamento até [DATA LIMITE].\n\nPagamentos: [PIX/CONTA]\n\n_Instituto Nego Batera_`;
-    }
-    case 'aniversario': {
-      const nomeContato = extra.nomeContato || resp;
-      return `Olá, ${nomeContato}! 🎂\n\nO *Instituto Nego Batera* deseja um feliz aniversário para *${nomeAluno}*! 🥁🎉\n\nQue este novo ciclo seja repleto de muita música, alegria e evolução!\n\n🎊 Parabéns! 🎊\n\n_Com carinho, Instituto Nego Batera_`;
-    }
-    case 'geral':
-      return `Olá, família *Instituto Nego Batera*! 🥁\n\n[ESCREVA SUA MENSAGEM AQUI]\n\nQualquer dúvida, estamos à disposição!\n\n_Instituto Nego Batera_`;
-    case 'personalizada':
-      return document.getElementById('wpp-custom-text')?.value || '[Digite sua mensagem personalizada]';
-    default:
-      return '';
-  }
-}
-
-function gerarMensagemCobrancaGeral() {
-  return `Olá! 🥁\n\nPassando para informar sobre pendências financeiras referentes às aulas de bateria no *Instituto Nego Batera*.\n\nPor favor, regularize sua situação para garantir a continuidade das aulas.\n\n📲 Entre em contato para mais informações.\n\n_Instituto Nego Batera_`;
-}
-
-function renderWpp() {
-  const label = document.getElementById('wpp-tipo-label');
-  const config = document.getElementById('wpp-config');
-  const preview = document.getElementById('wpp-preview');
-  const lista = document.getElementById('wpp-lista-alunos');
-  if (!label) return;
-
-  label.textContent = WPP_TITULOS[wppTipo];
-
-  // Aniversariantes do mês no topo
-  const hoje = new Date();
-  const mesHoje = hoje.getMonth() + 1;
-  const aniversMes = state.alunos.filter(a => {
-    const extra = state.cadastroExtra[a.id] || {};
-    if (!extra.aniversario) return false;
-    const parts = extra.aniversario.split('-');
-    return parts.length >= 2 && parseInt(parts[1]) === mesHoje;
-  }).sort((a,b) => {
-    const ea = state.cadastroExtra[a.id]||{}, eb = state.cadastroExtra[b.id]||{};
-    return parseInt((ea.aniversario||'').split('-')[2]||0) - parseInt((eb.aniversario||'').split('-')[2]||0);
-  });
-
-  if (aniversMes.length && wppTipo !== 'transmissao') {
-    const aniversHoje = aniversMes.filter(a => {
-      const extra = state.cadastroExtra[a.id]||{};
-      const parts = (extra.aniversario||'').split('-');
-      return parseInt(parts[2]) === hoje.getDate();
-    });
-    if (aniversHoje.length) {
-      config.innerHTML = `<div style="background:rgba(201,168,76,0.1);border:1px solid var(--border);border-radius:8px;padding:10px;margin-bottom:10px;">
-        <div style="font-size:11px;color:var(--gold);font-weight:600;margin-bottom:6px;">🎂 Aniversariantes HOJE</div>
-        ${aniversHoje.map(a => `<div style="font-size:12px;color:var(--text);">${a.nome}</div>`).join('')}
-      </div>`;
-    } else { config.innerHTML = ''; }
-  }
-
-  // Config area
-  if (wppTipo === 'personalizada') {
-    config.innerHTML += `<textarea id="wpp-custom-text" placeholder="Digite sua mensagem personalizada..." oninput="atualizarPreviewWpp()" style="width:100%;background:var(--card2);border:1px solid rgba(201,168,76,0.25);border-radius:8px;color:var(--text);font-family:'DM Sans',sans-serif;font-size:13px;padding:10px;outline:none;resize:vertical;min-height:100px;"></textarea>`;
-  } else if (wppTipo === 'transmissao') {
-    renderListaTransmissao(lista, config, preview);
-    return;
-  } else if (wppTipo === 'reposicao' || wppTipo === 'cancelamento') {
-    config.innerHTML += `<div class="form-grid" style="margin-bottom:10px;">
-      <div class="form-group"><label>Data</label><input type="date" id="wpp-data" style="background:var(--card2);border:1px solid rgba(201,168,76,0.25);border-radius:8px;color:var(--text);font-family:inherit;font-size:13px;padding:8px;outline:none;width:100%;"></div>
-      ${wppTipo==='cancelamento'?'<div class="form-group"><label>Motivo</label><input type="text" id="wpp-motivo" placeholder="Ex: Compromisso pessoal" style="background:var(--card2);border:1px solid rgba(201,168,76,0.25);border-radius:8px;color:var(--text);font-family:inherit;font-size:13px;padding:8px;outline:none;width:100%;"></div>':''}
-    </div>`;
-  } else { if (!config.innerHTML) config.innerHTML = ''; }
-
-  // Preview
-  const amostra = wppTipo === 'cobranca' ? state.alunos.filter(isInadimplente)[0] :
-    wppTipo === 'aniversario' ? (aniversMes[0] || state.alunos[0]) :
-    state.alunos.filter(a=>a.status==='Ativo')[0];
-  preview.textContent = gerarMensagemWpp(wppTipo, amostra);
-
-  // Lista
-  let listaAlunos;
-  if (wppTipo === 'cobranca') listaAlunos = state.alunos.filter(isInadimplente);
-  else if (wppTipo === 'aniversario') listaAlunos = aniversMes;
-  else listaAlunos = state.alunos.filter(a=>a.status==='Ativo');
-
-  // For cobrança use telFinanceiro, for others use tel
-  const useFinanceiro = wppTipo === 'cobranca' || wppTipo === 'recital';
-
-  if (!listaAlunos.length) {
-    lista.innerHTML = `<div class="empty-state"><div class="icon">${wppTipo==='cobranca'?'✅':wppTipo==='aniversario'?'🎂':'📱'}</div><p>${wppTipo==='cobranca'?'Nenhum inadimplente!':wppTipo==='aniversario'?'Nenhum aniversariante este mês':'Nenhum aluno ativo'}</p></div>`;
-    return;
-  }
-
-  lista.innerHTML = `<div style="font-size:10px;color:var(--muted);letter-spacing:1px;text-transform:uppercase;margin-bottom:10px;">
-    ${useFinanceiro?'CONTATO FINANCEIRO':'CONTATO PRINCIPAL'} — TOQUE PARA ENVIAR
-  </div>` +
-  listaAlunos.map(a => {
-    const extra = state.cadastroExtra[a.id] || {};
-    const tel = useFinanceiro ? (extra.telFinanceiro||a.tel||'') : (a.tel||'');
-    const nomeContato = useFinanceiro ? (extra.nomeFinanceiro||'') : (extra.nomeContato||'');
-    const temWpp = useFinanceiro ? extra.wppFinanceiro : (extra.wppPrincipal !== false);
-    const devedor = calcDevedor(a);
-    const anivData = extra.aniversario ? new Date(extra.aniversario+'T12:00:00').toLocaleDateString('pt-BR',{day:'2-digit',month:'long'}) : '';
-    return `
-    <div style="display:flex;align-items:center;justify-content:space-between;padding:10px 12px;background:var(--card);border:1px solid var(--border);border-radius:10px;margin-bottom:8px;">
-      <div style="flex:1">
-        <div style="font-size:13px;font-weight:500;color:var(--text);">${a.nome}</div>
-        ${nomeContato?`<div style="font-size:10px;color:var(--gold);">${nomeContato}</div>`:''}
-        ${wppTipo==='cobranca'?`<div style="font-size:11px;color:#E74C3C;">${fmtBRL(devedor)} em aberto</div>`:''}
-        ${wppTipo==='aniversario'&&anivData?`<div style="font-size:10px;color:var(--gold);">🎂 ${anivData}</div>`:''}
-        ${tel?`<div style="font-size:10px;color:var(--muted);">${tel}${temWpp?' ✓ WPP':' (sem WPP)'}</div>`:`<div style="font-size:10px;color:#E74C3C;">⚠️ Sem telefone</div>`}
-      </div>
-      <div style="display:flex;gap:6px;flex-shrink:0;">
-        ${tel && temWpp
-          ? `<button onclick="enviarWppAluno(${a.id},'${useFinanceiro?'financeiro':'principal'}')" style="background:linear-gradient(135deg,#1a5c35,#27AE60);border:none;color:#fff;border-radius:8px;padding:8px 12px;font-size:12px;cursor:pointer;font-family:inherit;">📱 Enviar</button>`
-          : tel ? `<button onclick="enviarWppAluno(${a.id},'${useFinanceiro?'financeiro':'principal'}')" style="background:rgba(255,255,255,0.05);border:1px solid var(--border);color:var(--muted);border-radius:8px;padding:8px 12px;font-size:12px;cursor:pointer;font-family:inherit;">📱 SMS</button>` : ''
-        }
-      </div>
-    </div>`;
-  }).join('');
-}
-
-function renderListaTransmissao(lista, config, preview) {
-  // Pais com WPP
-  const pais = state.alunos.filter(a => {
-    const extra = state.cadastroExtra[a.id] || {};
-    return extra.telFinanceiro && extra.wppFinanceiro;
-  });
-  // Alunos com WPP
-  const alunos = state.alunos.filter(a => a.tel && state.cadastroExtra[a.id]?.wppPrincipal !== false);
-
-  const numPais = pais.map(a => {
-    const extra = state.cadastroExtra[a.id]||{};
-    return extra.telFinanceiro.replace(/\D/g,'');
-  }).filter(Boolean);
-
-  const numAlunos = alunos.map(a => a.tel.replace(/\D/g,'')).filter(Boolean);
-
-  config.innerHTML = '';
-  preview.textContent = '';
-
-  lista.innerHTML = `
-  <div style="margin-bottom:16px;">
-    <div style="font-size:12px;font-weight:600;color:var(--gold);margin-bottom:10px;">
-      👨‍👩‍👧 Lista Pais/Responsáveis (${pais.length} com WhatsApp)
-    </div>
-    ${pais.length?`
-    <div style="background:var(--card2);border:1px solid var(--border);border-radius:8px;padding:10px;margin-bottom:8px;font-size:11px;color:var(--muted);line-height:2;">
-      ${pais.map(a=>{const ex=state.cadastroExtra[a.id]||{};return `<span style="color:var(--text)">${ex.nomeFinanceiro||a.nome}</span> (${ex.telFinanceiro||'—'})`;}).join(' · ')}
-    </div>
-    <div style="display:flex;gap:8px;flex-wrap:wrap;">
-      <button onclick="copiarNumeros('pais')" style="background:var(--gold-glow);border:1px solid var(--border);color:var(--gold);border-radius:8px;padding:8px 14px;font-size:12px;cursor:pointer;font-family:inherit;">📋 Copiar números</button>
-      <button onclick="enviarWppLista('pais','geral')" style="background:linear-gradient(135deg,#1a5c35,#27AE60);border:none;color:#fff;border-radius:8px;padding:8px 14px;font-size:12px;cursor:pointer;font-family:inherit;">📢 Aviso Geral</button>
-    </div>`:
-    '<div style="font-size:12px;color:var(--muted);">Nenhum responsável com WhatsApp cadastrado ainda. Preencha os contatos na aba Cadastro.</div>'}
-  </div>
-
-  <div>
-    <div style="font-size:12px;font-weight:600;color:var(--gold);margin-bottom:10px;">
-      🥁 Lista Alunos (${alunos.length} com WhatsApp)
-    </div>
-    ${alunos.length?`
-    <div style="background:var(--card2);border:1px solid var(--border);border-radius:8px;padding:10px;margin-bottom:8px;font-size:11px;color:var(--muted);line-height:2;">
-      ${alunos.map(a=>`<span style="color:var(--text)">${a.nome}</span> (${a.tel||'—'})`).join(' · ')}
-    </div>
-    <div style="display:flex;gap:8px;flex-wrap:wrap;">
-      <button onclick="copiarNumeros('alunos')" style="background:var(--gold-glow);border:1px solid var(--border);color:var(--gold);border-radius:8px;padding:8px 14px;font-size:12px;cursor:pointer;font-family:inherit;">📋 Copiar números</button>
-      <button onclick="enviarWppLista('alunos','agenda')" style="background:linear-gradient(135deg,#1a5c35,#27AE60);border:none;color:#fff;border-radius:8px;padding:8px 14px;font-size:12px;cursor:pointer;font-family:inherit;">📅 Agenda</button>
-      <button onclick="enviarWppLista('alunos','geral')" style="background:rgba(201,168,76,0.15);border:1px solid var(--border);color:var(--gold);border-radius:8px;padding:8px 14px;font-size:12px;cursor:pointer;font-family:inherit;">📢 Aviso Geral</button>
-    </div>`:
-    '<div style="font-size:12px;color:var(--muted);">Nenhum aluno com WhatsApp cadastrado ainda.</div>'}
-  </div>`;
-}
-
-function copiarNumeros(lista) {
-  let nums;
-  if (lista === 'pais') {
-    nums = state.alunos.filter(a => {
-      const extra = state.cadastroExtra[a.id]||{};
-      return extra.telFinanceiro && extra.wppFinanceiro;
-    }).map(a => (state.cadastroExtra[a.id]||{}).telFinanceiro.replace(/\D/g,''));
-  } else {
-    nums = state.alunos.filter(a => a.tel && state.cadastroExtra[a.id]?.wppPrincipal !== false)
-      .map(a => a.tel.replace(/\D/g,''));
-  }
-  const texto = nums.filter(Boolean).map(n => `55${n}`).join('\n');
-  navigator.clipboard.writeText(texto).then(() => toast(`✓ ${nums.length} números copiados!`)).catch(()=>toast('⚠️ Erro ao copiar'));
-}
-
-function enviarWppLista(lista, tipo) {
-  const msg = gerarMensagemWpp(tipo, null);
-  window.open(`https://wa.me/?text=${encodeURIComponent(msg)}`, '_blank');
-}
-
-function atualizarPreviewWpp() {
-  const amostra = state.alunos.filter(a=>a.status==='Ativo')[0];
-  const previewEl = document.getElementById('wpp-preview');
-  if (previewEl) previewEl.textContent = gerarMensagemWpp(wppTipo, amostra);
-}
-
-function enviarWppAluno(id, tipoContato) {
-  const aluno = state.alunos.find(a => a.id === id);
-  if (!aluno) return;
-  const extra = state.cadastroExtra[aluno.id] || {};
-  const tel = tipoContato === 'financeiro' ? (extra.telFinanceiro||aluno.tel||'') : (aluno.tel||'');
-  if (!tel) { toast('⚠️ Sem telefone cadastrado'); return; }
-  const msg = gerarMensagemWpp(wppTipo, aluno);
-  const telLimpo = tel.replace(/\D/g,'');
-  window.open(`https://wa.me/55${telLimpo}?text=${encodeURIComponent(msg)}`, '_blank');
-}
-
-function enviarWppSelecionado() {
-  const msg = gerarMensagemWpp(wppTipo, null);
-  window.open(`https://wa.me/?text=${encodeURIComponent(msg)}`, '_blank');
-}
-
-function copiarMensagem() {
-  const msg = document.getElementById('wpp-preview')?.textContent || '';
-  navigator.clipboard.writeText(msg).then(() => toast('✓ Mensagem copiada!')).catch(()=>toast('⚠️ Erro ao copiar'));
-}
-
-function editarTelAluno(id) {
-  const tel = prompt('Digite o telefone/WhatsApp do aluno (com DDD):');
-  if (!tel) return;
-  const aluno = state.alunos.find(a => a.id === id);
-  if (aluno) { aluno.tel = tel; dbSave('alunos', {...aluno}); renderWpp(); toast('✓ Telefone salvo!'); }
-}
+// Mensagens aos alunos e responsáveis (cobrança, aniversário, recital, avisos)
+// ficam só no Programa Nego Batera → Comunicados desde 29/10/2026.
 
 // Aniversariantes no Painel
 function checkAniversariantesHoje() {
@@ -4804,7 +4493,12 @@ function compartilharRelWpp() {
 }
 
 // ============ NAVIGATION (update) ============
+function ehNotebook() {
+  return window.matchMedia && matchMedia('(hover: hover) and (pointer: fine)').matches;
+}
+
 function showPage(id) {
+  if (id === 'chat' && ehNotebook()) id = 'painel';
   document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
   document.querySelectorAll('.nav-tab').forEach(t => t.classList.remove('active'));
   document.getElementById('page-' + id).classList.add('active');
@@ -4814,7 +4508,6 @@ function showPage(id) {
   if (id === 'shows') { renderShows(); if (showsTabAtual==='agenda') renderShowsAgenda(); }
   if (id === 'despesas') { renderDespesas(); renderLixeira(); }
   if (id === 'projecoes') renderProjecoes();
-  if (id === 'whatsapp') renderWpp();
   if (id === 'recital') { updateRecitalKPIs(); renderRecitalInscricoes(); populateRecitalSelect(); }
   if (id === 'relatorios') { document.getElementById('rel-mes-filter').style.display='block'; }
 }
@@ -8318,12 +8011,74 @@ REGRAS:
       return;
     }
 
-    await executarAcao(parsed);
+    confirmarAcaoChat(parsed);
 
   } catch(e) {
     removeTyping();
     addMessage('Erro de conexão. Verifique sua internet e tente novamente.', 'error');
     console.error(e);
+  }
+}
+
+// Texto vindo da IA vai pro innerHTML do balão: escapar
+function escChat(s) {
+  return String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+
+function resumoAcaoChat(p) {
+  const mes = m => MESES_FULL[MESES.indexOf(m)] || m || '';
+  const dataBR = d => d ? String(d).split('-').reverse().join('/') : 'hoje';
+  const v = x => x != null && x !== '' ? fmtBRL(Number(x)) : 'sem valor';
+  switch (p.acao) {
+    case 'despesa': {
+      const nome = (p.nome || '').toLowerCase();
+      const fixa = p.categoria === 'fixa' && (state.despesas_fixas || []).find(d => d.nome.toLowerCase().includes(nome) || nome.includes(d.nome.toLowerCase()));
+      const onde = fixa ? `marcar a fixa <b>${escChat(fixa.nome)}</b> como paga` : p.categoria === 'nb' ? 'lançar em Gastos NB' : 'lançar no Cotidiano';
+      return `💸 <b>${escChat(p.nome)}</b> · ${v(p.valor)} · ${escChat(mes(p.mes))}<br>→ ${onde}`;
+    }
+    case 'cancelar_despesa': return `🗑️ Remover a despesa <b>${escChat(p.nome)}</b>`;
+    case 'show': return `🎸 Show <b>${escChat(p.artista)}</b> · ${escChat(p.cidade)}${p.estado ? '/' + escChat(p.estado) : ''} · ${dataBR(p.data)} · cachê ${v(p.cache)} · ${escChat(p.status || 'previsto')}`;
+    case 'pagar_show': return `💰 Cachê recebido · <b>${escChat(p.artista)}</b> · ${escChat(p.cidade)} · ${v(p.cache)}`;
+    case 'cancelar_show': return `🗑️ Remover o show <b>${escChat(p.artista)}</b> · ${escChat(p.cidade)} · ${dataBR(p.data)}`;
+    case 'marcar_presenca': return `✅ Presença em ${dataBR(p.data)}: <b>${escChat((p.alunos || []).join(', '))}</b>`;
+    default: return escChat(String(p.confirmacao || p.acao || '').replace(/^✅\s*/, ''));
+  }
+}
+
+// A3 (29/10/2026): nada é gravado sem o ✓. Consulta, erro e assuntos do
+// Instituto não gravam nada aqui, então seguem direto.
+const chatPendentes = {};
+function confirmarAcaoChat(parsed) {
+  const semGravar = ['consulta', 'erro', 'pagamento', 'cancelar_pagamento', 'novo_aluno'];
+  if (semGravar.includes(parsed.acao) || (parsed.acao === 'despesa' && parsed.categoria === 'inb')) {
+    executarAcao(parsed);
+    return;
+  }
+  const id = 'pc' + Date.now();
+  chatPendentes[id] = parsed;
+  addMessage(`<div style="font-size:11px;color:var(--muted);margin-bottom:4px;">Entendi assim:</div>
+    <div style="line-height:1.5;">${resumoAcaoChat(parsed)}</div>
+    <div id="${id}" style="display:flex;gap:8px;margin-top:10px;flex-wrap:wrap;">
+      <button class="btn btn-gold" style="font-size:12px;padding:7px 14px;" onclick="responderAcaoChat('${id}', true)">✓ Lançar</button>
+      <button class="btn btn-outline" style="font-size:12px;padding:7px 14px;" onclick="responderAcaoChat('${id}', false)">✏️ Corrigir</button>
+    </div>`.replace(/\n\s*/g, ''), 'assistant');
+}
+
+async function responderAcaoChat(id, ok) {
+  const parsed = chatPendentes[id];
+  const box = document.getElementById(id);
+  if (!parsed || !box) return;
+  delete chatPendentes[id];
+  if (ok) {
+    box.innerHTML = '<span style="font-size:11px;color:var(--green);">✓ lançado</span>';
+    await executarAcao(parsed);
+  } else {
+    box.innerHTML = '<span style="font-size:11px;color:var(--muted);">não lancei</span>';
+    const ult = [...chatHistory].reverse().find(m => m.role === 'user');
+    const input = document.getElementById('chat-input');
+    if (ult && !input.value) { input.value = ult.content; autoResize(input); }
+    input.focus();
+    addMessage('Sem problema. Corrija o texto (ou fale de novo no 🎤) e envie.', 'assistant');
   }
 }
 
@@ -8524,6 +8279,14 @@ async function executarAcao(parsed) {
 }
 
 // ============ MICROFONE ============
+// Atalho do ícone (…/#voz): abre o Chat e já liga o microfone
+function abrirVozSePedido() {
+  if (location.hash !== '#voz' || ehNotebook()) return;
+  history.replaceState(null, '', location.pathname + location.search);
+  showPage('chat');
+  setTimeout(() => { try { toggleMic(); } catch(e) { toast('🎤 Toque no microfone para falar'); } }, 400);
+}
+
 function toggleMic() {
   // Requires HTTPS and Chrome/Edge
   if (location.protocol !== 'https:' && location.hostname !== 'localhost') {
@@ -8617,6 +8380,7 @@ function toggleMic() {
   try { updatePainel(); } catch(e) { console.warn(e); }
   try { populateAlunoSelect(); } catch(e) { console.warn(e); }
   try { checkAniversariantesHoje(); } catch(e) { console.warn(e); }
+  try { abrirVozSePedido(); } catch(e) { console.warn(e); }
 
   // 3. Depois tenta conectar Supabase em background (não bloqueia UI)
   try {

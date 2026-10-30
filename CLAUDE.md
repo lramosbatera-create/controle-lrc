@@ -76,3 +76,11 @@ Card `#proj-meta-janeiro` na aba Projeções, visível de setembro a janeiro (`r
 ## Tabela antiga `shows` (limpa em 29/10/2026)
 
 Os shows vivem só no `full_state` (app, Projeções e `sync-apps.ps1` leem de lá). A tabela `shows` do Supabase estava desatualizada: as 19 linhas foram apagadas e o app não grava mais nela (commit 643098f). Backup em `C:\Users\maste\Documents\Projetos\LRC\Backups\controle-lrc-tabela-shows-antiga-2026-10-29.json`. Em 29/10 Leandro rodou no SQL Editor o `drop table` de `shows`, `despesas_fixas`, `gastos_inb` e `gastos_nb` (conferido: 404 PGRST205). Mesmo tratamento, também em 29/10, para `despesas_fixas` (30 linhas), `gastos_inb` (24) e `gastos_nb` (18): apagadas, com backup na mesma pasta, e o app não grava mais nelas (commit f3ce15a). **O Supabase do Controle LRC agora tem só `alunos` (lida pelo ↓ Importar) e `app_meta` (full_state).** A tabela `avulsos` nunca existeu neste Supabase (404 PGRST205): as duas gravações nela falhavam em silêncio e foram removidas. Os avulsos vivem só no `full_state`.
+
+## Chat só no celular · WhatsApp no Programa Nego Batera (29/10/2026)
+
+- **Aba WhatsApp removida** (página, funções `*Wpp*` e botões `abrirWppRapido` do cadastro antigo). Ela lia `state.alunos` congelado desde 13/08. Mensagens a alunos e responsáveis ficam só no Programa Nego Batera → 💬 Comunicados.
+- **Chat só no celular**: classe `.so-celular` some com `@media (hover: hover) and (pointer: fine)`; `showPage('chat')` no notebook (`ehNotebook()`) cai no Painel.
+- **Atalho do ícone** "🎤 Voz": `shortcuts` no manifest dinâmico → `/#voz`; `abrirVozSePedido()` abre o Chat e liga o microfone. Se o atalho não aparecer, remover e reinstalar o app na tela inicial.
+- **Conferir antes de lançar**: `enviarChat` → `confirmarAcaoChat` mostra o cartão (`resumoAcaoChat`) com ✓ Lançar / ✏️ Corrigir; só o ✓ chama `executarAcao`. Consulta, erro e assuntos do Instituto seguem direto (não gravam nada). Texto da IA passa por `escChat`.
+- Também ficam registrados aqui as migrações únicas de 29/10: `_migChatOutrosMai` (6 lançamentos de maio do Chat saíram de "Outros") e `_migIdsCotidiano` (ids repetidos 145–151 renumerados).
