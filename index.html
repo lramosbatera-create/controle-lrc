@@ -639,6 +639,25 @@
   .mes-chip.active { border-color: var(--gold); background: var(--gold-glow); }
   .mes-chip-nome { font-size: 9px; color: var(--muted); text-transform: uppercase; letter-spacing: 1px; }
   .mes-chip-val { font-family: 'Cormorant Garamond', serif; font-size: 14px; font-weight: 700; color: var(--text); margin-top: 2px; }
+  /* 🆕 Novidades (08/11/2026): o botão acende até abrir; não abre sozinho */
+  .novidades-btn { position: relative; background: none; border: 1px solid var(--border); color: var(--muted); border-radius: 8px; padding: 3px 8px; font-size: 13px; cursor: pointer; }
+  .novidades-btn.aceso { background: var(--gold); border-color: var(--gold); color: var(--black); font-weight: 700; }
+  .novidades-btn.aceso::after { content: ""; position: absolute; top: -4px; right: -4px; width: 9px; height: 9px; border-radius: 50%; background: var(--red); }
+  @media (prefers-reduced-motion: no-preference) { .novidades-btn.aceso::after { animation: pisca 1.6s ease-in-out infinite; } }
+  @keyframes pisca { 50% { opacity: .35; } }
+  #novidades-fundo { position: fixed; inset: 0; background: rgba(0,0,0,.8); z-index: 9999; display: none; align-items: center; justify-content: center; padding: 16px; }
+  #novidades-fundo.aberto { display: flex; }
+  .novidades-caixa { background: var(--card); border: 1px solid var(--gold-dim); border-radius: 16px; max-width: 520px; width: 100%; max-height: 85vh; display: flex; flex-direction: column; }
+  .novidades-caixa h2 { font-family: 'Cormorant Garamond', serif; color: var(--gold); margin: 0; font-size: 24px; }
+  .novidades-topo, .novidades-pe { padding: 12px 18px; border-bottom: 1px solid var(--border); display: flex; justify-content: space-between; align-items: center; }
+  .novidades-pe { border-bottom: 0; border-top: 1px solid var(--border); }
+  .novidades-corpo { overflow-y: auto; padding: 14px 18px; display: flex; flex-direction: column; gap: 18px; }
+  .novidades-corpo h3 { font-family: 'Cormorant Garamond', serif; color: var(--text); margin: 2px 0 8px; font-size: 19px; }
+  .novidades-item { display: flex; gap: 10px; margin-bottom: 10px; }
+  .novidades-item b { color: var(--text); font-size: 13px; display: block; }
+  .novidades-item span.t { color: var(--muted); font-size: 12px; }
+  .novidades-data { color: var(--muted); font-size: 11px; }
+  .novidades-ok { width: 100%; background: var(--gold); color: var(--black); border: 0; border-radius: 10px; padding: 9px; font-weight: 700; cursor: pointer; }
 </style>
 </head>
 <body>
@@ -646,6 +665,7 @@
 <header class="app-header">
   <div class="logo">Controle LRC<span>Sistema Financeiro Integrado</span></div>
   <div style="display:flex;align-items:center;gap:12px;">
+    <button id="novidades-btn" onclick="abrirNovidades()" title="Novidades do Controle LRC" class="novidades-btn">🆕</button>
     <button id="eye-btn" onclick="toggleValores()" title="Ocultar/mostrar valores"
       style="background:none;border:none;color:var(--gold);font-size:18px;cursor:pointer;padding:4px;opacity:0.8;transition:opacity 0.2s;"
     >👁</button>
@@ -9741,6 +9761,69 @@ function enviarRelatorioIAWpp(alunoId, btn) {
   const url = 'https://wa.me/' + (tel ? '55' + tel : '') + '?text=' + encodeURIComponent(texto);
   window.open(url, '_blank');
 }
+</script>
+<div id="novidades-fundo" onclick="if (event.target === this) fecharNovidades()">
+  <div class="novidades-caixa" role="dialog" aria-label="Novidades do Controle LRC">
+    <div class="novidades-topo"><h2>🆕 Novidades</h2><button onclick="fecharNovidades()" aria-label="Fechar" style="background:none;border:0;color:var(--muted);font-size:18px;cursor:pointer;">✕</button></div>
+    <div class="novidades-corpo" id="novidades-corpo"></div>
+    <div class="novidades-pe"><button class="novidades-ok" onclick="fecharNovidades()">Entendi</button></div>
+  </div>
+</div>
+<script>
+// 🆕 Novidades do Controle LRC (08/11/2026). Pacote novo: NO COMEÇO da lista, id AAAA-MM-DD.
+// O mesmo texto vira o cartão PNG em Documents\Projetos\Novidades dos Apps\Controle LRC
+// (gerador lê o JSON entre as marcas NOVIDADES-INICIO e NOVIDADES-FIM; mantenha JSON puro aqui).
+const NOVIDADES_LRC = /*NOVIDADES-INICIO*/[
+  {
+    "id": "2026-10-30",
+    "data": "30/10/2026",
+    "titulo": "Vasculha de 30/10, contas fixas e celular",
+    "itens": [
+      { "icone": "📌", "titulo": "Encerrar conta fixa", "texto": "Uma conta fixa pode ser encerrada a partir de um mês, guardando o que já foi pago." },
+      { "icone": "📊", "titulo": "Relatórios com as Projeções", "texto": "Os relatórios usam a mesma conta das Projeções; fechamento do mês, busca e conferir saldo revisados." },
+      { "icone": "☁", "titulo": "Nuvem que não engana", "texto": "Importar não diz mais \"importado\" quando a nuvem falha; o QR Ligar outro aparelho religa o celular." },
+      { "icone": "💾", "titulo": "Cópias de segurança", "texto": "O ícone das cópias aparece certo no Windows." },
+      { "icone": "💬", "titulo": "Chat só no celular", "texto": "Atalho de voz no ícone e conferir antes de lançar; o WhatsApp foi para o Programa Nego Batera." },
+      { "icone": "🧹", "titulo": "Tabelas antigas fora", "texto": "Despesas, gastos e shows não gravam mais nas tabelas antigas do Supabase; restam alunos e app_meta." }
+    ]
+  }
+]/*NOVIDADES-FIM*/;
+function novidadeVista() { try { return localStorage.getItem('lrc_novidades_vista'); } catch (e) { return null; } }
+function acenderNovidades() {
+  const b = document.getElementById('novidades-btn');
+  if (!b) return;
+  const visto = novidadeVista();
+  const aceso = !!NOVIDADES_LRC.length && (visto === null || NOVIDADES_LRC[0].id > visto);
+  b.classList.toggle('aceso', aceso);
+  b.textContent = aceso ? '🆕 Novidades' : '🆕';
+  b.title = aceso ? 'Tem novidade no Controle LRC: toque para ver' : 'Novidades do Controle LRC';
+}
+function abrirNovidades() {
+  const corpo = document.getElementById('novidades-corpo');
+  corpo.replaceChildren();
+  for (const p of NOVIDADES_LRC) {
+    const sec = document.createElement('section');
+    const d = document.createElement('div'); d.className = 'novidades-data'; d.textContent = p.data;
+    const h = document.createElement('h3'); h.textContent = p.titulo;
+    sec.append(d, h);
+    for (const i of p.itens) {
+      const li = document.createElement('div'); li.className = 'novidades-item';
+      const ic = document.createElement('span'); ic.textContent = i.icone; ic.style.fontSize = '18px';
+      const tx = document.createElement('div');
+      const b = document.createElement('b'); b.textContent = i.titulo;
+      const t = document.createElement('span'); t.className = 't'; t.textContent = i.texto;
+      tx.append(b, t); li.append(ic, tx); sec.append(li);
+    }
+    corpo.append(sec);
+  }
+  document.getElementById('novidades-fundo').classList.add('aberto');
+}
+function fecharNovidades() {
+  document.getElementById('novidades-fundo').classList.remove('aberto');
+  try { localStorage.setItem('lrc_novidades_vista', NOVIDADES_LRC[0]?.id || ''); } catch (e) {}
+  acenderNovidades();
+}
+acenderNovidades();
 </script>
 </body>
 </html>
