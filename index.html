@@ -1800,15 +1800,10 @@ async function dbLoad() {
     try {
       setLoading(true);
       // Load each table independently to avoid one failure blocking all
-      const [a, meta] = await Promise.all([
-        sb.from('alunos').select('*').order('nome').catch(()=>({data:null,error:true})),
+      // 08/11/2026: a tabela antiga `alunos` saiu (os alunos do INB moram no Programa Nego Batera)
+      const [meta] = await Promise.all([
         sb.from('app_meta').select('*').eq('key','full_state').single().catch(()=>({data:null,error:true})),
       ]);
-      // Only use Supabase data if alunos loaded successfully
-      if (!a.error && a.data) {
-        state.alunos = (a.data||[]).map(r=>({...r, pag: r.pag||{}}));
-        if (!state.alunos.length) await dbSeedAlunos();
-      }
       if (!meta.error && meta.data?.value) {
         const b = meta.data.value;
         if (b.shows?.length)          state.shows          = b.shows;
@@ -1886,6 +1881,7 @@ async function dbSeedAlunos() {
 async function dbSave(tabela, row) {
   saveState(); // sempre salva local
   if (!supabaseReady) return;
+  if (tabela === 'alunos') return; // tabela antiga apagada em 08/11/2026: alunos do INB só no Programa Nego Batera
   try {
     const {error} = await sb.from(tabela).upsert(row);
     if (error) console.warn('dbSave error:', error);
@@ -2111,10 +2107,6 @@ async function dbPushAll(silencioso) {
       _migIdsCotidiano:         state._migIdsCotidiano,
     };
     const erros = [];
-    if (!silencioso && state.alunos?.length) {
-      const {error} = await sb.from('alunos').upsert(state.alunos);
-      if (error) erros.push('alunos: ' + error.message);
-    }
     {
       const {error} = await sb.from('app_meta').upsert({key:'full_state', value: blob});
       if (error) erros.push('full_state: ' + error.message);
@@ -2142,15 +2134,13 @@ async function dbPullAll() {
   setLoading(true);
   try {
     const qry = q => Promise.resolve(q).catch(() => ({data:null,error:true}));
-    const [a, meta] = await Promise.all([
-      qry(sb.from('alunos').select('*').order('nome')),
+    const [meta] = await Promise.all([
       qry(sb.from('app_meta').select('*').eq('key','full_state').single()),
     ]);
     // Sem os dados da nuvem não muda nada aqui (antes dizia "importado" mesmo falhando)
     if (meta.error || !meta.data?.value) throw new Error(meta.error?.message || 'a nuvem não respondeu');
     window._nuvemErro = null;
     updateSyncStatus(true);
-    if (!a.error && a.data?.length) state.alunos = a.data.map(r=>({...r, pag: r.pag||{}}));
     {
       const b = meta.data.value;
       if (b.shows?.length)          state.shows          = b.shows;
@@ -8474,7 +8464,7 @@ function resumoAcaoChat(p) {
 // Instituto não gravam nada aqui, então seguem direto.
 const chatPendentes = {};
 function confirmarAcaoChat(parsed) {
-  const semGravar = ['consulta', 'erro', 'pagamento', 'cancelar_pagamento', 'novo_aluno'];
+  const semGravar = ['consulta', 'erro', 'pagamento', 'cancelar_pagamento', 'novo_aluno', 'marcar_presenca'];
   if (semGravar.includes(parsed.acao) || (parsed.acao === 'despesa' && parsed.categoria === 'inb')) {
     executarAcao(parsed);
     return;
@@ -8518,7 +8508,7 @@ async function executarAcao(parsed) {
   // Financeiro do Instituto (mensalidades, alunos, gastos INB) é lançado só no
   // Programa Nego Batera desde 20/08/2026 — aqui não contaria em lugar nenhum.
   const AVISO_PNB = '🏫 Isso é do Instituto: lance no Programa Nego Batera. Desde agosto o Controle LRC só lê o resumo de lá — se eu lançasse aqui, não apareceria em nenhum número.';
-  if (acao === 'pagamento' || acao === 'cancelar_pagamento' || acao === 'novo_aluno' || (acao === 'despesa' && parsed.categoria === 'inb')) {
+  if (acao === 'pagamento' || acao === 'cancelar_pagamento' || acao === 'novo_aluno' || acao === 'marcar_presenca' || (acao === 'despesa' && parsed.categoria === 'inb')) {
     addMessage(AVISO_PNB, 'error');
     return;
   }
