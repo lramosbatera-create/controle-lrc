@@ -797,6 +797,10 @@
 <div class="page" id="page-shows">
   <p class="section-title">Shows & Eventos</p>
   <p class="section-sub">AGENDA ARTÍSTICA · NEGO BATERA 2026</p>
+  <div style="display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin:-4px 0 12px;font-size:11px;color:var(--muted);">
+    <span id="pnb-ponte-status">…</span>
+    <button class="btn btn-outline" style="font-size:11px;padding:3px 10px;" onclick="ligarPontePNB()" title="O show é marcado só aqui; o Programa NB recebe a data e cuida das reposições das aulas">🔗 Ligar ao Programa NB</button>
+  </div>
 
   <!-- KPIs Realizados -->
   <div class="cards-grid" style="margin-bottom:10px;">
@@ -1498,6 +1502,65 @@ function saveState() {
     }));
   } catch(e) { console.warn('Save failed', e); }
   agendarAutoSaveNuvem();
+  try { agendarShowsPNB(); } catch(e) { /* começo do boot: a ponte ainda não carregou */ }
+}
+
+// ============ PONTE DOS SHOWS → PROGRAMA NB (11/11/2026) ============
+// O show é marcado SÓ aqui. Toda mudança na lista vai, 3 s depois, para o Programa NB (aba Agenda ›
+// Shows), que cuida só da logística e das reposições das aulas. Vai só data, cidade, estado, artista
+// e status — nunca o cachê. A chave da ponte sai do SQL 2026-11-11-shows-do-lrc.sql do Programa NB
+// e fica guardada só neste navegador (localStorage 'lrc-pnb-ponte').
+const PONTE_PNB_KEY = 'lrc-pnb-ponte';
+let showsPNBTimer = null;
+let showsPNBUltimo = null;
+function showsParaPNB() {
+  return (state.shows || []).filter(s => s && s.data).map(s => ({
+    id: String(s.id), data: s.data, cidade: s.cidade || '', estado: s.estado || '', artista: s.artista || '', status: s.status || ''
+  }));
+}
+function agendarShowsPNB(forcar) {
+  let chave = '';
+  try { chave = localStorage.getItem(PONTE_PNB_KEY) || ''; } catch(e) { return; }
+  if (!chave) { mostrarPontePNB(); return; }
+  const lista = showsParaPNB();
+  const txt = JSON.stringify(lista);
+  if (!forcar && txt === showsPNBUltimo) return;
+  clearTimeout(showsPNBTimer);
+  showsPNBTimer = setTimeout(() => enviarShowsPNB(chave, lista, txt), forcar ? 0 : 3000);
+}
+async function enviarShowsPNB(chave, lista, txt) {
+  try {
+    if (!sbPrograma) {
+      const { createClient } = await import('https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm');
+      sbPrograma = createClient(PNB_SUPABASE_URL, PNB_SUPABASE_KEY);
+    }
+    const { data, error } = await sbPrograma.rpc('lrc_shows_sincronizar', { p_chave: chave, p_shows: lista });
+    if (error) throw error;
+    showsPNBUltimo = txt;
+    window._pontePNB = `🔗 Programa NB: ${data} shows enviados às ${new Date().toLocaleTimeString('pt-BR', {hour: '2-digit', minute: '2-digit'})}`;
+  } catch(e) {
+    window._pontePNB = /acesso negado/i.test(String(e && e.message))
+      ? '⚠️ Programa NB recusou a chave da ponte. Toque em 🔗 Ligar ao Programa NB e cole a chave de novo.'
+      : '⚠️ Shows não chegaram ao Programa NB agora (internet ou SQL dos shows). Tento de novo na próxima mudança.';
+  }
+  mostrarPontePNB();
+}
+function mostrarPontePNB() {
+  const el = document.getElementById('pnb-ponte-status');
+  if (!el) return;
+  let ligado = false;
+  try { ligado = !!localStorage.getItem(PONTE_PNB_KEY); } catch(e) {}
+  el.textContent = ligado ? (window._pontePNB || '🔗 Ligado ao Programa NB') : 'Ainda não ligado ao Programa NB: os shows não chegam lá.';
+}
+function ligarPontePNB() {
+  const v = prompt('Cole a chave da ponte (aparece no fim do SQL 2026-11-11-shows-do-lrc.sql, no Supabase do Programa NB).\nDeixe em branco para desligar.');
+  if (v === null) return;
+  try {
+    if (v.trim()) localStorage.setItem(PONTE_PNB_KEY, v.trim()); else localStorage.removeItem(PONTE_PNB_KEY);
+  } catch(e) { toast('⚠️ Este navegador não deixou guardar a chave'); return; }
+  showsPNBUltimo = null;
+  window._pontePNB = null;
+  if (v.trim()) { agendarShowsPNB(true); toast('🔗 Enviando os shows ao Programa NB…'); } else { mostrarPontePNB(); toast('Ponte com o Programa NB desligada'); }
 }
 
 // ============ SALVAMENTO AUTOMÁTICO NA NUVEM ============
@@ -8812,6 +8875,8 @@ function toggleMic() {
   try { carregarResumoINB(); } catch(e) { console.warn(e); }
   try { carregarResumoAnoINB(); } catch(e) { console.warn(e); }
   try { carregarResumoMensalINB(); } catch(e) { console.warn(e); }
+  // 3.6 Ponte dos shows: manda a lista ao Programa NB ao abrir (se já estiver ligada)
+  try { agendarShowsPNB(true); } catch(e) { console.warn(e); }
 
   // 4. Service Worker — updateViaCache:'none' garante que sw.js nunca vem do HTTP cache
   if ('serviceWorker' in navigator) {
