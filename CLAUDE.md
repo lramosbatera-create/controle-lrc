@@ -104,6 +104,10 @@ Os shows vivem só no `full_state` (app, Projeções e `sync-apps.ps1` leem de l
 - Encerrada e não paga: some de Contas do mês, não entra no projetado (`calcProjecoes`) e vira "·" na tabela. O que já foi pago continua somando (totais usam `pagFixas` pelo nome — por isso NUNCA apagar uma fixa com histórico).
 - Uso: Spotify foi para a fatura do Nubank em out/2026.
 
-## ⭐ Regra "Sempre o melhor!" (vitalícia, 12/11/2026)
+## ⭐ Regra "Sempre o melhor!" (vitalícia, 12/11/2026 — roteiro mestre, aplicar SEMPRE sem o Leandro pedir)
 
-Em toda vasculha, varredura, busca no mercado e busca de falhas e erros, dar **atenção maior aos pontos em que este app cruza informação com outros programas** (pontes, sincronizações, dados lidos de outro app, nomes/ids que precisam bater). Checklist: (1) o dado chega igual dos dois lados? (2) lista vazia, nome diferente, id trocado ou SQL não rodado quebram ou apagam algo do outro lado? (3) quem é a fonte única? (4) o que o usuário vê quando a ponte falha? (5) a mudança aqui exige ajuste no outro app? O artefato da vasculha tem uma seção própria "Cruzamentos entre apps".
+Toda verificação segue ANTES → DURANTE → DEPOIS → PUBLICAR, com **atenção maior aos cruzamentos deste app com os outros** (mapa das pontes: `Documents/Projetos/Geral/Mapa dos Cruzamentos.md`).
+- **Antes:** estado real (git, data do deploy x commit, pastas, Obsidian) · marcar no mapa as pontes tocadas · mercado · retrato dos números e lint de base.
+- **Durante:** correção pedida pelo Leandro = aplica e publica direto · erro que eu acho = mostro e aplico com o ok dele · melhoria = só com aprovação · perguntas sim/não.
+- **Depois:** telas no celular e no notebook (Playwright) · **pior caso em cada ponte** (sem internet, lista vazia, SQL não rodado, nome diferente, dois aparelhos, um lado desatualizado) · teste de ponte no build · simplificação · artefato A/B com a seção "Cruzamentos entre apps".
+- **Publicar:** Novidades no app + cartão PNG · Manual · memória e Obsidian · cartão **"Falta você"** (SQL, deploy, chave) — o pacote só fecha com ele vazio.
