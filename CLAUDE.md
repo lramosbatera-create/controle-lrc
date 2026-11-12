@@ -103,3 +103,7 @@ Os shows vivem só no `full_state` (app, Projeções e `sync-apps.ps1` leem de l
 - Campo opcional `encerradaEm` (chave de mês) em `despesas_fixas`; helper `fixaAtiva(d, k)` (k = mês absoluto, 12+ = ano que vem). Botão ⏹ `encerrarFixa(i)` na lista de fixas (vazio = reativar).
 - Encerrada e não paga: some de Contas do mês, não entra no projetado (`calcProjecoes`) e vira "·" na tabela. O que já foi pago continua somando (totais usam `pagFixas` pelo nome — por isso NUNCA apagar uma fixa com histórico).
 - Uso: Spotify foi para a fatura do Nubank em out/2026.
+
+## ⭐ Regra "Sempre o melhor!" (vitalícia, 12/11/2026)
+
+Em toda vasculha, varredura, busca no mercado e busca de falhas e erros, dar **atenção maior aos pontos em que este app cruza informação com outros programas** (pontes, sincronizações, dados lidos de outro app, nomes/ids que precisam bater). Checklist: (1) o dado chega igual dos dois lados? (2) lista vazia, nome diferente, id trocado ou SQL não rodado quebram ou apagam algo do outro lado? (3) quem é a fonte única? (4) o que o usuário vê quando a ponte falha? (5) a mudança aqui exige ajuste no outro app? O artefato da vasculha tem uma seção própria "Cruzamentos entre apps".
