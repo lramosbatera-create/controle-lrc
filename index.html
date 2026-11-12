@@ -1523,6 +1523,8 @@ function agendarShowsPNB(forcar) {
   try { chave = localStorage.getItem(PONTE_PNB_KEY) || ''; } catch(e) { return; }
   if (!chave) { mostrarPontePNB(); return; }
   const lista = showsParaPNB();
+  // A2 (12/11): lista vazia nunca vai (aparelho limpo ou dados ainda carregando não apagam nada lá)
+  if (!lista.length) { window._pontePNB = '🔗 Ligado ao Programa NB (nenhum show aqui para enviar)'; mostrarPontePNB(); return; }
   const txt = JSON.stringify(lista);
   if (!forcar && txt === showsPNBUltimo) return;
   clearTimeout(showsPNBTimer);

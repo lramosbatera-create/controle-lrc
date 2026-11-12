@@ -1,4 +1,4 @@
-const CACHE = 'lrc-v24';
+const CACHE = 'lrc-v25';
 
 self.addEventListener('install', e => {
   e.waitUntil(self.skipWaiting());
