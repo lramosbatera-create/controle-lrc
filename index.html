@@ -447,10 +447,16 @@
     border-radius: 8px;
     font-size: 13px;
     z-index: 999;
-    transition: transform 0.3s ease;
-    white-space: nowrap;
+    transition: transform 0.3s ease, opacity 0.3s ease, visibility 0.3s;
+    max-width: calc(100vw - 32px);
+    box-sizing: border-box;
+    text-align: center;
+    /* A4 (18/11/2026): sem mensagem, some de verdade (antes ficava uma caixinha vazia à mostra) */
+    opacity: 0;
+    visibility: hidden;
+    pointer-events: none;
   }
-  .toast.show { transform: translateX(-50%) translateY(0); }
+  .toast.show { transform: translateX(-50%) translateY(0); opacity: 1; visibility: visible; }
 
   /* EMPTY STATE */
   .empty-state { text-align: center; padding: 40px 20px; color: var(--muted); }
@@ -568,6 +574,15 @@
   }
 
   /* RESPONSIVE FIXES */
+  /* A3 (18/11/2026): no celular o título cabe numa linha e as abas mostram que dá pra arrastar */
+  @media(max-width: 480px) {
+    .app-header { padding: 0 12px; }
+    .logo { font-size: 16px; letter-spacing: 1px; white-space: nowrap; }
+    .logo span { font-size: 9px; letter-spacing: .5px; }
+    .header-year { display: none; }
+    .nav-tabs { -webkit-mask-image: linear-gradient(to right, #000 85%, transparent); mask-image: linear-gradient(to right, #000 85%, transparent); padding-right: 32px; }
+    .nav-tab { padding: 14px 12px; }
+  }
   @media(max-width: 480px) {
     .kpi-value { font-size: 20px; }
     .saldo-value { font-size: 36px; }
@@ -708,6 +723,7 @@
   <div id="painel-fechamento"></div>
   <div id="painel-contas"></div>
   <div id="painel-conferir"></div>
+  <div id="painel-meta-jan"></div>
 
   <div class="cards-grid four" style="margin-bottom:20px;">
     <div class="kpi-card">
@@ -1460,7 +1476,9 @@ function isIosSafari() {
 // ============ PERSISTÊNCIA localStorage ============
 const STORAGE_KEY = 'controle-lrc-state-v1';
 
-function saveState() {
+// `semNuvem` (vasculha 18/11/2026, A1): grava só neste aparelho. Usado depois de ↓ Importar —
+// reenviar os mesmos dados com a hora nova fazia o notebook achar a nuvem "mais nova" e pausar.
+function saveState(opcoes) {
   try {
     localStorage.setItem(STORAGE_KEY, JSON.stringify({
       alunos: state.alunos,
@@ -1501,6 +1519,7 @@ function saveState() {
       _migIdsCotidiano: state._migIdsCotidiano,
     }));
   } catch(e) { console.warn('Save failed', e); }
+  if (opcoes && opcoes.semNuvem) return;
   agendarAutoSaveNuvem();
   try { agendarShowsPNB(); } catch(e) { /* começo do boot: a ponte ainda não carregou */ }
 }
@@ -1637,8 +1656,25 @@ function wrapSave(fn) {
 // ============ DATA ============
 const MESES = ['jan','fev','mar','abr','mai','jun','jul','ago','set','out','nov','dez'];
 const MESES_LABEL = ['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez'];
-// Saldo bancário em 01/01 — ver comentário em updatePainel() sobre a calibragem
-const SALDO_ANTERIOR_ANO = 1361.00;
+// Saldo de partida em 01/01 — calibrado (ver comentário em updatePainel()).
+// 18/11/2026 (vasculha A2): a conta do saldo virou uma só (só o que é de 2026; antes o Painel tirava
+// R$ 675 de parcelas pagas em 2025 e R$ 549 da Receita Federal fora do período dela). Para não mudar
+// a calibragem de 17/09 por causa da fórmula, o saldo de partida desceu esses R$ 1.064: 1.361 → 297.
+// O saldo de hoje continua R$ 2.201; o banco em 18/11 tinha R$ 1.763 (Itaú 1.404 + Nubank 4 +
+// espécie 355). Os R$ 438 de diferença NÃO foram escondidos aqui: aparecem na conferência com o banco
+// (provável gasto ainda não lançado; Leandro lança em "Outros" quando quiser).
+const SALDO_ANTERIOR_ANO = 297.00;
+
+// Saldo de hoje: UMA conta só (vasculha 18/11/2026, A2). É o realizado de calcProjecoes('realista')
+// de janeiro até o mês atual, só do ano: Painel, Reserva de emergência (Projeções), Relatórios e a
+// conferência com o banco usam esta. Antes o Painel somava parcelas pagas em 2025 e a Reserva não.
+function realizadoAteHoje() {
+  const { mesAtual, rec, desp } = calcProjecoes('realista');
+  const ate = g => g.real.slice(0, mesAtual + 1).reduce((a, b) => a + b, 0);
+  const receitas = Object.values(rec).reduce((s, g) => s + ate(g), 0);
+  const despesas = Object.values(desp).reduce((s, g) => s + ate(g), 0);
+  return { receitas, despesas, saldo: SALDO_ANTERIOR_ANO + receitas - despesas };
+}
 const MESES_FULL = ['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'];
 
 // ============ SUPABASE CONFIG ============
@@ -1978,11 +2014,19 @@ function setLoading(on) {
 function updateSyncStatus(ok) {
   let el = document.getElementById('sync-dot');
   if (!el) {
+    // A3 (18/11/2026): o ponto mora dentro do cabeçalho, ao lado dos botões, com área de toque de
+    // 26 px. Antes ficava fixo na tela e, no celular, caía em cima do botão Novidades.
+    const area = document.createElement('span');
+    area.title = 'Nuvem';
+    area.style.cssText = 'display:inline-flex;align-items:center;justify-content:center;width:26px;height:26px;cursor:pointer;flex-shrink:0;';
+    area.onclick = showSyncMenu;
     el = document.createElement('div');
     el.id = 'sync-dot';
-    el.style.cssText = 'position:fixed;top:18px;right:60px;width:8px;height:8px;border-radius:50%;z-index:150;transition:background 0.3s;cursor:pointer;';
-    el.onclick = showSyncMenu;
-    document.body.appendChild(el);
+    el.style.cssText = 'width:9px;height:9px;border-radius:50%;transition:background 0.3s;';
+    area.appendChild(el);
+    const grupo = document.querySelector('.app-header > div:last-child');
+    if (grupo) grupo.insertBefore(area, grupo.firstChild);
+    else { area.style.cssText += 'position:fixed;top:12px;right:56px;z-index:150;'; document.body.appendChild(area); }
   }
   el.title = ok ? 'Nuvem conectada — clique para sincronizar tudo' : 'Offline (clique para configurar)';
   el.style.background = ok ? '#27AE60' : '#C9A84C';
@@ -2246,7 +2290,9 @@ async function dbPullAll() {
     try { migrarIdsCotidiano(); } catch(e) {}
     sincronizarContadores();
     autoSavePausado = false;
-    saveState();
+    // A1 (18/11/2026): guarda só aqui. A nuvem já tem estes dados; este aparelho só envia de novo
+    // quando você mudar alguma coisa nele (aí sim com a versão nova).
+    saveState({semNuvem: true});
     try { renderAlunos(); updatePainel(); renderProjecoes(); } catch(e) {}
     toast('✓ Dados importados da nuvem! Salvamento automático ligado.');
   } catch(e) {
@@ -7481,7 +7527,10 @@ function projGuardarPrevisoes(calc) {
   }
   const limite = `${ano - 1}-${String(mesAtual + 1).padStart(2, '0')}`;
   Object.keys(state.previsoes).forEach(c => { if (c < limite) { delete state.previsoes[c]; mudou = true; } });
-  if (mudou) saveState();
+  // A1 (18/11/2026): a foto da previsão é conta feita na tela, não mudança sua. Guarda só aqui e vai
+  // para a nuvem junto com a próxima mudança de verdade. Antes, cada aparelho que abria Projeções
+  // reenviava tudo, e o outro aparelho pausava o salvamento automático.
+  if (mudou) saveState({semNuvem: true});
 }
 
 function setLimiteCategoria(grupo, valor, acumula) {
@@ -7544,12 +7593,11 @@ function setAlvoMetaJan(v) {
   renderProjecoes();
 }
 
-function renderMetaJaneiro(calc) {
-  const box = document.getElementById('proj-meta-janeiro');
-  if (!box) return;
+// Conta da Meta Janeiro num lugar só (cartão de Projeções e lembrete do Painel, B3 de 18/11/2026).
+// Fora de setembro–janeiro devolve null.
+function metaJanResumo(calc) {
   const hoje = new Date(), mes = hoje.getMonth();
-  if (!(mes >= 8 || mes === 0)) { box.style.display = 'none'; return; }
-  box.style.display = 'block';
+  if (!(mes >= 8 || mes === 0)) return null;
   const k = mes === 0 ? 0 : 12; // janeiro que vem (ou o atual, se já for janeiro)
   const somaK = g => Object.values(g).reduce((s, x) => s + x.real[k] + x.proj[k], 0);
   const recJan = somaK(calc.rec), despJan = somaK(calc.desp);
@@ -7559,9 +7607,31 @@ function renderMetaJaneiro(calc) {
   const guardado = m.depositos.reduce((s, d) => s + d.valor, 0);
   const falta = Math.max(0, alvo - guardado);
   const pct = alvo ? Math.min(100, guardado / alvo * 100) : 100;
-  const fim = new Date(hoje.getFullYear() + (mes === 0 ? 0 : 0), mes === 0 ? 0 : 11, 31);
+  const fim = new Date(hoje.getFullYear(), mes === 0 ? 0 : 11, 31);
   const dias = Math.max(0, Math.ceil((fim - hoje) / 864e5));
   const semanas = Math.max(1, Math.ceil(dias / 7));
+  return { hoje, mes, recJan, despJan, faltaPrevista, m, alvo, guardado, falta, pct, dias, semanas, anoJan: mes === 0 ? hoje.getFullYear() : hoje.getFullYear() + 1 };
+}
+
+// B3 (18/11/2026): lembrete no Painel enquanto falta guardar (como as metas com lembrete do Mobills).
+function renderMetaJanPainel() {
+  const el = document.getElementById('painel-meta-jan');
+  if (!el) return;
+  const r = metaJanResumo(calcProjecoes('realista'));
+  if (!r || r.falta <= 0 || r.mes === 0) { el.innerHTML = ''; return; }
+  el.innerHTML = `<div class="form-card" style="margin-bottom:16px;display:flex;align-items:center;gap:12px;cursor:pointer;" onclick="showPage('projecoes')">
+    <span style="font-size:22px;">🎯</span>
+    <span style="flex:1;font-size:13px;color:var(--text);">Meta Janeiro ${r.anoJan}: guarde <strong style="color:var(--gold)">${fmtBRL(r.falta / r.semanas)}</strong> esta semana. ${fmtBRL(r.guardado)} de ${fmtBRL(r.alvo)} guardados · ${r.semanas === 1 ? 'última semana' : `faltam ${r.semanas} semanas`}.</span>
+    <span style="color:var(--gold);font-size:13px;">Guardar →</span></div>`;
+}
+
+function renderMetaJaneiro(calc) {
+  const box = document.getElementById('proj-meta-janeiro');
+  if (!box) return;
+  const r = metaJanResumo(calc);
+  if (!r) { box.style.display = 'none'; return; }
+  box.style.display = 'block';
+  const { hoje, mes, recJan, despJan, faltaPrevista, m, alvo, guardado, falta, pct, dias, semanas } = r;
   const cor = pct >= 100 ? 'var(--green)' : pct >= 50 ? 'var(--gold)' : 'var(--red)';
   const anoJan = mes === 0 ? hoje.getFullYear() : hoje.getFullYear() + 1;
   const campo = 'background:var(--dark);border:1px solid var(--border);border-radius:6px;color:var(--text);padding:7px 8px;font-family:inherit;font-size:12px;';
@@ -7650,7 +7720,7 @@ function renderProjecoes() {
   $('proj-kpi-sobra-sub').textContent = `${restantes.length} meses que faltam · ${projCenario}`;
 
   // ── Reserva de emergência (B9): quantos meses de gasto o saldo de hoje cobre ──
-  const saldoHoje = SALDO_ANTERIOR_ANO + soma(todosK.map(k => recReal[k] - despReal[k]), todosK.filter(k => k <= mesAtual));
+  const saldoHoje = realizadoAteHoje().saldo; // A2: a mesma conta do Painel
   const fechados = [];
   for (let k = mesAtual - 1; k >= 0 && fechados.length < 3; k--) if (despReal[k] > 0) fechados.push(k);
   const gastoMedio = fechados.length ? soma(despReal, fechados) / fechados.length : 0;
@@ -7970,6 +8040,41 @@ function lerExtrato(input) {
   leitor.readAsText(arq, 'UTF-8');
 }
 
+// B2 (18/11/2026): pagamento de conta fixa no extrato (como a detecção de contas do Copilot).
+// Reconhece pelo nome da conta (ou apelidos comuns) e pelo valor perto do cadastrado (±35%), só se
+// a conta ainda não está marcada como paga naquele mês. Cartão: "pagamento de fatura" + nome do banco.
+const APELIDOS_FIXA = {
+  'luz': /\b(luz|enel|energisa|cemig|light|coelba|neoenergia|equatorial|celpe|cosern|energia)\b/,
+  'vivo': /\b(vivo|telefonica)\b/,
+  'internet': /\b(internet|fibra|net virtua|provedor)\b/,
+  'dizimo': /\b(dizimo|paroquia|igreja|diocese)\b/,
+  'plano saude': /\b(plano de? saude|unimed|hapvida|amil|bradesco saude|sulamerica)\b/,
+  'spotify': /\bspotify\b/,
+};
+const semAcento = t => projChaveNome(t).normalize('NFD').replace(/[̀-ͯ]/g, '');
+function contaFixaDoExtrato(it, banco) {
+  const desc = semAcento(it.desc || '');
+  const mes = MESES[parseInt(it.data.slice(5, 7)) - 1];
+  for (const d of (state.despesas_fixas || [])) {
+    const nome = semAcento(d.nome);
+    const pf = ((state.pagFixas || {})[d.nome] || {})[mes];
+    if (pf === true || pf > 0 || !fixaAtiva(d, MESES.indexOf(mes))) continue;
+    const valor = parseFloat(d.valor) || 0;
+    if (!valor || Math.abs(it.valor - valor) > valor * 0.35) continue;
+    let bate;
+    if (nome.startsWith('cartao ')) {
+      const doCartao = nome.replace('cartao ', '');
+      const fatura = /fatura|cartao/.test(desc);
+      bate = fatura && (desc.includes(doCartao) || (semAcento(banco).includes(doCartao) && /pagamento (de )?fatura/.test(desc)));
+    } else {
+      const apelido = Object.entries(APELIDOS_FIXA).find(([k]) => nome.includes(k));
+      bate = desc.includes(nome) || (apelido && apelido[1].test(desc));
+    }
+    if (bate) return { nome: d.nome, mes };
+  }
+  return null;
+}
+
 function montarPreviaExtrato(texto, nomeArquivo) {
   const itens = parseExtrato(texto);
   const box = document.getElementById('extrato-previa');
@@ -7983,8 +8088,10 @@ function montarPreviaExtrato(texto, nomeArquivo) {
   extratoPrevia = itens.map(it => {
     const foraDoAno = !it.data.startsWith(String(ano));
     const duplicado = existentes.has(`${it.data}|${Math.round(it.valor * 100)}`);
-    return {...it, grupo: projGrupoGasto(it.desc), marcado: !foraDoAno && !duplicado && !ignorar.test(it.desc),
-      aviso: foraDoAno ? `fora de ${ano}` : duplicado ? 'já lançado' : ignorar.test(it.desc) ? 'fatura/transferência' : ''};
+    const fixa = !foraDoAno && !duplicado ? contaFixaDoExtrato(it, banco) : null;
+    // Conta fixa reconhecida: não entra no dia a dia (contaria em dobro) e vira "marcar como paga".
+    return {...it, grupo: projGrupoGasto(it.desc), fixa, marcarFixa: !!fixa, marcado: !fixa && !foraDoAno && !duplicado && !ignorar.test(it.desc),
+      aviso: fixa ? `conta fixa: ${fixa.nome}` : foraDoAno ? `fora de ${ano}` : duplicado ? 'já lançado' : ignorar.test(it.desc) ? 'fatura/transferência' : ''};
   });
   renderPreviaExtrato();
 }
@@ -7997,8 +8104,16 @@ function renderPreviaExtrato() {
   const resumidos = (state.cotidiano || []).filter(d => projChaveNome(d.cat) === projChaveNome('Saídas ' + banco) && meses.includes(getMesDaCot(d)));
   const opcoes = sel => PROJ_GRUPOS_GASTO.filter(g => g.id !== 'inb').map(g => `<option value="${g.id}" ${g.id === sel ? 'selected' : ''}>${g.label}</option>`).join('');
   const marcados = extratoPrevia.filter(i => i.marcado);
+  const fixas = extratoPrevia.map((it, i) => [it, i]).filter(([it]) => it.fixa);
   box.innerHTML = `
     <div style="font-size:12px;margin:10px 0;">${extratoPrevia.length} saídas no arquivo · <strong style="color:var(--gold)">${marcados.length} marcadas = ${fmtBRL(marcados.reduce((s, i) => s + i.valor, 0))}</strong></div>
+    ${fixas.length ? `<div style="padding:10px;border:1px solid var(--gold);border-radius:8px;margin-bottom:10px;">
+      <div style="font-size:12px;color:var(--gold);font-weight:700;margin-bottom:6px;">🧾 Contas fixas pagas neste extrato</div>
+      ${fixas.map(([it, i]) => `<label style="display:flex;gap:8px;align-items:center;font-size:12px;color:var(--text);padding:3px 0;">
+        <input type="checkbox" ${it.marcarFixa ? 'checked' : ''} onchange="extratoPrevia[${i}].marcarFixa=this.checked">
+        <span>Marcar <strong>${it.fixa.nome}</strong> de ${MESES_LABEL[MESES.indexOf(it.fixa.mes)]} como paga: ${fmtBRL(it.valor)} em ${it.data.slice(8, 10)}/${it.data.slice(5, 7)} <span style="color:var(--muted);">(${it.desc})</span></span></label>`).join('')}
+      <div style="font-size:10px;color:var(--muted);margin-top:4px;">Essas não entram no dia a dia, pra não contar duas vezes. Desmarque se não for a conta.</div>
+    </div>` : ''}
     ${resumidos.length ? `<label style="display:flex;gap:8px;align-items:flex-start;font-size:11px;color:var(--text);margin-bottom:10px;padding:10px;border:1px dashed var(--border);border-radius:8px;">
       <input type="checkbox" id="extrato-tirar-resumo" checked style="margin-top:2px;">
       <span>Tirar o lançamento resumido "Saídas ${banco}" de ${meses.map(m => MESES_LABEL[MESES.indexOf(m)]).join(', ')} (${fmtBRL(resumidos.reduce((s, d) => s + d.valor, 0))}), pra não contar em dobro. Ele vai pra Lixeira e dá pra desfazer.</span></label>` : ''}
@@ -8018,7 +8133,10 @@ function renderPreviaExtrato() {
 function importarExtrato() {
   const banco = document.getElementById('extrato-banco').value;
   const marcados = extratoPrevia.filter(i => i.marcado);
-  if (!marcados.length) { toast('⚠️ Nenhum lançamento marcado'); return; }
+  const fixasPagas = extratoPrevia.filter(i => i.fixa && i.marcarFixa);
+  if (!marcados.length && !fixasPagas.length) { toast('⚠️ Nenhum lançamento marcado'); return; }
+  // B2: contas fixas reconhecidas viram pagas no mês delas, com o valor do extrato.
+  fixasPagas.forEach(it => { state.pagFixas = state.pagFixas || {}; (state.pagFixas[it.fixa.nome] = state.pagFixas[it.fixa.nome] || {})[it.fixa.mes] = it.valor; });
   state.cotidiano = state.cotidiano || [];
   const meses = [...new Set(marcados.map(i => MESES[parseInt(i.data.slice(5, 7)) - 1]))];
   const tirar = document.getElementById('extrato-tirar-resumo');
@@ -8037,7 +8155,7 @@ function importarExtrato() {
   document.getElementById('extrato-previa').innerHTML = '';
   const arq = document.getElementById('extrato-arquivo'); if (arq) arq.value = '';
   atualizarTelas();
-  toast(`✓ ${marcados.length} lançamentos importados do ${banco}`);
+  toast(`✓ ${marcados.length} lançamentos importados do ${banco}${fixasPagas.length ? ` · ${fixasPagas.length} conta${fixasPagas.length > 1 ? 's' : ''} fixa${fixasPagas.length > 1 ? 's' : ''} marcada${fixasPagas.length > 1 ? 's' : ''} como paga${fixasPagas.length > 1 ? 's' : ''}` : ''}`);
 }
 
 // ============ LIXEIRA + DESFAZER ============
@@ -8133,7 +8251,10 @@ function updatePainel() {
   const despINB = semINB ? 0 : pnbResumoAno.gasto;
   const despNB = state.gastos_nb.reduce((s,d)=>s+d.valor,0);
   const despCot = (state.cotidiano||[]).reduce((s,d)=>s+d.valor,0);
-  const despParc = (state.parceladas||[]).reduce((s,p)=>s+parcPagas(p)*p.valorParcela,0);
+  // Só parcelas deste ano, dentro do período de cada uma (mesma regra das Projeções — A2, 18/11/2026).
+  const anoAtual = new Date().getFullYear();
+  const despParc = (state.parceladas||[]).reduce((s,p) => s + MESES.reduce((ss, m, i) =>
+    ss + (parcAtivaNaMes(p, i, anoAtual) && (p.pagos ? p.pagos.includes(m + '/' + anoAtual) : i < new Date().getMonth()) ? p.valorParcela : 0), 0), 0);
   const despTotal = despFixas + despParc + despINB + despNB + despCot;
   // Recalibrado em 17/09/2026 (mesmo método da auditoria de 15/07/2026 —
   // ver commit 3dfe3f4): o valor antigo (R$2.688,66) tinha sido calibrado
@@ -8143,7 +8264,9 @@ function updatePainel() {
   // ficou desalinhado do saldo bancário real. Reconferido contra o saldo
   // real informado por Leandro (Nubank + Itaú, 17/09/2026: R$4.225,00).
   const saldoAnterior = SALDO_ANTERIOR_ANO;
-  const saldo = saldoAnterior + recTotal - despTotal;
+  // A2 (18/11/2026): o saldo do topo é o mesmo da Reserva de emergência e dos Relatórios.
+  const realizado = realizadoAteHoje();
+  const saldo = realizado.saldo;
 
   document.getElementById('saldo-total').textContent = fmtBRL(saldo);
   document.getElementById('saldo-total').className = 'saldo-value ' + (saldo >= 0 ? '' : 'red');
@@ -8161,7 +8284,7 @@ function updatePainel() {
   const kpiDespSub = document.getElementById('kpi-desp-sub');
   if (kpiDespSub) kpiDespSub.textContent = `Fixas ${fmtBRL(despFixas)} · Parc. ${fmtBRL(despParc)} · Cot. ${fmtBRL(despCot)} · NB/INB ${fmtBRL(despINB+despNB)}`;
   document.getElementById('saldo-sub').textContent =
-    `Receitas ${fmtBRL(recTotal)} · Despesas ${fmtBRL(despTotal)} · Saldo Anterior ${fmtBRL(saldoAnterior)}` + (semINB ? ' · sem o Instituto (' + avisoINB.toLowerCase() + ')' : '');
+    `Receitas ${fmtBRL(realizado.receitas)} · Despesas ${fmtBRL(realizado.despesas)} · Saldo Anterior ${fmtBRL(saldoAnterior)}` + (semINB ? ' · sem o Instituto (' + avisoINB.toLowerCase() + ')' : '');
 
   // A receber
   const elAReceber = document.getElementById('kpi-a-receber');
@@ -8176,6 +8299,7 @@ function updatePainel() {
   try { renderContasMes(); } catch(e) { console.warn(e); }
   try { renderFechamentoAviso(); } catch(e) { console.warn(e); }
   try { renderConferir(); } catch(e) { console.warn(e); }
+  try { renderMetaJanPainel(); } catch(e) { console.warn(e); }
 }
 
 // ============ B1 (30/10/2026): contas do mês no Painel ============
@@ -8258,8 +8382,13 @@ function renderConferir() {
         ? `<span style="color:#E74C3C">No banco tem ${fmtBRL(-dif)} a menos que no app: pode ter gasto que não foi lançado.</span>`
         : `<span style="color:var(--gold)">No banco tem ${fmtBRL(dif)} a mais que no app: pode ter entrada que não foi lançada.</span>`}</div>`;
   }
-  el.innerHTML = `<details class="form-card" style="margin-bottom:16px;">
-    <summary style="font-size:12px;color:var(--gold);font-weight:700;letter-spacing:.5px;cursor:pointer;">🏦 CONFERIR COM O SALDO DO BANCO</summary>
+  // B1 (18/11/2026): passou de 7 dias sem conferir, o cartão abre sozinho com o lembrete (como a
+  // conciliação do YNAB: diferença pequena aparece cedo, antes de virar mistério).
+  const diasSem = ult ? Math.floor((Date.now() - new Date(ult.data + 'T12:00').getTime()) / 864e5) : null;
+  const lembrar = diasSem === null || diasSem >= 7;
+  const aviso = lembrar ? `<div style="font-size:12px;color:var(--gold);margin-top:8px;">⏰ Hora de conferir: ${ult ? `a última foi há ${diasSem} dias (${new Date(ult.data + 'T12:00').toLocaleDateString('pt-BR')})` : 'você ainda não conferiu'}. Digite o saldo de hoje de cada conta.</div>` : '';
+  el.innerHTML = `<details class="form-card" style="margin-bottom:16px;${lembrar ? 'border-color:var(--gold);' : ''}" ${lembrar ? 'open' : ''}>
+    <summary style="font-size:12px;color:var(--gold);font-weight:700;letter-spacing:.5px;cursor:pointer;">🏦 CONFERIR COM O SALDO DO BANCO${lembrar ? ' · ⏰ hora de conferir' : ''}</summary>${aviso}
     <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(110px,1fr));gap:8px;margin-top:10px;">
       ${campo('nubank', 'Nubank')}${campo('itau', 'Itaú')}${campo('dinheiro', 'Dinheiro / outras')}
     </div>
@@ -9831,6 +9960,19 @@ function enviarRelatorioIAWpp(alunoId, btn) {
 // O mesmo texto vira o cartão PNG em Documents\Projetos\Novidades dos Apps\Controle LRC
 // (gerador lê o JSON entre as marcas NOVIDADES-INICIO e NOVIDADES-FIM; mantenha JSON puro aqui).
 const NOVIDADES_LRC = /*NOVIDADES-INICIO*/[
+  {
+    "id": "2026-11-18",
+    "data": "18/11/2026",
+    "titulo": "Nuvem sem trava, um saldo só e lembretes",
+    "itens": [
+      { "icone": "☁", "titulo": "Importar não trava o notebook", "texto": "Depois de ↓ Importar no celular, o celular não reenvia nada para a nuvem. O notebook continua salvando sozinho, sem o aviso de pausa." },
+      { "icone": "⚖️", "titulo": "Um saldo só", "texto": "O Painel, a Reserva de emergência e os Relatórios usam a mesma conta, só com o que é deste ano. Antes o Painel descontava parcelas pagas em 2025." },
+      { "icone": "🏦", "titulo": "Hora de conferir com o banco", "texto": "Passou uma semana sem conferir, o cartão do banco abre sozinho no Painel." },
+      { "icone": "🧾", "titulo": "Conta paga pelo extrato", "texto": "Ao importar o extrato, o app reconhece Luz, Vivo, cartões e outras contas fixas e oferece marcar como paga, sem lançar duas vezes." },
+      { "icone": "🎯", "titulo": "Meta Janeiro no Painel", "texto": "Enquanto falta guardar, o Painel lembra quanto guardar nesta semana." },
+      { "icone": "📱", "titulo": "Celular mais limpo", "texto": "O título cabe no topo, as abas mostram que dá para arrastar e a caixinha vazia de aviso sumiu." }
+    ]
+  },
   {
     "id": "2026-11-12",
     "data": "12/11/2026",
