@@ -6265,6 +6265,14 @@ function migrarVasculha1811() {
     }
   });
   (state.conferencias || []).forEach(c => { if (c.data === '2026-11-18' && c.cotIdAte == null) { c.cotIdAte = 595; mudou = true; } });
+  // · A5 (Leandro confirmou: maio): ids 550–555 são gastos de MAIO que o Chat antigo lançou em 14/06
+  //   com a data do dia. A data vai para 01/05 (dia desconhecido, como o formulário faz) e o saldo de
+  //   maio/junho passa a bater com a aba Cotidiano. O total do ano não muda.
+  (state.cotidiano || []).forEach(d => {
+    if (d.id >= 550 && d.id <= 555 && d.data === '2026-06-14' && d.mes === 'mai') {
+      d.data = '2026-05-01'; d.desc = ((d.desc || '') + ' · lançado em 14/06').replace(/^ · /, ''); mudou = true;
+    }
+  });
   if (mudou) saveState();
 }
 function migrarChatOutrosMai() {
