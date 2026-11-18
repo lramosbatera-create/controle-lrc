@@ -1128,11 +1128,13 @@
         <button class="filter-btn" onclick="setCotidianoTab('mensal',this)">📅 Análise Mensal</button>
         <button class="filter-btn" onclick="setCotidianoTab('anual',this)">📆 Visão Anual</button>
         <button class="filter-btn" onclick="setCotidianoTab('categorias',this)">🥧 Por Categoria</button>
+        <button class="filter-btn" data-cot-tab="item" onclick="setCotidianoTab('item',this)">🔎 Por Item</button>
       </div>
       <div id="cot-lancamentos"><div id="lista-cotidiano"></div></div>
       <div id="cot-mensal" style="display:none"><div id="cot-mensal-content"></div></div>
       <div id="cot-anual" style="display:none"><div id="cot-anual-content"></div></div>
       <div id="cot-categorias" style="display:none"><div id="cot-cat-content"></div></div>
+      <div id="cot-item" style="display:none"><div id="cot-item-content"></div></div>
     </div>
   </div>
 
@@ -6457,17 +6459,155 @@ function getMesDaCot(item) {
 }
 
 function setCotidianoTab(tab, btn) {
-  ['lancamentos','mensal','anual','categorias'].forEach(t => {
+  ['lancamentos','mensal','anual','categorias','item'].forEach(t => {
     const el = document.getElementById('cot-' + t);
     if (el) el.style.display = t === tab ? 'block' : 'none';
   });
-  document.querySelectorAll('#page-despesas .filter-row .filter-btn').forEach(b => b.classList.remove('active'));
-  btn.classList.add('active');
+  if (btn) {
+    btn.parentElement.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+  }
   // Lançamentos = editable, análises = read-only
   if (tab === 'lancamentos') renderCotidianoCards();
   if (tab === 'mensal')      renderCotidianoMensalReadOnly();
   if (tab === 'anual')       renderCotidianoAnual();
   if (tab === 'categorias')  renderCotidianoCategorias();
+  if (tab === 'item')        renderCotidianoItem();
+}
+
+// ============ 🔎 POR ITEM (pedido de Leandro em 18/11/2026) ============
+// Escolhe um item do cotidiano (Lanche, Almoço, Padaria…) e vê todos os pagamentos dele separados
+// por ano e mês, com total, quantidade e média, como a tela de estabelecimento do Monarch e o
+// relatório por favorecido do YNAB. Item = o nome lançado (`cat`), juntando maiúscula/acento/espaço.
+// "Escrito parecido" (ex.: "Encontros da Igreja" × "Encontro de Igreja") aparece como aviso, sem
+// juntar sozinho: o nome lançado nunca muda.
+const cotChaveItem = n => (n || '').trim().toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '');
+const cotChaveParecida = n => cotChaveItem(n).split(/\s+/).filter(p => !['da', 'de', 'do', 'das', 'dos', 'e'].includes(p)).map(p => p.replace(/s$/, '')).join(' ');
+const cotEsc = t => String(t == null ? '' : t).replace(/[&<>"']/g, c => ({'&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'}[c]));
+
+function cotItensAgrupados() {
+  const itens = {};
+  (state.cotidiano || []).forEach(d => {
+    const k = cotChaveItem(d.cat);
+    if (!k) return;
+    const it = (itens[k] = itens[k] || {chave: k, nome: (d.cat || '').trim(), lanc: [], total: 0});
+    it.lanc.push(d);
+    it.total += d.valor || 0;
+  });
+  return Object.values(itens).sort((a, b) => b.lanc.length - a.lanc.length || b.total - a.total);
+}
+
+function abrirCotItem(chave) {
+  window._cotItemSel = chave;
+  const sec = document.getElementById('cot-item');
+  const btn = sec && sec.parentElement.querySelector('.filter-btn[data-cot-tab="item"]');
+  setCotidianoTab('item', btn);
+}
+
+// "Juntar com este nome" (pedido de Leandro em 18/11/2026): renomeia os lançamentos do item parecido
+// para o nome do item aberto. Muda só o nome (cat): valor, data, grupo e descrição ficam. Dá para
+// desfazer na barra que aparece embaixo por 15 segundos (e o histórico volta igual ao que era).
+function juntarCotItem(chaveDe, chavePara) {
+  const itens = cotItensAgrupados();
+  const de = itens.find(i => i.chave === chaveDe), para = itens.find(i => i.chave === chavePara);
+  if (!de || !para || de === para) return;
+  if (!confirm(`Juntar ${de.lanc.length} lançamento${de.lanc.length > 1 ? 's' : ''} de "${de.nome}" com "${para.nome}"?
+
+Eles passam a se chamar "${para.nome}". Valor, data e descrição não mudam. Dá para desfazer logo depois.`)) return;
+  const antes = de.lanc.map(d => ({ id: d.id, cat: d.cat }));
+  de.lanc.forEach(d => { d.cat = para.nome; });
+  window._ultimaJuncao = { antes, de: de.nome, para: para.nome, chave: para.chave };
+  saveState();
+  window._cotItemSel = para.chave;
+  renderCotidianoItem();
+  let bar = document.getElementById('undo-bar');
+  if (!bar) { mostrarDesfazer({ id: '', rotulo: '' }); bar = document.getElementById('undo-bar'); }
+  bar.innerHTML = `<span>🔗 Juntado: "${cotEsc(de.nome)}" agora é "${cotEsc(para.nome)}" (${antes.length}×)</span><button class="btn btn-gold" style="padding:6px 12px;font-size:12px;" onclick="desfazerJuncaoCot()">Desfazer</button>`;
+  bar.style.display = 'flex';
+  clearTimeout(mostrarDesfazer._t);
+  mostrarDesfazer._t = setTimeout(() => { bar.style.display = 'none'; }, 15000);
+}
+function desfazerJuncaoCot() {
+  const j = window._ultimaJuncao;
+  if (!j) return;
+  const porId = Object.fromEntries(j.antes.map(a => [a.id, a.cat]));
+  (state.cotidiano || []).forEach(d => { if (d.id in porId) d.cat = porId[d.id]; });
+  window._ultimaJuncao = null;
+  saveState();
+  renderCotidianoItem();
+  const bar = document.getElementById('undo-bar'); if (bar) bar.style.display = 'none';
+  toast('↩️ Desfeito: os nomes voltaram como eram');
+}
+
+function renderCotidianoItem() {
+  const box = document.getElementById('cot-item-content');
+  if (!box) return;
+  const itens = cotItensAgrupados();
+  if (!itens.length) { box.innerHTML = '<div class="empty-state"><div class="icon">🔎</div><p>Nenhum lançamento no cotidiano ainda</p></div>'; return; }
+  const sel = itens.find(i => i.chave === window._cotItemSel) || null;
+  const s = 'background:var(--card2);border:1px solid rgba(201,168,76,0.25);border-radius:8px;color:var(--text);font-family:inherit;font-size:13px;padding:9px;outline:none;width:100%;box-sizing:border-box;';
+  let html = `<label style="font-size:10px;color:var(--muted);letter-spacing:1px;text-transform:uppercase;">Item do cotidiano
+    <select id="cot-item-sel" onchange="window._cotItemSel=this.value;renderCotidianoItem()" style="${s}margin-top:4px;">
+      <option value="">Escolha um item (${itens.length} no total, os mais lançados primeiro)</option>
+      ${itens.map(i => `<option value="${cotEsc(i.chave)}" ${sel && i.chave === sel.chave ? 'selected' : ''}>${cotEsc(i.nome)} · ${i.lanc.length}× · ${fmtBRL(i.total)}</option>`).join('')}
+    </select></label>`;
+  if (!sel) {
+    html += `<div style="font-size:12px;color:var(--muted);margin-top:12px;">Mais lançados: ${itens.slice(0, 8).map(i => `<a href="javascript:void 0" data-chave="${cotEsc(i.chave)}" onclick="abrirCotItem(this.dataset.chave)" style="color:var(--gold);">${cotEsc(i.nome)}</a>`).join(' · ')}</div>`;
+    box.innerHTML = html;
+    return;
+  }
+
+  // Pagamentos do item por ano › mês (mais recente primeiro)
+  const lanc = [...sel.lanc].sort((a, b) => (b.data || '').localeCompare(a.data || '') || (b.id || 0) - (a.id || 0));
+  const anoDe = d => d.data ? d.data.slice(0, 4) : String(new Date().getFullYear());
+  const mesDe = d => d.data ? parseInt(d.data.slice(5, 7)) - 1 : MESES.indexOf(getMesDaCot(d));
+  const porAno = {};
+  lanc.forEach(d => { const a = anoDe(d), m = mesDe(d); ((porAno[a] = porAno[a] || {})[m] = porAno[a][m] || []).push(d); });
+  const meses = new Set(lanc.map(d => anoDe(d) + '-' + mesDe(d)));
+  const maior = lanc.reduce((m, d) => (!m || d.valor > m.valor ? d : m), null);
+  const dia = d => d.data ? `${d.data.slice(8, 10)}/${d.data.slice(5, 7)}` : MESES_LABEL[mesDe(d)];
+  const kpi = (rot, val, sub) => `<div class="kpi-card" style="padding:12px;"><div class="kpi-label">${rot}</div><div class="kpi-value" style="font-size:20px;">${val}</div>${sub ? `<div class="kpi-sub">${sub}</div>` : ''}</div>`;
+  const parecidos = itens.filter(i => i.chave !== sel.chave && cotChaveParecida(i.nome) === cotChaveParecida(sel.nome));
+
+  html += `<div class="cards-grid four" style="margin:14px 0;">
+    ${kpi('Total', fmtBRL(sel.total), `${lanc.length} pagamento${lanc.length > 1 ? 's' : ''}`)}
+    ${kpi('Média por pagamento', fmtBRL(sel.total / lanc.length))}
+    ${kpi('Média por mês', fmtBRL(sel.total / meses.size), `${meses.size} ${meses.size > 1 ? 'meses' : 'mês'} com ${cotEsc(sel.nome)}`)}
+    ${kpi('Maior pagamento', fmtBRL(maior.valor), dia(maior))}
+  </div>`;
+  if (parecidos.length) html += `<div style="font-size:12px;color:var(--gold);margin-bottom:12px;padding:10px;border:1px dashed var(--gold);border-radius:8px;display:flex;flex-direction:column;gap:8px;">
+    <span>✏️ Escrito parecido. Se for o mesmo item, junte tudo com um nome só:</span>
+    ${parecidos.map(p => `<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+      <a href="javascript:void 0" data-chave="${cotEsc(p.chave)}" onclick="abrirCotItem(this.dataset.chave)" style="color:var(--gold);font-weight:700;">${cotEsc(p.nome)}</a>
+      <span style="color:var(--muted);">${p.lanc.length}×, ${fmtBRL(p.total)}</span>
+      <button class="btn btn-outline" style="padding:4px 10px;font-size:11px;" data-de="${cotEsc(p.chave)}" data-para="${cotEsc(sel.chave)}" onclick="juntarCotItem(this.dataset.de, this.dataset.para)">Juntar com "${cotEsc(sel.nome)}"</button>
+    </div>`).join('')}
+  </div>`;
+
+  const maxMes = Math.max(...Object.values(porAno).flatMap(m => Object.values(m).map(l => l.reduce((s, d) => s + d.valor, 0))));
+  Object.keys(porAno).sort().reverse().forEach(ano => {
+    const doAno = Object.values(porAno[ano]).flat();
+    html += `<div style="display:flex;justify-content:space-between;align-items:baseline;margin:16px 0 8px;border-bottom:1px solid var(--border);padding-bottom:6px;">
+      <span style="font-family:'Cormorant Garamond',serif;font-size:22px;font-weight:700;color:var(--gold);">${ano}</span>
+      <span style="font-size:12px;color:var(--muted);">${doAno.length}× · <strong style="color:var(--text);">${fmtBRL(doAno.reduce((s, d) => s + d.valor, 0))}</strong></span></div>`;
+    Object.keys(porAno[ano]).map(Number).sort((a, b) => b - a).forEach(m => {
+      const l = porAno[ano][m];
+      const tot = l.reduce((s, d) => s + d.valor, 0);
+      html += `<details class="form-card" style="margin-bottom:8px;padding:10px 14px;" ${ano === Object.keys(porAno).sort().reverse()[0] && m === Math.max(...Object.keys(porAno[ano]).map(Number)) ? 'open' : ''}>
+        <summary style="cursor:pointer;display:flex;align-items:center;gap:10px;font-size:13px;">
+          <span style="width:84px;color:var(--text);font-weight:600;">${MESES_FULL[m]}</span>
+          <span style="flex:1;height:8px;background:rgba(255,255,255,0.06);border-radius:4px;overflow:hidden;"><span style="display:block;height:100%;width:${(tot / maxMes * 100).toFixed(1)}%;background:var(--gold);"></span></span>
+          <span style="white-space:nowrap;color:var(--muted);font-size:12px;">${l.length}×</span>
+          <strong style="white-space:nowrap;min-width:76px;text-align:right;">${fmtBRL(tot)}</strong>
+        </summary>
+        ${l.map(d => `<div style="display:flex;gap:10px;padding:5px 0;border-top:1px solid rgba(201,168,76,0.08);font-size:12px;">
+          <span style="width:46px;color:var(--muted);">${dia(d)}</span>
+          <span style="flex:1;min-width:0;color:var(--text);">${cotEsc(d.desc || '')}${d.origem === 'extrato' ? ' <span style="color:var(--muted);font-size:10px;">extrato</span>' : ''}</span>
+          <span style="white-space:nowrap;">${fmtBRL(d.valor)}</span></div>`).join('')}
+      </details>`;
+    });
+  });
+  box.innerHTML = html;
 }
 
 function renderCotidianoMensalReadOnly() {
@@ -6937,7 +7077,7 @@ function renderCotidianoCategorias() {
       <tbody>
         ${sortedAll.map(([cat,v])=>`
         <tr>
-          <td style="font-size:11px;"><span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:${catColor(cat)};margin-right:5px;vertical-align:middle;"></span>${cat}</td>
+          <td style="font-size:11px;"><span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:${catColor(cat)};margin-right:5px;vertical-align:middle;"></span><a href="javascript:void 0" onclick="abrirCotItem(cotChaveItem(this.dataset.cat))" data-cat="${cotEsc(cat)}" title="Ver todos os pagamentos" style="color:inherit;text-decoration:underline dotted;">${cat}</a></td>
           <td style="text-align:right;font-size:11px;color:var(--gold);">${v.mes>0?fmtBRL(v.mes):'—'}</td>
           <td style="text-align:right;font-size:11px;">${v.mes>0?pct(v.mes,totalMes):'—'}</td>
           <td style="text-align:right;font-size:11px;color:#27AE60;">${v.mes>0?pct(v.mes,fatMes):'—'}</td>
@@ -9960,6 +10100,16 @@ function enviarRelatorioIAWpp(alunoId, btn) {
 // O mesmo texto vira o cartão PNG em Documents\Projetos\Novidades dos Apps\Controle LRC
 // (gerador lê o JSON entre as marcas NOVIDADES-INICIO e NOVIDADES-FIM; mantenha JSON puro aqui).
 const NOVIDADES_LRC = /*NOVIDADES-INICIO*/[
+  {
+    "id": "2026-11-18-2",
+    "data": "18/11/2026",
+    "titulo": "Cotidiano por item",
+    "itens": [
+      { "icone": "🔎", "titulo": "Todos os pagamentos de um item", "texto": "Em Despesas › Gastos do Cotidiano › 🔎 Por Item: escolha Lanche, Almoço, Padaria… e veja o total, as médias e cada pagamento separado por ano e mês." },
+      { "icone": "🥧", "titulo": "Atalho pela Por Categoria", "texto": "Na aba Por Categoria, toque no nome de um item para abrir o histórico dele." },
+      { "icone": "🔗", "titulo": "Juntar nomes parecidos", "texto": "Item escrito de dois jeitos (como \"Encontros da Igreja\" e \"Encontro de Igreja\") aparece com o aviso ✏️ e o botão Juntar. Dá para desfazer logo depois." }
+    ]
+  },
   {
     "id": "2026-11-18",
     "data": "18/11/2026",
