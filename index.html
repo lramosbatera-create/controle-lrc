@@ -1503,6 +1503,9 @@ function saveState(opcoes) {
       lixeira: state.lixeira,
       previsoes: state.previsoes,
       conferencias: state.conferencias,
+      resumoSaldo: state.resumoSaldo,
+      regrasNome: state.regrasNome,
+      limitesItem: state.limitesItem,
       agenda: state.agenda,
       recital: state.recital,
       nextId: state.nextId,
@@ -1930,6 +1933,9 @@ async function dbLoad() {
         if (b.lixeira) state.lixeira = b.lixeira;
         if (b.previsoes) state.previsoes = b.previsoes;
         if (b.conferencias) state.conferencias = b.conferencias;
+      if (b.resumoSaldo) state.resumoSaldo = b.resumoSaldo;
+      if (b.regrasNome) state.regrasNome = b.regrasNome;
+      if (b.limitesItem) state.limitesItem = b.limitesItem;
       }
       if (!state.alunosEspeciais) state.alunosEspeciais = [];
       if (!state.parceladas) state.parceladas = [];
@@ -2182,8 +2188,19 @@ async function dbPushAll(silencioso) {
   } else setLoading(true);
   try {
     const atualizadoEm = Date.now();
+    // A2 (18/11/2026): o saldo de hoje (a mesma conta do Painel) vai junto, para o Obsidian mostrar
+    // o mesmo número em vez de refazer a conta. Só com o Instituto carregado; senão fica o último bom.
+    try {
+      if (pnbResumoMensal || pnbResumoAno) {
+        const r = realizadoAteHoje();
+        state.resumoSaldo = { saldo: Math.round(r.saldo * 100) / 100, receitas: Math.round(r.receitas), despesas: Math.round(r.despesas), quando: atualizadoEm };
+      }
+    } catch(e) { console.warn('resumo do saldo:', e); }
     const blob = {
       atualizadoEm,
+      resumoSaldo: state.resumoSaldo || null,
+      regrasNome: state.regrasNome || {},
+      limitesItem: state.limitesItem || {},
       shows:          state.shows          || [],
       despesas_fixas: state.despesas_fixas || [],
       gastos_inb:     state.gastos_inb     || [],
@@ -2275,6 +2292,9 @@ async function dbPullAll() {
       if (b.lixeira) state.lixeira = b.lixeira;
       if (b.previsoes) state.previsoes = b.previsoes;
       if (b.conferencias) state.conferencias = b.conferencias;
+      if (b.resumoSaldo) state.resumoSaldo = b.resumoSaldo;
+      if (b.regrasNome) state.regrasNome = b.regrasNome;
+      if (b.limitesItem) state.limitesItem = b.limitesItem;
       if (b.nextId)                 state.nextId         = b.nextId;
       if (b._migAlunosExcel26)        state._migAlunosExcel26        = b._migAlunosExcel26;
       if (b._migFixasExcel26)         state._migFixasExcel26         = b._migFixasExcel26;
@@ -6511,11 +6531,18 @@ function juntarCotItem(chaveDe, chavePara) {
   const itens = cotItensAgrupados();
   const de = itens.find(i => i.chave === chaveDe), para = itens.find(i => i.chave === chavePara);
   if (!de || !para || de === para) return;
+  // A3: o grupo do gasto sai do nome; avisa se o Juntar mudar o grupo (e o limite) desses valores.
+  const gDe = projGrupoGasto(de.nome, null, de.lanc[0]), gPara = projGrupoGasto(para.nome, null, para.lanc[0]);
+  const avisoGrupo = gDe !== gPara ? `\n\nAtenção: os ${fmtBRL(de.total)} passam do grupo ${projLabelGrupo(gDe)} para ${projLabelGrupo(gPara)} (e contam no limite dele).` : '';
   if (!confirm(`Juntar ${de.lanc.length} lançamento${de.lanc.length > 1 ? 's' : ''} de "${de.nome}" com "${para.nome}"?
 
-Eles passam a se chamar "${para.nome}". Valor, data e descrição não mudam. Dá para desfazer logo depois.`)) return;
+Eles passam a se chamar "${para.nome}". Valor, data e descrição não mudam. Os próximos lançamentos com o nome antigo já entram como "${para.nome}". Dá para desfazer logo depois ou em 🔗 Nomes juntados.${avisoGrupo}`)) return;
   const antes = de.lanc.map(d => ({ id: d.id, cat: d.cat }));
   de.lanc.forEach(d => { d.cat = para.nome; });
+  // B2: vira regra para os próximos (digitados, do Chat ou do extrato). Guarda os ids para desfazer depois.
+  state.regrasNome = state.regrasNome || {};
+  Object.values(state.regrasNome).forEach(rg => { if (cotChaveItem(rg.para) === de.chave) rg.para = para.nome; });
+  state.regrasNome[de.chave] = { de: de.nome, para: para.nome, antes, quando: new Date().toISOString().slice(0, 10) };
   window._ultimaJuncao = { antes, de: de.nome, para: para.nome, chave: para.chave };
   saveState();
   window._cotItemSel = para.chave;
@@ -6532,11 +6559,43 @@ function desfazerJuncaoCot() {
   if (!j) return;
   const porId = Object.fromEntries(j.antes.map(a => [a.id, a.cat]));
   (state.cotidiano || []).forEach(d => { if (d.id in porId) d.cat = porId[d.id]; });
+  if (state.regrasNome) delete state.regrasNome[cotChaveItem(j.de)];
   window._ultimaJuncao = null;
   saveState();
   renderCotidianoItem();
   const bar = document.getElementById('undo-bar'); if (bar) bar.style.display = 'none';
   toast('↩️ Desfeito: os nomes voltaram como eram');
+}
+
+// B2: nome lançado passa pela regra (Juntar). Usado no lançamento à mão, no Chat e no extrato.
+function cotNomeComRegra(nome) {
+  const rg = (state.regrasNome || {})[cotChaveItem(nome)];
+  return rg ? rg.para : nome;
+}
+// Apagar uma regra devolve o nome antigo aos lançamentos que foram juntados (se ainda estão com o novo).
+function apagarRegraNome(chave) {
+  const rg = (state.regrasNome || {})[chave];
+  if (!rg) return;
+  const ids = new Set((rg.antes || []).map(a => a.id));
+  const voltam = (state.cotidiano || []).filter(d => ids.has(d.id) && cotChaveItem(d.cat) === cotChaveItem(rg.para));
+  if (!confirm(`Apagar a regra "${rg.de}" → "${rg.para}"?\n\n${voltam.length} lançamento${voltam.length !== 1 ? 's voltam' : ' volta'} a se chamar "${rg.de}". Os próximos entram com o nome que você digitar.`)) return;
+  const porId = Object.fromEntries((rg.antes || []).map(a => [a.id, a.cat]));
+  voltam.forEach(d => { d.cat = porId[d.id]; });
+  delete state.regrasNome[chave];
+  saveState();
+  renderCotidianoItem();
+  toast(`↩️ Regra apagada: ${voltam.length} lançamento${voltam.length !== 1 ? 's voltaram' : ' voltou'} para "${rg.de}"`);
+}
+// B3: limite por mês de um item (como as metas por categoria do YNAB). Vazio = sem limite.
+function setLimiteItem(chave, valor) {
+  const v = parseFloat(String(valor).replace(',', '.'));
+  state.limitesItem = state.limitesItem || {};
+  if (v > 0) state.limitesItem[chave] = v; else delete state.limitesItem[chave];
+  saveState();
+  renderCotidianoItem();
+}
+function totalItemNoMes(chave, ano, mes) {
+  return (state.cotidiano || []).filter(d => cotChaveItem(d.cat) === chave && d.data && parseInt(d.data.slice(0, 4)) === ano && parseInt(d.data.slice(5, 7)) - 1 === mes).reduce((s, d) => s + (d.valor || 0), 0);
 }
 
 function renderCotidianoItem() {
@@ -6552,6 +6611,7 @@ function renderCotidianoItem() {
       ${itens.map(i => `<option value="${cotEsc(i.chave)}" ${sel && i.chave === sel.chave ? 'selected' : ''}>${cotEsc(i.nome)} · ${i.lanc.length}× · ${fmtBRL(i.total)}</option>`).join('')}
     </select></label>`;
   if (!sel) {
+    html += cotListaRegras();
     html += `<div style="font-size:12px;color:var(--muted);margin-top:12px;">Mais lançados: ${itens.slice(0, 8).map(i => `<a href="javascript:void 0" data-chave="${cotEsc(i.chave)}" onclick="abrirCotItem(this.dataset.chave)" style="color:var(--gold);">${cotEsc(i.nome)}</a>`).join(' · ')}</div>`;
     box.innerHTML = html;
     return;
@@ -6574,6 +6634,24 @@ function renderCotidianoItem() {
     ${kpi('Média por pagamento', fmtBRL(sel.total / lanc.length))}
     ${kpi('Média por mês', fmtBRL(sel.total / meses.size), `${meses.size} ${meses.size > 1 ? 'meses' : 'mês'} com ${cotEsc(sel.nome)}`)}
     ${kpi('Maior pagamento', fmtBRL(maior.valor), dia(maior))}
+  </div>`;
+  // B4 (18/11/2026): este mês × média dos meses anteriores com o item (como o Monarch por estabelecimento).
+  const hojeI = new Date(), anoI = hojeI.getFullYear(), mesI = hojeI.getMonth();
+  const noMes = totalItemNoMes(sel.chave, anoI, mesI);
+  const anteriores = [...meses].filter(k => k !== `${anoI}-${mesI}`);
+  const totAnt = lanc.filter(d => `${anoDe(d)}-${mesDe(d)}` !== `${anoI}-${mesI}`).reduce((s, d) => s + d.valor, 0);
+  const mediaAnt = anteriores.length ? totAnt / anteriores.length : 0;
+  const seta = !mediaAnt ? '' : noMes > mediaAnt * 1.05 ? '<span style="color:#E74C3C;">▲ acima da média</span>' : noMes < mediaAnt * 0.95 ? '<span style="color:var(--green);">▼ abaixo da média</span>' : '<span style="color:var(--muted);">● na média</span>';
+  // B3: limite por mês do item
+  const lim = (state.limitesItem || {})[sel.chave] || 0;
+  const pctLim = lim ? Math.round(noMes / lim * 100) : 0;
+  const corLim = pctLim >= 100 ? '#E74C3C' : pctLim >= 80 ? 'var(--gold)' : 'var(--green)';
+  html += `<div class="form-card" style="margin-bottom:12px;padding:12px 14px;display:flex;flex-direction:column;gap:8px;">
+    <div style="font-size:13px;color:var(--text);">${MESES_FULL[mesI]}: <strong>${fmtBRL(noMes)}</strong> até agora${mediaAnt ? ` · média dos outros meses ${fmtBRL(mediaAnt)} · ${seta}` : ''}</div>
+    ${lim ? `<div style="height:8px;background:rgba(255,255,255,0.06);border-radius:4px;overflow:hidden;"><div style="height:100%;width:${Math.min(100, pctLim)}%;background:${corLim};"></div></div>
+      <div style="font-size:11px;color:${corLim};">${pctLim}% do limite de ${fmtBRL(lim)} por mês${pctLim >= 100 ? ' · passou do limite' : pctLim >= 80 ? ' · perto do limite' : ''}</div>` : ''}
+    <label style="display:flex;align-items:center;gap:8px;font-size:11px;color:var(--muted);">Limite por mês R$
+      <input id="cot-item-limite" type="number" min="0" step="10" value="${lim || ''}" placeholder="sem limite" onchange="setLimiteItem(window._cotItemSel, this.value)" style="background:var(--card2);border:1px solid rgba(201,168,76,0.25);border-radius:6px;color:var(--text);padding:5px 8px;width:110px;font-family:inherit;font-size:12px;"></label>
   </div>`;
   if (parecidos.length) html += `<div style="font-size:12px;color:var(--gold);margin-bottom:12px;padding:10px;border:1px dashed var(--gold);border-radius:8px;display:flex;flex-direction:column;gap:8px;">
     <span>✏️ Escrito parecido. Se for o mesmo item, junte tudo com um nome só:</span>
@@ -6607,7 +6685,18 @@ function renderCotidianoItem() {
       </details>`;
     });
   });
+  html += cotListaRegras();
   box.innerHTML = html;
+}
+// B2: as regras de nome ficam listadas no fim da aba Por Item, com ✕ para desfazer a qualquer hora.
+function cotListaRegras() {
+  const regras = Object.entries(state.regrasNome || {});
+  if (!regras.length) return '';
+  return `<details style="margin-top:16px;font-size:12px;"><summary style="cursor:pointer;color:var(--gold);font-weight:700;">🔗 Nomes juntados (${regras.length})</summary>
+    ${regras.map(([k, rg]) => `<div style="display:flex;align-items:center;gap:8px;padding:6px 0;border-top:1px solid rgba(201,168,76,0.08);">
+      <span style="flex:1;">"${cotEsc(rg.de)}" → <strong>${cotEsc(rg.para)}</strong> <span style="color:var(--muted);font-size:10px;">desde ${rg.quando ? rg.quando.split('-').reverse().join('/') : ''}</span></span>
+      <button class="btn btn-outline" style="padding:3px 9px;font-size:11px;" data-chave="${cotEsc(k)}" onclick="apagarRegraNome(this.dataset.chave)">✕ Desfazer</button></div>`).join('')}
+  </details>`;
 }
 
 function renderCotidianoMensalReadOnly() {
@@ -6666,7 +6755,7 @@ function addCotidiano(mes) {
   const valor = parseFloat(valorEl?.value);
   if (!cat || !valor) { toast('⚠️ Preencha categoria e valor'); return; }
   const mesFinal = MESES[new Date(data+'T12:00:00').getMonth()];
-  const novo = {id: cotNextId++, data, cat, desc, mes: mesFinal, valor};
+  const novo = {id: cotNextId++, data, cat: cotNomeComRegra(cat), desc, mes: mesFinal, valor};
   state.cotidiano = state.cotidiano || [];
   state.cotidiano.push(novo);
   saveState();
@@ -7890,6 +7979,13 @@ function renderProjecoes() {
     ? `<div onclick="setProjVisao('limites',document.querySelector('#proj-visao-row .filter-btn:nth-child(4)'))" style="cursor:pointer;margin-bottom:14px;padding:10px 14px;border-radius:10px;border:1px solid rgba(192,57,43,0.4);background:var(--red-dim);font-size:12px;">
         ⚠️ ${estourando.map(([g, lim]) => `${projLabelGrupo(g)} em ${Math.round(desp[g].real[mesAtual] / lim * 100)}%`).join(' · ')} do limite de ${MESES_FULL[mesAtual]} — toque para ver</div>`
     : '';
+  // B3 (18/11/2026): itens do cotidiano com limite próprio, a partir de 80% no mês
+  const itensLim = Object.entries(state.limitesItem || {}).map(([k, lim]) => {
+    const it = cotItensAgrupados().find(i => i.chave === k);
+    return it ? [it, lim, totalItemNoMes(k, new Date().getFullYear(), mesAtual)] : null;
+  }).filter(x => x && x[2] >= x[1] * 0.8);
+  if (itensLim.length) $('proj-alerta-limites').innerHTML += itensLim.map(([it, lim, tot]) => `<div data-chave="${cotEsc(it.chave)}" onclick="showPage('despesas');abrirCotItem(this.dataset.chave)" style="cursor:pointer;margin-bottom:14px;padding:10px 14px;border-radius:10px;border:1px solid rgba(192,57,43,0.4);background:var(--red-dim);font-size:12px;">
+        ⚠️ ${cotEsc(it.nome)} em ${Math.round(tot / lim * 100)}% do limite de ${fmtBRL(lim)} em ${MESES_FULL[mesAtual]} — toque para ver</div>`).join('');
 
   const ehGrafico = ['receita', 'gastos', 'saldo'].includes(projVisao);
   $('proj-controles').style.display = ehGrafico ? 'block' : 'none';
@@ -8192,15 +8288,19 @@ const APELIDOS_FIXA = {
   'spotify': /\bspotify\b/,
 };
 const semAcento = t => projChaveNome(t).normalize('NFD').replace(/[̀-ͯ]/g, '');
+// A1 (vasculha pós-pacote 18/11/2026): conta já paga no mês com o mesmo valor (± R$ 1) também é
+// reconhecida, como `jaPaga` — é o mesmo extrato importado de novo e não pode virar gasto do dia a dia.
 function contaFixaDoExtrato(it, banco) {
   const desc = semAcento(it.desc || '');
   const mes = MESES[parseInt(it.data.slice(5, 7)) - 1];
   for (const d of (state.despesas_fixas || [])) {
     const nome = semAcento(d.nome);
     const pf = ((state.pagFixas || {})[d.nome] || {})[mes];
-    if (pf === true || pf > 0 || !fixaAtiva(d, MESES.indexOf(mes))) continue;
+    const paga = pf === true || pf > 0;
+    const jaPagaIgual = paga && pf !== true && Math.abs(pf - it.valor) <= 1;
+    if ((paga && !jaPagaIgual) || !fixaAtiva(d, MESES.indexOf(mes))) continue;
     const valor = parseFloat(d.valor) || 0;
-    if (!valor || Math.abs(it.valor - valor) > valor * 0.35) continue;
+    if (!jaPagaIgual && (!valor || Math.abs(it.valor - valor) > valor * 0.35)) continue;
     let bate;
     if (nome.startsWith('cartao ')) {
       const doCartao = nome.replace('cartao ', '');
@@ -8210,7 +8310,7 @@ function contaFixaDoExtrato(it, banco) {
       const apelido = Object.entries(APELIDOS_FIXA).find(([k]) => nome.includes(k));
       bate = desc.includes(nome) || (apelido && apelido[1].test(desc));
     }
-    if (bate) return { nome: d.nome, mes };
+    if (bate) return { nome: d.nome, mes, jaPaga: jaPagaIgual };
   }
   return null;
 }
@@ -8230,8 +8330,8 @@ function montarPreviaExtrato(texto, nomeArquivo) {
     const duplicado = existentes.has(`${it.data}|${Math.round(it.valor * 100)}`);
     const fixa = !foraDoAno && !duplicado ? contaFixaDoExtrato(it, banco) : null;
     // Conta fixa reconhecida: não entra no dia a dia (contaria em dobro) e vira "marcar como paga".
-    return {...it, grupo: projGrupoGasto(it.desc), fixa, marcarFixa: !!fixa, marcado: !fixa && !foraDoAno && !duplicado && !ignorar.test(it.desc),
-      aviso: fixa ? `conta fixa: ${fixa.nome}` : foraDoAno ? `fora de ${ano}` : duplicado ? 'já lançado' : ignorar.test(it.desc) ? 'fatura/transferência' : ''};
+    return {...it, grupo: projGrupoGasto(it.desc), fixa, marcarFixa: !!fixa && !fixa.jaPaga, marcado: !fixa && !foraDoAno && !duplicado && !ignorar.test(it.desc),
+      aviso: fixa ? (fixa.jaPaga ? `já paga como conta fixa: ${fixa.nome}` : `conta fixa: ${fixa.nome}`) : foraDoAno ? `fora de ${ano}` : duplicado ? 'já lançado' : ignorar.test(it.desc) ? 'fatura/transferência' : ''};
   });
   renderPreviaExtrato();
 }
@@ -8244,7 +8344,7 @@ function renderPreviaExtrato() {
   const resumidos = (state.cotidiano || []).filter(d => projChaveNome(d.cat) === projChaveNome('Saídas ' + banco) && meses.includes(getMesDaCot(d)));
   const opcoes = sel => PROJ_GRUPOS_GASTO.filter(g => g.id !== 'inb').map(g => `<option value="${g.id}" ${g.id === sel ? 'selected' : ''}>${g.label}</option>`).join('');
   const marcados = extratoPrevia.filter(i => i.marcado);
-  const fixas = extratoPrevia.map((it, i) => [it, i]).filter(([it]) => it.fixa);
+  const fixas = extratoPrevia.map((it, i) => [it, i]).filter(([it]) => it.fixa && !it.fixa.jaPaga);
   box.innerHTML = `
     <div style="font-size:12px;margin:10px 0;">${extratoPrevia.length} saídas no arquivo · <strong style="color:var(--gold)">${marcados.length} marcadas = ${fmtBRL(marcados.reduce((s, i) => s + i.valor, 0))}</strong></div>
     ${fixas.length ? `<div style="padding:10px;border:1px solid var(--gold);border-radius:8px;margin-bottom:10px;">
@@ -8273,7 +8373,7 @@ function renderPreviaExtrato() {
 function importarExtrato() {
   const banco = document.getElementById('extrato-banco').value;
   const marcados = extratoPrevia.filter(i => i.marcado);
-  const fixasPagas = extratoPrevia.filter(i => i.fixa && i.marcarFixa);
+  const fixasPagas = extratoPrevia.filter(i => i.fixa && !i.fixa.jaPaga && i.marcarFixa);
   if (!marcados.length && !fixasPagas.length) { toast('⚠️ Nenhum lançamento marcado'); return; }
   // B2: contas fixas reconhecidas viram pagas no mês delas, com o valor do extrato.
   fixasPagas.forEach(it => { state.pagFixas = state.pagFixas || {}; (state.pagFixas[it.fixa.nome] = state.pagFixas[it.fixa.nome] || {})[it.fixa.mes] = it.valor; });
@@ -8287,7 +8387,7 @@ function importarExtrato() {
   }
   marcados.forEach(it => {
     const sugerido = projGrupoGasto(it.desc);
-    state.cotidiano.push({id: cotNextId++, data: it.data, cat: it.desc, desc: 'Extrato ' + banco, mes: MESES[parseInt(it.data.slice(5, 7)) - 1], valor: it.valor, grupo: it.grupo, origem: 'extrato'});
+    state.cotidiano.push({id: cotNextId++, data: it.data, cat: cotNomeComRegra(it.desc), desc: 'Extrato ' + banco, mes: MESES[parseInt(it.data.slice(5, 7)) - 1], valor: it.valor, grupo: it.grupo, origem: 'extrato'});
     if (it.grupo !== sugerido) (state.regrasCategoria = state.regrasCategoria || {})[projChaveNome(it.desc)] = it.grupo;
   });
   saveState();
@@ -8519,7 +8619,7 @@ function renderConferir() {
     const dif = ult.total - ult.app;
     res = `<div style="font-size:12px;color:var(--muted);margin-top:10px;line-height:1.6;">Última conferência: ${new Date(ult.data + 'T12:00').toLocaleDateString('pt-BR')} · bancos ${fmtBRL(ult.total)} · app ${fmtBRL(ult.app)}<br>
       ${Math.abs(dif) < 1 ? '<span style="color:var(--green)">✓ Bateu com o app.</span>' : dif < 0
-        ? `<span style="color:#E74C3C">No banco tem ${fmtBRL(-dif)} a menos que no app: pode ter gasto que não foi lançado.</span>`
+        ? `<span style="color:#E74C3C">No banco tem ${fmtBRL(-dif)} a menos que no app: pode ter gasto que não foi lançado.</span>${ult.lancado ? `<br><span style="color:var(--green)">✓ Diferença lançada em "Outros" em ${new Date(ult.lancado + 'T12:00').toLocaleDateString('pt-BR')}.</span>` : `<br><button class="btn btn-outline" style="margin-top:6px;padding:5px 12px;font-size:12px;" onclick="lancarDiferencaOutros()">Lançar ${fmtBRL(-dif)} em "Outros" (gasto esquecido)</button>`}`
         : `<span style="color:var(--gold)">No banco tem ${fmtBRL(dif)} a mais que no app: pode ter entrada que não foi lançada.</span>`}</div>`;
   }
   // B1 (18/11/2026): passou de 7 dias sem conferir, o cartão abre sozinho com o lembrete (como a
@@ -8535,6 +8635,23 @@ function renderConferir() {
     <button class="btn btn-gold" style="margin-top:10px;font-size:12px;padding:8px 16px;" onclick="conferirSaldo()">Conferir</button>
     ${res}</details>`;
 }
+// B1 (18/11/2026): a diferença "banco menor que o app" vira um lançamento em Outros, do jeito que o
+// Leandro já faz com gasto esquecido. Uma vez por conferência.
+function lancarDiferencaOutros() {
+  const ult = (state.conferencias || [])[0];
+  if (!ult || ult.lancado) return;
+  const dif = Math.round((ult.app - ult.total) * 100) / 100;
+  if (dif <= 0) return;
+  if (!confirm(`Lançar ${fmtBRL(dif)} em "Outros" (gasto esquecido), com data de hoje?\n\nAssim o saldo do app fica igual ao do banco. Dá para apagar depois no Cotidiano.`)) return;
+  const hoje = new Date().toISOString().slice(0, 10);
+  state.cotidiano = state.cotidiano || [];
+  state.cotidiano.push({id: cotNextId++, data: hoje, cat: 'Outros', desc: `Diferença da conferência com o banco (${new Date(ult.data + 'T12:00').toLocaleDateString('pt-BR')})`, mes: MESES[new Date().getMonth()], valor: dif});
+  ult.lancado = hoje;
+  saveState();
+  try { atualizarTelas(); } catch(e) { try { updatePainel(); } catch(e2) {} }
+  toast(`✓ ${fmtBRL(dif)} lançados em Outros`);
+}
+
 function conferirSaldo() {
   const num = id => parseFloat((document.getElementById('conf-' + id)?.value || '').replace(/\./g, '').replace(',', '.')) || 0;
   const contas = {nubank: num('nubank'), itau: num('itau'), dinheiro: num('dinheiro')};
@@ -8886,7 +9003,7 @@ async function executarAcao(parsed) {
       addMessage(parsed.confirmacao, 'success');
     } else {
       state.cotidiano = state.cotidiano || [];
-      state.cotidiano.push({id: cotNextId++, data, cat: parsed.nome || 'Outros', desc: '', mes: parsed.mes, valor: parsed.valor});
+      state.cotidiano.push({id: cotNextId++, data, cat: cotNomeComRegra(parsed.nome || 'Outros'), desc: '', mes: parsed.mes, valor: parsed.valor});
       saveState();
       addMessage(parsed.confirmacao + (parsed.categoria === 'fixa' ? ' (lancei no Cotidiano: não achei uma despesa fixa com esse nome)' : ''), 'success');
     }
@@ -10100,6 +10217,19 @@ function enviarRelatorioIAWpp(alunoId, btn) {
 // O mesmo texto vira o cartão PNG em Documents\Projetos\Novidades dos Apps\Controle LRC
 // (gerador lê o JSON entre as marcas NOVIDADES-INICIO e NOVIDADES-FIM; mantenha JSON puro aqui).
 const NOVIDADES_LRC = /*NOVIDADES-INICIO*/[
+  {
+    "id": "2026-11-18-3",
+    "data": "18/11/2026",
+    "titulo": "Extrato sem dobra, limite por item e nomes juntados",
+    "itens": [
+      { "icone": "🧾", "titulo": "Extrato importado de novo não dobra", "texto": "Se o mesmo extrato for importado outra vez, a conta fixa já paga é reconhecida e não entra como gasto do dia a dia." },
+      { "icone": "🏦", "titulo": "Diferença do banco em Outros", "texto": "Na conferência com o banco, um toque lança a diferença em Outros (gasto esquecido), e o saldo fica igual ao do banco." },
+      { "icone": "🔗", "titulo": "Nomes juntados viram regra", "texto": "Depois do Juntar, o nome antigo já entra com o nome novo nos próximos lançamentos. A lista 🔗 Nomes juntados, em Por Item, desfaz quando quiser." },
+      { "icone": "🎯", "titulo": "Limite por item", "texto": "Em Por Item, ponha um limite por mês (ex.: Lanche até R$ 300). A partir de 80%, Projeções avisa." },
+      { "icone": "📈", "titulo": "Este mês × média", "texto": "No topo do item: quanto foi neste mês e a média dos outros meses, com a seta subindo ou descendo." },
+      { "icone": "📓", "titulo": "Obsidian com o mesmo saldo", "texto": "A nota Financeiro Pessoal mostra o saldo do Painel, e não mais uma conta própria." }
+    ]
+  },
   {
     "id": "2026-11-18-2",
     "data": "18/11/2026",
