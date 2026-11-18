@@ -8634,16 +8634,29 @@ function renderFechamentoAviso() {
 
 // ============ B6 (30/10/2026): conferir com o saldo do banco ============
 // Só mostra a diferença: não lança nada e não mexe em "Outros".
+// Conferência feita HOJE compara com o saldo do app AGORA (18/11/2026): quem lança um gasto esquecido
+// depois de conferir vê a diferença cair na hora, e o botão de Outros lança só o que ainda falta.
+// Conferência de outro dia fica com o número daquele dia (o banco já mudou desde então).
+function difConferencia(c) {
+  const hoje = new Date().toISOString().slice(0, 10);
+  const app = c.data === hoje && window._saldoApp != null ? window._saldoApp : c.app;
+  return { app, dif: Math.round((c.total - app) * 100) / 100, aoVivo: app !== c.app };
+}
 function renderConferir() {
   const el = document.getElementById('painel-conferir');
   if (!el) return;
+  // Uma conferência por dia (as repetidas do mesmo dia, de antes da v29, ficam só na primeira).
+  if (state.conferencias && state.conferencias.length) {
+    const vistos = new Set();
+    state.conferencias = state.conferencias.filter(c => !vistos.has(c.data) && vistos.add(c.data));
+  }
   const ult = (state.conferencias || [])[0];
   const s = 'background:var(--card2);border:1px solid rgba(201,168,76,0.25);border-radius:8px;color:var(--text);font-family:inherit;font-size:13px;padding:8px;outline:none;width:100%;box-sizing:border-box;';
   const campo = (id, rot) => `<label style="font-size:10px;color:var(--muted);letter-spacing:1px;text-transform:uppercase;">${rot}<input id="conf-${id}" inputmode="decimal" placeholder="0,00" value="${ult && ult.contas[id] ? String(ult.contas[id]).replace('.', ',') : ''}" style="${s}margin-top:4px;"></label>`;
   let res = '';
   if (ult) {
-    const dif = ult.total - ult.app;
-    res = `<div style="font-size:12px;color:var(--muted);margin-top:10px;line-height:1.6;">Última conferência: ${new Date(ult.data + 'T12:00').toLocaleDateString('pt-BR')} · bancos ${fmtBRL(ult.total)} · app ${fmtBRL(ult.app)}<br>
+    const { app: appAgora, dif, aoVivo } = difConferencia(ult);
+    res = `<div style="font-size:12px;color:var(--muted);margin-top:10px;line-height:1.6;">Última conferência: ${new Date(ult.data + 'T12:00').toLocaleDateString('pt-BR')} · bancos ${fmtBRL(ult.total)} · app ${aoVivo ? `${fmtBRL(ult.app)} na hora, <strong style="color:var(--text)">${fmtBRL(appAgora)} agora</strong>` : fmtBRL(ult.app)}<br>
       ${Math.abs(dif) < 1 ? '<span style="color:var(--green)">✓ Bateu com o app.</span>' : dif < 0
         ? `<span style="color:#E74C3C">No banco tem ${fmtBRL(-dif)} a menos que no app: pode ter gasto que não foi lançado.</span>${ult.lancado ? `<br><span style="color:var(--green)">✓ Diferença lançada em "Outros" em ${new Date(ult.lancado + 'T12:00').toLocaleDateString('pt-BR')}.</span>` : `<br><button class="btn btn-outline" style="margin-top:6px;padding:5px 12px;font-size:12px;" onclick="lancarDiferencaOutros()">Lançar ${fmtBRL(-dif)} em "Outros" (gasto esquecido)</button>`}`
         : `<span style="color:var(--gold)">No banco tem ${fmtBRL(dif)} a mais que no app: pode ter entrada que não foi lançada.</span>`}</div>`;
@@ -8667,13 +8680,13 @@ function historicoConferencias() {
   const lista = state.conferencias || [];
   if (lista.length < 2) return '';
   const linhas = lista.map((c, i) => {
-    const dif = c.total - c.app;
+    const { dif, app: appC } = difConferencia(c);
     const ant = lista[i + 1];
     const seta = ant ? (Math.abs(dif) < Math.abs(ant.total - ant.app) - 1 ? ' <span style="color:var(--green)">↓ menor</span>' : Math.abs(dif) > Math.abs(ant.total - ant.app) + 1 ? ' <span style="color:#E74C3C">↑ maior</span>' : '') : '';
     const corDif = Math.abs(dif) < 1 ? 'var(--green)' : dif < 0 ? '#E74C3C' : 'var(--gold)';
     return `<div style="display:flex;flex-wrap:wrap;gap:2px 10px;align-items:baseline;padding:6px 0;border-top:1px solid rgba(201,168,76,0.12);font-size:12px;">
       <strong style="min-width:44px;">${c.data.slice(8, 10)}/${c.data.slice(5, 7)}</strong>
-      <span style="color:var(--muted);">banco ${fmtBRL(c.total)} · app ${fmtBRL(c.app)}</span>
+      <span style="color:var(--muted);">banco ${fmtBRL(c.total)} · app ${fmtBRL(appC)}</span>
       <span style="color:${corDif};font-weight:600;">${Math.abs(dif) < 1 ? '✓ bateu' : (dif < 0 ? '−' : '+') + fmtBRL(Math.abs(dif))}${seta}${c.lancado ? ' <span style="color:var(--green);font-weight:400;">· lançada em Outros</span>' : ''}</span></div>`;
   }).join('');
   return `<details style="margin-top:10px;"><summary style="font-size:12px;color:var(--muted);cursor:pointer;">📜 Histórico das conferências (${lista.length})</summary>
@@ -8684,7 +8697,7 @@ function historicoConferencias() {
 function lancarDiferencaOutros() {
   const ult = (state.conferencias || [])[0];
   if (!ult || ult.lancado) return;
-  const dif = Math.round((ult.app - ult.total) * 100) / 100;
+  const dif = -difConferencia(ult).dif;
   if (dif <= 0) return;
   if (!confirm(`Lançar ${fmtBRL(dif)} em "Outros" (gasto esquecido), com data de hoje?\n\nAssim o saldo do app fica igual ao do banco. Dá para apagar depois no Cotidiano.`)) return;
   const hoje = new Date().toISOString().slice(0, 10);
@@ -10314,6 +10327,7 @@ const NOVIDADES_LRC = /*NOVIDADES-INICIO*/[
     "itens": [
       { "icone": "💬", "titulo": "Pergunte ao Chat", "texto": "No celular: \"quanto gastei com lanche?\" ou \"qual a média de almoço?\". A resposta vem dos seus lançamentos: mês, ano, média e último pagamento." },
       { "icone": "📜", "titulo": "Histórico das conferências", "texto": "No cartão do banco, cada conferência numa linha, com a seta mostrando se a diferença diminuiu." },
+      { "icone": "🔄", "titulo": "Diferença do banco na hora", "texto": "Lançou um gasto esquecido depois de conferir? A diferença do dia cai na mesma hora, e o botão de Outros lança só o que ainda falta." },
       { "icone": "🧾", "titulo": "Parcelas com um número só", "texto": "A aba Despesas mostra as parcelas pagas em 2026, igual ao Painel. O que foi pago em outros anos aparece embaixo." },
       { "icone": "🎯", "titulo": "Limite não some no Juntar", "texto": "Ao juntar dois nomes, o limite do item passa para o nome que fica." },
       { "icone": "📓", "titulo": "Saldo do mês no Obsidian", "texto": "A nota Financeiro Pessoal mostra também o saldo do mês com a mesma conta do Painel." }
