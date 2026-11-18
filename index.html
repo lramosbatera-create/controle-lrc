@@ -722,6 +722,7 @@
   <!-- B1/B2/B6 (vasculha 30/10/2026): fechamento, contas do mês e conferir com o banco -->
   <div id="painel-fechamento"></div>
   <div id="painel-contas"></div>
+  <div id="painel-dias-vazios"></div>
   <div id="painel-conferir"></div>
   <div id="painel-meta-jan"></div>
 
@@ -1506,6 +1507,7 @@ function saveState(opcoes) {
       resumoSaldo: state.resumoSaldo,
       regrasNome: state.regrasNome,
       limitesItem: state.limitesItem,
+      diasSemGasto: state.diasSemGasto,
       agenda: state.agenda,
       recital: state.recital,
       nextId: state.nextId,
@@ -1659,6 +1661,12 @@ function wrapSave(fn) {
 }
 
 // ============ DATA ============
+// A1 (vasculha 18/11/2026): "hoje" no horário do aparelho (Brasília). toISOString() é o horário de
+// Londres: depois das 21h já dava o dia seguinte (e, no último dia do mês, o mês seguinte).
+function hojeISO(d) {
+  d = d || new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+}
 const MESES = ['jan','fev','mar','abr','mai','jun','jul','ago','set','out','nov','dez'];
 const MESES_LABEL = ['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez'];
 // Saldo de partida em 01/01 — calibrado (ver comentário em updatePainel()).
@@ -1860,7 +1868,7 @@ let state = {
 // B5 (30/10/2026): além do full_state, uma cópia por dia (backup_AAAA-MM-DD),
 // guardando as 7 mais recentes. Restaurar: menu da nuvem → 💾 Cópias de segurança.
 async function salvarCopiaDoDia(blob) {
-  const dia = new Date().toISOString().slice(0, 10);
+  const dia = hojeISO();
   await sb.from('app_meta').upsert({key: 'backup_' + dia, value: blob});
   if (window._copiasLimpas) return;
   window._copiasLimpas = true;
@@ -1940,6 +1948,7 @@ async function dbLoad() {
       if (b.resumoSaldo) state.resumoSaldo = b.resumoSaldo;
       if (b.regrasNome) state.regrasNome = b.regrasNome;
       if (b.limitesItem) state.limitesItem = b.limitesItem;
+      if (b.diasSemGasto) state.diasSemGasto = b.diasSemGasto;
       }
       if (!state.alunosEspeciais) state.alunosEspeciais = [];
       if (!state.parceladas) state.parceladas = [];
@@ -1947,6 +1956,7 @@ async function dbLoad() {
       if (!state.atividades) state.atividades = { conteudo: [], exercicios: [], musicas: [] };
       migrateCotidianoCompleto2026();
       migrateCotidianoMaiJun();
+      try { migrarVasculha1811(); } catch(e) { console.warn(e); }
       saveState();
       setLoading(false);
       return;
@@ -2083,7 +2093,7 @@ function exportBackup() {
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `lrc-backup-${new Date().toISOString().slice(0,10)}.json`;
+    a.download = `lrc-backup-${hojeISO()}.json`;
     a.click();
     URL.revokeObjectURL(url);
     toast('✓ Backup exportado!');
@@ -2199,6 +2209,9 @@ async function dbPushAll(silencioso) {
         const r = realizadoAteHoje();
         state.resumoSaldo = { saldo: Math.round(r.saldo * 100) / 100, receitas: Math.round(r.receitas), despesas: Math.round(r.despesas), quando: atualizadoEm,
           mes: { ano: new Date().getFullYear(), mes: r.mes.mes, receitas: Math.round(r.mes.receitas * 100) / 100, despesas: Math.round(r.mes.despesas * 100) / 100, saldo: Math.round(r.mes.saldo * 100) / 100 } };
+        // B4 (vasculha 18/11/2026): a última conferência com o banco vai junto (a nota do Obsidian mostra).
+        const uc = (state.conferencias || [])[0];
+        if (uc) state.resumoSaldo.conf = { data: uc.data, banco: uc.total, dif: difConferencia(uc).dif };
       }
     } catch(e) { console.warn('resumo do saldo:', e); }
     const blob = {
@@ -2206,6 +2219,7 @@ async function dbPushAll(silencioso) {
       resumoSaldo: state.resumoSaldo || null,
       regrasNome: state.regrasNome || {},
       limitesItem: state.limitesItem || {},
+      diasSemGasto: state.diasSemGasto || [],
       shows:          state.shows          || [],
       despesas_fixas: state.despesas_fixas || [],
       gastos_inb:     state.gastos_inb     || [],
@@ -2300,6 +2314,7 @@ async function dbPullAll() {
       if (b.resumoSaldo) state.resumoSaldo = b.resumoSaldo;
       if (b.regrasNome) state.regrasNome = b.regrasNome;
       if (b.limitesItem) state.limitesItem = b.limitesItem;
+      if (b.diasSemGasto) state.diasSemGasto = b.diasSemGasto;
       if (b.nextId)                 state.nextId         = b.nextId;
       if (b._migAlunosExcel26)        state._migAlunosExcel26        = b._migAlunosExcel26;
       if (b._migFixasExcel26)         state._migFixasExcel26         = b._migFixasExcel26;
@@ -2315,6 +2330,7 @@ async function dbPullAll() {
     nuvemMarcarVersao(meta.data?.value?.atualizadoEm || 1);
     try { migrarChatOutrosMai(); } catch(e) {}
     try { migrarIdsCotidiano(); } catch(e) {}
+    try { migrarVasculha1811(); } catch(e) { console.warn(e); }
     sincronizarContadores();
     autoSavePausado = false;
     // A1 (18/11/2026): guarda só aqui. A nuvem já tem estes dados; este aparelho só envia de novo
@@ -5296,9 +5312,10 @@ function calcDespesasKPIs() {
   // A3 (18/11/2026): a mesma conta do Painel (só parcelas pagas deste ano, dentro do período).
   // O que foi pago em outros anos aparece embaixo, em letra pequena.
   const totalParc  = parcPagasNoAno(new Date().getFullYear());
-  const parcOutros = Math.max(0, (state.parceladas||[]).reduce((s,p)=>s+parcPagas(p)*p.valorParcela,0) - totalParc);
+  const anoP = new Date().getFullYear();
+  const parcOutros = (state.parceladas||[]).reduce((s,p)=>s+(p.pagos||[]).filter(k=>parseInt(k.split('/')[1])<anoP).length*p.valorParcela,0);
   const subParc = document.getElementById('desp-kpi-parc-sub');
-  if (subParc) subParc.textContent = `pagas em ${new Date().getFullYear()}` + (parcOutros >= 1 ? ` · + ${fmtBRL(parcOutros)} fora de ${new Date().getFullYear()}` : '');
+  if (subParc) subParc.textContent = `pagas em ${new Date().getFullYear()}` + (parcOutros >= 1 ? ` · + ${fmtBRL(parcOutros)} pagos antes de ${anoP}` : '');
   const totalINB   = state.gastos_inb.reduce((s,d)=>s+d.valor,0);
   const totalNB    = state.gastos_nb.reduce((s,d)=>s+d.valor,0);
   const totalCot   = (state.cotidiano||[]).reduce((s,d)=>s+d.valor,0);
@@ -6234,6 +6251,22 @@ function migrateCotidianoCompleto2026() {
 // (ids 146–151, lançados em 14/06) ficaram com categoria "Outros" e o nome
 // real só na descrição. O nome vira a categoria (Almoço/Lanche → Alimentação,
 // Passagem de Ônibus → Transporte). Roda uma vez; a marca vai pra nuvem.
+
+// Vasculha 18/11/2026 (aprovado por Leandro), roda sempre e só mexe se ainda estiver errado:
+// · A4 Receita Federal: 1ª parcela em 04/08/2026, 12 parcelas → até jul/2027 (estava ago/2027 = 13).
+//   A marca "jul/2026" era engano (nunca contou: fora do período) e sai. O saldo não muda.
+// · A2 a conferência de 18/11 (feita antes do `cotIdAte`): o Cotidiano ia até o id 594 naquela hora.
+function migrarVasculha1811() {
+  let mudou = false;
+  (state.parceladas || []).forEach(p => {
+    if (p.nome === 'Receita Federal' && p.inicio === 'ago' && p.anoInicio === 2026) {
+      if (p.fim === 'ago' && p.anoFim === 2027) { p.fim = 'jul'; mudou = true; }
+      if ((p.pagos || []).includes('jul/2026')) { p.pagos = p.pagos.filter(x => x !== 'jul/2026'); mudou = true; }
+    }
+  });
+  (state.conferencias || []).forEach(c => { if (c.data === '2026-11-18' && c.cotIdAte == null) { c.cotIdAte = 595; mudou = true; } });
+  if (mudou) saveState();
+}
 function migrarChatOutrosMai() {
   if (state._migChatOutrosMai || !state.cotidiano) return;
   let n = 0;
@@ -6565,7 +6598,7 @@ Eles passam a se chamar "${para.nome}". Valor, data e descrição não mudam. Os
   // B2: vira regra para os próximos (digitados, do Chat ou do extrato). Guarda os ids para desfazer depois.
   state.regrasNome = state.regrasNome || {};
   Object.values(state.regrasNome).forEach(rg => { if (cotChaveItem(rg.para) === de.chave) rg.para = para.nome; });
-  state.regrasNome[de.chave] = { de: de.nome, para: para.nome, antes, quando: new Date().toISOString().slice(0, 10) };
+  state.regrasNome[de.chave] = { de: de.nome, para: para.nome, antes, quando: hojeISO() };
   // A2 (18/11/2026): o nome que fica não pode ser desviado (juntar de volta), e nenhuma regra aponta para ela mesma.
   delete state.regrasNome[para.chave];
   Object.keys(state.regrasNome).forEach(k => { if (cotChaveItem(state.regrasNome[k].para) === k) delete state.regrasNome[k]; });
@@ -6777,13 +6810,13 @@ function addCotidiano(mes) {
   const catEl   = document.getElementById(`cot-cat-${mes}`);
   const descEl  = document.getElementById(`cot-desc-${mes}`);
   const valorEl = document.getElementById(`cot-valor-${mes}`);
-  const data  = dataEl?.value  || new Date().toISOString().split('T')[0];
+  const data  = dataEl?.value  || hojeISO();
   const cat   = catEl?.value;
   const desc  = descEl?.value.trim() || '';
   const valor = parseFloat(valorEl?.value);
   if (!cat || !valor) { toast('⚠️ Preencha categoria e valor'); return; }
   const mesFinal = MESES[new Date(data+'T12:00:00').getMonth()];
-  const novo = {id: cotNextId++, data, cat: cotNomeComRegra(cat), desc, mes: mesFinal, valor};
+  const novo = {id: cotNextId++, data, cat: cotNomeComRegra(cat), desc, mes: mesFinal, valor, criado: hojeISO()};
   state.cotidiano = state.cotidiano || [];
   state.cotidiano.push(novo);
   saveState();
@@ -7831,7 +7864,7 @@ function guardarMetaJan() {
   const v = parseFloat(String(el?.value || '').replace(',', '.'));
   if (!(v > 0)) { toast('⚠️ Digite quanto você guardou'); return; }
   const obs = (document.getElementById('meta-jan-obs')?.value || '').trim();
-  metaJan().depositos.push({data: new Date().toISOString().slice(0, 10), valor: v, obs});
+  metaJan().depositos.push({data: hojeISO(), valor: v, obs});
   saveState();
   toast(`✓ ${fmtBRL(v)} guardados na Meta Janeiro`);
   renderProjecoes();
@@ -8351,15 +8384,31 @@ function montarPreviaExtrato(texto, nomeArquivo) {
   const banco = /nubank|nu pagamentos|nu financeira/.test(ref) ? 'Nubank' : /ita[uú]/.test(ref) ? 'Itaú' : (document.getElementById('extrato-banco').value || 'Nubank');
   document.getElementById('extrato-banco').value = banco;
   const ano = new Date().getFullYear();
-  const existentes = new Set((state.cotidiano || []).map(d => `${d.data}|${Math.round((d.valor || 0) * 100)}`));
+  // B2 (vasculha 18/11/2026): conciliação como a do YNAB. Uma saída do banco "já está no app" se houver
+  // lançamento do Cotidiano com o mesmo valor até 2 dias de distância, uma parcela paga no mês com o
+  // mesmo valor ou um Gasto NB do mês com o mesmo valor. Cada lançamento do app casa com uma saída só.
+  const usados = new Set();
+  const noApp = it => {
+    const t = new Date(it.data + 'T12:00').getTime(), cent = Math.round(it.valor * 100);
+    const c = (state.cotidiano || []).find(d => !usados.has('c' + d.id) && d.data && Math.round((d.valor || 0) * 100) === cent && Math.abs(new Date(d.data + 'T12:00').getTime() - t) <= 2 * 864e5);
+    if (c) { usados.add('c' + c.id); return `já lançado: ${c.cat} ${c.data.slice(8, 10)}/${c.data.slice(5, 7)}`; }
+    const mesAno = MESES[parseInt(it.data.slice(5, 7)) - 1] + '/' + it.data.slice(0, 4);
+    const p = (state.parceladas || []).find(x => !usados.has('p' + x.id + mesAno) && Math.round(x.valorParcela * 100) === cent && (x.pagos || []).includes(mesAno));
+    if (p) { usados.add('p' + p.id + mesAno); return `já lançado: parcela ${p.nome}`; }
+    const nb = (state.gastos_nb || []).find((x, i) => !usados.has('n' + i) && Math.round((x.valor || 0) * 100) === cent && x.mes === MESES[parseInt(it.data.slice(5, 7)) - 1]);
+    if (nb) { usados.add('n' + state.gastos_nb.indexOf(nb)); return `já lançado: Gasto NB ${nb.nome}`; }
+    return '';
+  };
+  const existentes = { has: () => false };
   const ignorar = /pagamento (de )?fatura|pagamento recebido|transfer[eê]ncia (enviada|para).*(mesma titularidade)|aplica[cç][aã]o|resgate|pagamento efetuado/i;
   extratoPrevia = itens.map(it => {
     const foraDoAno = !it.data.startsWith(String(ano));
-    const duplicado = existentes.has(`${it.data}|${Math.round(it.valor * 100)}`);
+    const jaNoApp = foraDoAno ? '' : noApp(it);
+    const duplicado = !!jaNoApp;
     const fixa = !foraDoAno && !duplicado ? contaFixaDoExtrato(it, banco) : null;
     // Conta fixa reconhecida: não entra no dia a dia (contaria em dobro) e vira "marcar como paga".
     return {...it, grupo: projGrupoGasto(it.desc), fixa, marcarFixa: !!fixa && !fixa.jaPaga, marcado: !fixa && !foraDoAno && !duplicado && !ignorar.test(it.desc),
-      aviso: fixa ? (fixa.jaPaga ? `já paga como conta fixa: ${fixa.nome}` : `conta fixa: ${fixa.nome}`) : foraDoAno ? `fora de ${ano}` : duplicado ? 'já lançado' : ignorar.test(it.desc) ? 'fatura/transferência' : ''};
+      aviso: fixa ? (fixa.jaPaga ? `já paga como conta fixa: ${fixa.nome}` : `conta fixa: ${fixa.nome}`) : foraDoAno ? `fora de ${ano}` : duplicado ? jaNoApp : ignorar.test(it.desc) ? 'fatura/transferência' : ''};
   });
   renderPreviaExtrato();
 }
@@ -8375,6 +8424,7 @@ function renderPreviaExtrato() {
   const fixas = extratoPrevia.map((it, i) => [it, i]).filter(([it]) => it.fixa && !it.fixa.jaPaga);
   box.innerHTML = `
     <div style="font-size:12px;margin:10px 0;">${extratoPrevia.length} saídas no arquivo · <strong style="color:var(--gold)">${marcados.length} marcadas = ${fmtBRL(marcados.reduce((s, i) => s + i.valor, 0))}</strong></div>
+    ${(() => { const ja = extratoPrevia.filter(i => /^já lançado/.test(i.aviso || '') || (i.fixa && i.fixa.jaPaga)).length; const faltam = extratoPrevia.filter(i => i.marcado || (i.fixa && !i.fixa.jaPaga)); return `<div style="font-size:12px;margin:-4px 0 10px;padding:8px 10px;border-radius:8px;background:rgba(201,168,76,0.08);">🔎 Conciliação: <strong>${ja}</strong> saída${ja !== 1 ? 's' : ''} do banco já ${ja !== 1 ? 'estão' : 'está'} no app · <strong style="color:${faltam.length ? '#E74C3C' : 'var(--green)'};">${faltam.length} não ${faltam.length !== 1 ? 'estão' : 'está'}</strong>${faltam.length ? ` (${fmtBRL(faltam.reduce((s, i) => s + i.valor, 0))}). Elas já vêm marcadas.` : '. Tudo bate.'} <label style="margin-left:6px;white-space:nowrap;"><input type="checkbox" ${window._extratoSoFaltam ? 'checked' : ''} onchange="window._extratoSoFaltam=this.checked;renderPreviaExtrato()"> mostrar só as que faltam</label></div>`; })()}
     ${fixas.length ? `<div style="padding:10px;border:1px solid var(--gold);border-radius:8px;margin-bottom:10px;">
       <div style="font-size:12px;color:var(--gold);font-weight:700;margin-bottom:6px;">🧾 Contas fixas pagas neste extrato</div>
       ${fixas.map(([it, i]) => `<label style="display:flex;gap:8px;align-items:center;font-size:12px;color:var(--text);padding:3px 0;">
@@ -8387,7 +8437,7 @@ function renderPreviaExtrato() {
       <span>Tirar o lançamento resumido "Saídas ${banco}" de ${meses.map(m => MESES_LABEL[MESES.indexOf(m)]).join(', ')} (${fmtBRL(resumidos.reduce((s, d) => s + d.valor, 0))}), pra não contar em dobro. Ele vai pra Lixeira e dá pra desfazer.</span></label>` : ''}
     <div style="font-size:10px;color:var(--muted);margin-bottom:8px;">Importou compras do cartão? A despesa fixa "Cartão ${banco}" continua contando como pagamento da fatura — se ela for a mesma coisa, ajuste o valor dela em Despesas Fixas.</div>
     <div class="table-wrap" style="max-height:380px;overflow:auto;"><table style="min-width:520px;">
-      ${extratoPrevia.map((it, i) => `<tr style="opacity:${it.marcado ? 1 : 0.5}">
+      ${extratoPrevia.map((it, i) => window._extratoSoFaltam && !it.marcado && !(it.fixa && !it.fixa.jaPaga) ? '' : `<tr style="opacity:${it.marcado ? 1 : 0.5}">
         <td style="padding:6px 8px;"><input type="checkbox" id="ext-${i}" ${it.marcado ? 'checked' : ''} onchange="extratoPrevia[${i}].marcado=this.checked;renderPreviaExtrato()"></td>
         <td style="padding:6px 8px;font-size:11px;white-space:nowrap;">${it.data.slice(8, 10)}/${it.data.slice(5, 7)}</td>
         <td style="padding:6px 8px;font-size:11px;">${it.desc}${it.aviso ? ` <span style="color:var(--gold);font-size:9px;">${it.aviso}</span>` : ''}</td>
@@ -8565,6 +8615,7 @@ function updatePainel() {
   try { renderContasMes(); } catch(e) { console.warn(e); }
   try { renderFechamentoAviso(); } catch(e) { console.warn(e); }
   try { renderConferir(); } catch(e) { console.warn(e); }
+  try { renderDiasVazios(); } catch(e) { console.warn(e); }
   try { renderMetaJanPainel(); } catch(e) { console.warn(e); }
 }
 
@@ -8634,13 +8685,69 @@ function renderFechamentoAviso() {
 
 // ============ B6 (30/10/2026): conferir com o saldo do banco ============
 // Só mostra a diferença: não lança nada e não mexe em "Outros".
-// Conferência feita HOJE compara com o saldo do app AGORA (18/11/2026): quem lança um gasto esquecido
-// depois de conferir vê a diferença cair na hora, e o botão de Outros lança só o que ainda falta.
-// Conferência de outro dia fica com o número daquele dia (o banco já mudou desde então).
+// A2 (vasculha 18/11/2026): a conferência guarda o ponto em que foi feita (`cotIdAte` = próximo id do
+// Cotidiano naquela hora). Depois, só baixam a diferença os gastos ATRASADOS: lançados depois da
+// conferência, com data ANTERIOR ao dia dela (e o "Outros" da própria conferência). Receita nova
+// (aluno que paga à tarde) e gasto novo do mesmo dia não mexem: o banco também já mudou com eles.
+function atrasadosDaConferencia(c) {
+  if (!c || c.cotIdAte == null) return [];
+  return (state.cotidiano || []).filter(d => d.id >= c.cotIdAte && d.data && (d.data < c.data || /^Diferença da conferência/.test(d.desc || '')));
+}
 function difConferencia(c) {
-  const hoje = new Date().toISOString().slice(0, 10);
-  const app = c.data === hoje && window._saldoApp != null ? window._saldoApp : c.app;
-  return { app, dif: Math.round((c.total - app) * 100) / 100, aoVivo: app !== c.app };
+  const atrasados = atrasadosDaConferencia(c);
+  const soma = atrasados.reduce((s, d) => s + (d.valor || 0), 0);
+  const app = Math.round((c.app - soma) * 100) / 100;
+  return { app, dif: Math.round((c.total - app) * 100) / 100, aoVivo: atrasados.length > 0, atrasados: soma };
+}
+
+// B1 (vasculha 18/11/2026): os dias sem nenhum gasto lançado nos últimos 14 dias (foi assim que a
+// diferença de R$ 438 com o banco apareceu). Tocar no dia abre o Cotidiano já com a data; "✓ não
+// gastei" tira o dia da lista (state.diasSemGasto, vai para a nuvem). Como os lembretes do Mobills.
+function diasVazios() {
+  const com = new Set((state.cotidiano || []).map(d => d.data).filter(Boolean));
+  const sem = new Set(state.diasSemGasto || []);
+  const out = [];
+  for (let i = 14; i >= 1; i--) {
+    const d = new Date(); d.setDate(d.getDate() - i);
+    const k = hojeISO(d);
+    if (!com.has(k) && !sem.has(k)) out.push(k);
+  }
+  return out;
+}
+function renderDiasVazios() {
+  const el = document.getElementById('painel-dias-vazios');
+  if (!el) return;
+  const dias = diasVazios();
+  if (!dias.length) { el.innerHTML = ''; return; }
+  const sem = ['dom', 'seg', 'ter', 'qua', 'qui', 'sex', 'sáb'];
+  el.innerHTML = `<div class="form-card" style="margin-bottom:16px;">
+    <div style="font-size:12px;color:var(--gold);font-weight:700;letter-spacing:.5px;">🗓️ DIAS SEM GASTO LANÇADO (ÚLTIMOS 14)</div>
+    <div style="font-size:12px;color:var(--muted);margin:6px 0 8px;">Toque no dia para lançar. Se não gastou nada, toque no ✓.</div>
+    <div style="display:flex;flex-wrap:wrap;gap:6px;">${dias.map(k => `<span style="display:inline-flex;border:1px solid rgba(201,168,76,0.35);border-radius:8px;overflow:hidden;font-size:12px;">
+      <button data-dia="${k}" onclick="abrirDiaCotidiano(this.dataset.dia)" style="background:none;border:0;color:var(--text);padding:6px 8px;font-family:inherit;font-size:12px;cursor:pointer;">${k.slice(8, 10)}/${k.slice(5, 7)} <span style="color:var(--muted);">${sem[new Date(k + 'T12:00').getDay()]}</span></button>
+      <button data-dia="${k}" onclick="marcarSemGasto(this.dataset.dia)" title="Não gastei nada neste dia" aria-label="Não gastei nada em ${k.slice(8, 10)}/${k.slice(5, 7)}" style="background:rgba(201,168,76,0.12);border:0;border-left:1px solid rgba(201,168,76,0.35);color:var(--green);padding:6px 9px;font-size:12px;cursor:pointer;">✓</button></span>`).join('')}</div></div>`;
+}
+function marcarSemGasto(dia) {
+  state.diasSemGasto = [...new Set([...(state.diasSemGasto || []), dia])].sort().slice(-60);
+  saveState();
+  renderDiasVazios();
+  toast(`✓ ${dia.slice(8, 10)}/${dia.slice(5, 7)}: sem gasto`);
+}
+function abrirDiaCotidiano(dia) {
+  const m = MESES[parseInt(dia.slice(5, 7)) - 1];
+  showPage('despesas');
+  const sec = document.getElementById('cot-lancamentos');
+  const btn = sec && sec.parentElement.querySelector('.filter-btn[data-cot-tab="lancamentos"]');
+  try { setCotidianoTab('lancamentos', btn); } catch (e) {}
+  const corpoCot = sec && sec.closest('.toggle-body'), cabCot = corpoCot && corpoCot.previousElementSibling;
+  if (cabCot && !cabCot.classList.contains('open')) { try { toggleSection(cabCot); } catch (e) {} }
+  setTimeout(() => {
+    const cab = [...document.querySelectorAll('.toggle-header')].find(h => (h.getAttribute('onclick') || '').includes(`abrirCotMes(this,'${m}')`));
+    if (cab && !cab.classList.contains('open')) abrirCotMes(cab, m);
+    const data = document.getElementById(`cot-data-${m}`), cat = document.getElementById(`cot-cat-${m}`);
+    if (data) data.value = dia;
+    if (cat) { cat.scrollIntoView({ block: 'center' }); cat.focus(); }
+  }, 150);
 }
 function renderConferir() {
   const el = document.getElementById('painel-conferir');
@@ -8655,8 +8762,8 @@ function renderConferir() {
   const campo = (id, rot) => `<label style="font-size:10px;color:var(--muted);letter-spacing:1px;text-transform:uppercase;">${rot}<input id="conf-${id}" inputmode="decimal" placeholder="0,00" value="${ult && ult.contas[id] ? String(ult.contas[id]).replace('.', ',') : ''}" style="${s}margin-top:4px;"></label>`;
   let res = '';
   if (ult) {
-    const { app: appAgora, dif, aoVivo } = difConferencia(ult);
-    res = `<div style="font-size:12px;color:var(--muted);margin-top:10px;line-height:1.6;">Última conferência: ${new Date(ult.data + 'T12:00').toLocaleDateString('pt-BR')} · bancos ${fmtBRL(ult.total)} · app ${aoVivo ? `${fmtBRL(ult.app)} na hora, <strong style="color:var(--text)">${fmtBRL(appAgora)} agora</strong>` : fmtBRL(ult.app)}<br>
+    const { app: appAgora, dif, aoVivo, atrasados: somaAtras } = difConferencia(ult);
+    res = `<div style="font-size:12px;color:var(--muted);margin-top:10px;line-height:1.6;">Última conferência: ${new Date(ult.data + 'T12:00').toLocaleDateString('pt-BR')} · bancos ${fmtBRL(ult.total)} · app ${aoVivo ? `${fmtBRL(ult.app)} na hora, <strong style="color:var(--text)">${fmtBRL(appAgora)}</strong> com ${fmtBRL(somaAtras)} de gastos atrasados lançados depois` : fmtBRL(ult.app)}<br>
       ${Math.abs(dif) < 1 ? '<span style="color:var(--green)">✓ Bateu com o app.</span>' : dif < 0
         ? `<span style="color:#E74C3C">No banco tem ${fmtBRL(-dif)} a menos que no app: pode ter gasto que não foi lançado.</span>${ult.lancado ? `<br><span style="color:var(--green)">✓ Diferença lançada em "Outros" em ${new Date(ult.lancado + 'T12:00').toLocaleDateString('pt-BR')}.</span>` : `<br><button class="btn btn-outline" style="margin-top:6px;padding:5px 12px;font-size:12px;" onclick="lancarDiferencaOutros()">Lançar ${fmtBRL(-dif)} em "Outros" (gasto esquecido)</button>`}`
         : `<span style="color:var(--gold)">No banco tem ${fmtBRL(dif)} a mais que no app: pode ter entrada que não foi lançada.</span>`}</div>`;
@@ -8672,13 +8779,41 @@ function renderConferir() {
       ${campo('nubank', 'Nubank')}${campo('itau', 'Itaú')}${campo('dinheiro', 'Dinheiro / outras')}
     </div>
     <button class="btn btn-gold" style="margin-top:10px;font-size:12px;padding:8px 16px;" onclick="conferirSaldo()">Conferir</button>
+    <button class="btn btn-outline" style="margin-top:10px;font-size:12px;padding:8px 14px;" onclick="abrirConciliacao()">📄 Comparar com o extrato</button>
     ${res}${historicoConferencias()}</details>`;
+}
+// B2 (vasculha 18/11/2026): leva ao Importar Extrato (Despesas), que agora mostra o que do banco
+// já está no app e o que falta. Nada entra sem você marcar e tocar em Importar.
+function abrirConciliacao() {
+  showPage('despesas');
+  const inp = document.getElementById('extrato-arquivo');
+  if (!inp) return;
+  const corpo = inp.closest('.toggle-body');
+  const cab = corpo && corpo.previousElementSibling;
+  if (cab && !cab.classList.contains('open')) { try { toggleSection(cab); } catch (e) {} }
+  setTimeout(() => { (cab || inp).scrollIntoView({ block: 'start' }); toast('📄 Escolha o extrato (OFX do Itaú ou CSV do Nubank): mostro o que falta no app'); }, 150);
+}
+
+// B3 (vasculha 18/11/2026): gasto esquecido = lançado 2 ou mais dias depois da data dele (campo
+// `criado`, desde 18/11), ou atrasado de uma conferência, ou o "Outros" da conferência. Por mês do gasto.
+function esquecidosPorMes() {
+  const ids = new Set();
+  (state.conferencias || []).forEach(c => atrasadosDaConferencia(c).forEach(d => ids.add(d.id)));
+  const porMes = {};
+  (state.cotidiano || []).forEach(d => {
+    if (!d.data) return;
+    const tarde = d.criado && (new Date(d.criado + 'T12:00') - new Date(d.data + 'T12:00')) / 864e5 >= 2;
+    if (!(tarde || ids.has(d.id) || /^Diferença da conferência/.test(d.desc || ''))) return;
+    const k = d.data.slice(0, 7);
+    porMes[k] = (porMes[k] || 0) + (d.valor || 0);
+  });
+  return Object.entries(porMes).sort().slice(-6);
 }
 // B4 (18/11/2026): uma linha por conferência, para ver se a diferença vem diminuindo (como o
 // histórico de conciliação do YNAB). Guarda as 12 últimas (já era assim em state.conferencias).
 function historicoConferencias() {
   const lista = state.conferencias || [];
-  if (lista.length < 2) return '';
+  if (!lista.length) return '';
   const linhas = lista.map((c, i) => {
     const { dif, app: appC } = difConferencia(c);
     const ant = lista[i + 1];
@@ -8689,8 +8824,10 @@ function historicoConferencias() {
       <span style="color:var(--muted);">banco ${fmtBRL(c.total)} · app ${fmtBRL(appC)}</span>
       <span style="color:${corDif};font-weight:600;">${Math.abs(dif) < 1 ? '✓ bateu' : (dif < 0 ? '−' : '+') + fmtBRL(Math.abs(dif))}${seta}${c.lancado ? ' <span style="color:var(--green);font-weight:400;">· lançada em Outros</span>' : ''}</span></div>`;
   }).join('');
+  const esq = esquecidosPorMes();
+  const blocoEsq = esq.length ? `<div style="font-size:12px;color:var(--muted);margin-top:8px;padding-top:8px;border-top:1px solid rgba(201,168,76,0.12);">🧠 Gastos esquecidos (lançados depois), por mês do gasto: ${esq.map(([k, v]) => `<strong style="color:var(--text);">${MESES_LABEL[parseInt(k.slice(5, 7)) - 1]} ${fmtBRL(v)}</strong>`).join(' · ')}</div>` : '';
   return `<details style="margin-top:10px;"><summary style="font-size:12px;color:var(--muted);cursor:pointer;">📜 Histórico das conferências (${lista.length})</summary>
-    <div style="margin-top:6px;color:var(--text);">${linhas}</div></details>`;
+    <div style="margin-top:6px;color:var(--text);">${linhas}</div>${blocoEsq}</details>`;
 }
 // B1 (18/11/2026): a diferença "banco menor que o app" vira um lançamento em Outros, do jeito que o
 // Leandro já faz com gasto esquecido. Uma vez por conferência.
@@ -8700,9 +8837,9 @@ function lancarDiferencaOutros() {
   const dif = -difConferencia(ult).dif;
   if (dif <= 0) return;
   if (!confirm(`Lançar ${fmtBRL(dif)} em "Outros" (gasto esquecido), com data de hoje?\n\nAssim o saldo do app fica igual ao do banco. Dá para apagar depois no Cotidiano.`)) return;
-  const hoje = new Date().toISOString().slice(0, 10);
+  const hoje = hojeISO();
   state.cotidiano = state.cotidiano || [];
-  state.cotidiano.push({id: cotNextId++, data: hoje, cat: 'Outros', desc: `Diferença da conferência com o banco (${new Date(ult.data + 'T12:00').toLocaleDateString('pt-BR')})`, mes: MESES[new Date().getMonth()], valor: dif});
+  state.cotidiano.push({id: cotNextId++, data: hoje, cat: 'Outros', desc: `Diferença da conferência com o banco (${new Date(ult.data + 'T12:00').toLocaleDateString('pt-BR')})`, mes: MESES[parseInt(hoje.slice(5, 7)) - 1], valor: dif, criado: hoje});
   ult.lancado = hoje;
   saveState();
   try { atualizarTelas(); } catch(e) { try { updatePainel(); } catch(e2) {} }
@@ -8716,9 +8853,9 @@ function conferirSaldo() {
   if (!total) { toast('⚠️ Digite o saldo de pelo menos uma conta'); return; }
   if (window._saldoApp == null) { toast('⚠️ Espere o app carregar o Instituto (precisa de internet) para conferir'); return; }
   // B4: uma conferência por dia no histórico (a nova do mesmo dia substitui, guardando o "lançada em Outros").
-  const hojeConf = new Date().toISOString().slice(0, 10);
+  const hojeConf = hojeISO();
   const mesmoDia = (state.conferencias || []).find(c => c.data === hojeConf);
-  const nova = {data: hojeConf, contas, total, app: window._saldoApp || 0};
+  const nova = {data: hojeConf, contas, total, app: window._saldoApp || 0, cotIdAte: cotNextId};
   if (mesmoDia && mesmoDia.lancado) nova.lancado = mesmoDia.lancado;
   state.conferencias = [nova, ...(state.conferencias || []).filter(c => c.data !== hojeConf)].slice(0, 12);
   saveState();
@@ -8958,7 +9095,7 @@ REGRAS:
 // B3 (18/11/2026): "quanto gastei com lanche?", "qual a média de almoço?" → nome do item, ou null.
 function chatPerguntaDeItem(texto) {
   const t = texto.trim().replace(/[?!.]+$/, '');
-  const m = t.match(/^(?:e\s+)?quanto\s+(?:eu\s+)?(?:j[aá]\s+)?(?:gastei|gasto|paguei|foi)\s+(?:com|de|em|no|na|nos|nas)\s+(.+)$/i)
+  const m = t.match(/^(?:e\s+)?quanto\s+(?:eu\s+)?(?:j[aá]\s+)?(?:gastei|gasto|paguei|foi)\s+(?:com|de|da|do|das|dos|em|no|na|nos|nas)\s+(?:o\s+|a\s+)?(.+)$/i)
     || t.match(/^(?:qual\s+(?:[eé]\s+)?)?(?:a\s+)?m[eé]dia\s+(?:de|do|da|dos|das|com)\s+(.+)$/i);
   if (!m) return null;
   const item = m[1].replace(/\s+(?:este|esse|neste|nesse|no|em|deste|desse|do)\s+(?:m[eê]s|ano)$/i, '').replace(/\s+em\s+\d{4}$/i, '').trim();
@@ -8969,9 +9106,11 @@ function respostaGastoItem(nome) {
   const itens = cotItensAgrupados();
   const k = cotChaveItem(cotNomeComRegra(nome));
   const kp = cotChaveParecida(nome);
-  const it = itens.find(i => i.chave === k) || itens.find(i => cotChaveParecida(i.nome) === kp)
-    || itens.find(i => kp && (i.chave.includes(k) || k.includes(i.chave)));
-  if (!it) return `Não achei "${escChat(nome)}" no Cotidiano. Os mais lançados: ${itens.slice(0, 5).map(i => escChat(i.nome)).join(', ')}.`;
+  let it = itens.find(i => i.chave === k) || itens.find(i => cotChaveParecida(i.nome) === kp);
+  // A3 (vasculha 18/11/2026): também conta fixa ("luz", "cartão nubank"), parcela e grupo ("alimentação").
+  if (!it) { const r = respostaFixaParcelaGrupo(k); if (r) return r; }
+  it = it || itens.find(i => kp && (i.chave.includes(k) || k.includes(i.chave)));
+  if (!it) return `Não achei "${escChat(nome)}" no Cotidiano, nas contas fixas, nas parcelas nem nos grupos. Os itens mais lançados: ${itens.slice(0, 5).map(i => escChat(i.nome)).join(', ')}.`;
   const hoje = new Date(), ano = hoje.getFullYear(), mes = hoje.getMonth();
   const doMes = totalItemNoMes(it.chave, ano, mes);
   const doAno = it.lanc.filter(d => d.data && parseInt(d.data.slice(0, 4)) === ano).reduce((s, d) => s + (d.valor || 0), 0);
@@ -8983,6 +9122,40 @@ function respostaGastoItem(nome) {
     ${MESES_FULL[mes]}: <b>${fmtBRL(doMes)}</b>${lim ? ` de ${fmtBRL(lim)} do limite` : ''}<br>
     ${ano}: ${fmtBRL(doAno)} · média ${fmtBRL(media)} por mês (${meses.size} ${meses.size === 1 ? 'mês' : 'meses'} com lançamento)<br>
     ${it.lanc.length} pagamento${it.lanc.length > 1 ? 's' : ''} no total${ult ? ` · último em ${ult.data.split('-').reverse().join('/')}: ${fmtBRL(ult.valor || 0)}` : ''}`.replace(/\n\s*/g, '');
+}
+
+function respostaFixaParcelaGrupo(k) {
+  const hoje = new Date(), ano = hoje.getFullYear(), mes = hoje.getMonth();
+  const bate = n => { const c = cotChaveItem(n); return c === k || (k.length >= 3 && (c.includes(k) || k.includes(c))); };
+  // Conta fixa: o que foi pago em cada mês do ano (pagFixas; true = valor cadastrado)
+  const fx = (state.despesas_fixas || []).find(d => bate(d.nome));
+  if (fx) {
+    const pf = (state.pagFixas || {})[fx.nome] || {};
+    const pagos = MESES.map((m, i) => ({ i, v: pf[m] === true ? fx.valor : (parseFloat(pf[m]) || 0) })).filter(x => x.v > 0 && x.i <= mes);
+    const total = pagos.reduce((s, x) => s + x.v, 0);
+    const ult = pagos.at(-1);
+    const doMes = pagos.find(x => x.i === mes);
+    return `🧾 <b>${escChat(fx.nome)}</b> (conta fixa)<br>${MESES_FULL[mes]}: ${doMes ? `<b>${fmtBRL(doMes.v)}</b> pago` : `<b>ainda não paga</b> (vence dia ${escChat(fx.vencimento || '—')})`}<br>${ano}: ${fmtBRL(total)} em ${pagos.length} ${pagos.length === 1 ? 'mês' : 'meses'} · média ${fmtBRL(pagos.length ? total / pagos.length : 0)} por mês${ult ? `<br>Último pagamento: ${MESES_FULL[ult.i]}, ${fmtBRL(ult.v)}` : ''}`;
+  }
+  // Parcela
+  const pc = (state.parceladas || []).find(p => bate(p.nome));
+  if (pc) {
+    const pagasAno = (pc.pagos || []).filter(x => x.endsWith('/' + ano)).length;
+    const tot = typeof parcTotalParcelas === 'function' ? parcTotalParcelas(pc) : null;
+    const pagas = typeof parcPagas === 'function' ? parcPagas(pc) : (pc.pagos || []).length;
+    const desteMes = (pc.pagos || []).includes(MESES[mes] + '/' + ano);
+    return `💳 <b>${escChat(pc.nome)}</b> (parcelado)<br>Parcela de ${fmtBRL(pc.valorParcela)} · ${MESES_FULL[mes]}: ${desteMes ? 'paga' : parcAtivaNaMes(pc, mes, ano) ? '<b>ainda não paga</b>' : 'sem parcela'}<br>${ano}: ${pagasAno} paga${pagasAno !== 1 ? 's' : ''} = ${fmtBRL(pagasAno * pc.valorParcela)}${tot ? ` · ${pagas} de ${tot} no total` : ''}`;
+  }
+  // Grupo das Projeções (Alimentação, Transporte…): realizado do mês, do ano e média
+  const g = PROJ_GRUPOS_GASTO.find(gr => { const l = cotChaveItem(gr.label.replace(/^[^\p{L}]+/u, '')); return bate(gr.id) || l === k || l.split(/\s*&\s*|\s+/).includes(k); });
+  if (g) {
+    const c = calcProjecoes('realista');
+    const real = (c.desp[g.id] || { real: [] }).real.slice(0, mes + 1);
+    const total = real.reduce((s, v) => s + (v || 0), 0);
+    const com = real.filter(v => v > 0).length;
+    return `📊 <b>${g.label}</b> (grupo)<br>${MESES_FULL[mes]}: <b>${fmtBRL(real[mes] || 0)}</b><br>${ano}: ${fmtBRL(total)} · média ${fmtBRL(com ? total / com : 0)} por mês`;
+  }
+  return null;
 }
 
 // Texto vindo da IA vai pro innerHTML do balão: escapar
@@ -9088,7 +9261,7 @@ async function executarAcao(parsed) {
 
   else if (acao === 'despesa') {
     const novo = { nome: parsed.nome, mes: parsed.mes, valor: parsed.valor, vencimento: '—' };
-    const data = new Date().toISOString().split('T')[0];
+    const data = hojeISO();
     // Conta paga: marca como paga a despesa fixa que já existe (antes criava
     // uma fixa NOVA, que se repetia nos 12 meses). Sem fixa parecida → Cotidiano.
     const nomeBusca = (parsed.nome || '').toLowerCase();
@@ -9106,7 +9279,12 @@ async function executarAcao(parsed) {
       addMessage(parsed.confirmacao, 'success');
     } else {
       state.cotidiano = state.cotidiano || [];
-      state.cotidiano.push({id: cotNextId++, data, cat: cotNomeComRegra(parsed.nome || 'Outros'), desc: '', mes: parsed.mes, valor: parsed.valor});
+      // A1 (18/11/2026): data e mês sempre combinam. Mês falado diferente do atual → dia 01 daquele mês
+      // (como o formulário do Cotidiano); antes ficava a data de hoje com o mês falado (saldo num mês, aba noutro).
+      const mi = MESES.indexOf(parsed.mes);
+      const hj = new Date();
+      const dataCot = mi >= 0 && mi !== hj.getMonth() ? `${mi > hj.getMonth() ? hj.getFullYear() - 1 : hj.getFullYear()}-${String(mi + 1).padStart(2, '0')}-01` : data;
+      state.cotidiano.push({id: cotNextId++, data: dataCot, cat: cotNomeComRegra(parsed.nome || 'Outros'), desc: '', mes: MESES[parseInt(dataCot.slice(5, 7)) - 1], valor: parsed.valor, criado: hojeISO()});
       saveState();
       addMessage(parsed.confirmacao + (parsed.categoria === 'fixa' ? ' (lancei no Cotidiano: não achei uma despesa fixa com esse nome)' : ''), 'success');
     }
@@ -9203,7 +9381,7 @@ async function executarAcao(parsed) {
   }
 
   else if (acao === 'marcar_presenca') {
-    const data = parsed.data || new Date().toISOString().split('T')[0];
+    const data = parsed.data || hojeISO();
     if (!state.presencas) state.presencas = {};
     if (!state.presencas[data]) state.presencas[data] = {};
     const marcados = [], naoEncontrados = [];
@@ -9307,6 +9485,7 @@ function toggleMic() {
   try { loadState(); } catch(e) {}
   try { migrarChatOutrosMai(); } catch(e) { console.warn(e); }
   try { migrarIdsCotidiano(); } catch(e) { console.warn(e); }
+  try { migrarVasculha1811(); } catch(e) { console.warn(e); }
   try { document.getElementById('rel-mes-sel').value = MESES[new Date().getMonth()]; } catch(e) {}
   if (!state.alunos?.length) {
     state.alunos = SEED_ALUNOS;
@@ -9527,7 +9706,7 @@ function renderAtvConteudo() {
       <p style="color:var(--gold);font-weight:600;margin:0 0 12px;font-size:13px;">➕ Novo Registro de Aula</p>
       <div class="form-group">
         <label>Data</label>
-        <input type="date" id="atvc-data" value="${new Date().toISOString().slice(0,10)}"
+        <input type="date" id="atvc-data" value="${hojeISO()}"
           style="background:var(--dark);border:1px solid var(--border);border-radius:8px;padding:9px 12px;color:var(--text);font-size:13px;width:100%;box-sizing:border-box;">
       </div>
       <div class="form-group" style="margin-top:10px;">
@@ -9748,7 +9927,7 @@ function renderAtvExercicios() {
         </div>
         <div style="flex:1;min-width:130px;" class="form-group">
           <label>Data de início</label>
-          <input type="date" id="atve-data" value="${new Date().toISOString().slice(0,10)}"
+          <input type="date" id="atve-data" value="${hojeISO()}"
             style="width:100%;background:var(--dark);border:1px solid var(--border);border-radius:8px;padding:9px 12px;color:var(--text);font-size:13px;box-sizing:border-box;">
         </div>
       </div>
@@ -9790,7 +9969,7 @@ function renderAtvExercicios() {
             <div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:8px;">
               <div style="flex:1;min-width:130px;" class="form-group">
                 <label>Data de início</label>
-                <input type="date" id="edit-e-data" value="${e.dataInicio||new Date().toISOString().slice(0,10)}" style="width:100%;background:var(--dark);border:1px solid var(--border);border-radius:8px;padding:8px 10px;color:var(--text);font-size:13px;box-sizing:border-box;">
+                <input type="date" id="edit-e-data" value="${e.dataInicio||hojeISO()}" style="width:100%;background:var(--dark);border:1px solid var(--border);border-radius:8px;padding:8px 10px;color:var(--text);font-size:13px;box-sizing:border-box;">
               </div>
               <div style="flex:1;min-width:120px;" class="form-group">
                 <label>Status</label>
@@ -9845,7 +10024,7 @@ function renderAtvExercicios() {
 function salvarExercicio() {
   if (!atvAlunoAtual) { toast('Selecione um aluno'); return; }
   const nome = document.getElementById('atve-nome')?.value.trim();
-  const dataInicio = document.getElementById('atve-data')?.value || new Date().toISOString().slice(0,10);
+  const dataInicio = document.getElementById('atve-data')?.value || hojeISO();
   const bpmAlvo = parseInt(document.getElementById('atve-bpm-alvo')?.value) || 120;
   const bpmAtual = parseInt(document.getElementById('atve-bpm-atual')?.value) || bpmAlvo;
   if (!nome) { toast('Digite o nome do exercício'); return; }
@@ -9868,7 +10047,7 @@ function adicionarBPM(id) {
   if (!e) return;
   e.bpmAtual = bpm;
   if (!e.historico) e.historico = [];
-  e.historico.push({ data: new Date().toISOString().slice(0,10), bpm });
+  e.historico.push({ data: hojeISO(), bpm });
   if (bpm >= e.bpmAlvo) e.status = 'Dominado';
   saveState();
   toast('✓ BPM atualizado');
@@ -9949,7 +10128,7 @@ function renderAtvMusicas() {
         </div>
         <div style="flex:1;min-width:130px;" class="form-group">
           <label>Data de início</label>
-          <input type="date" id="atvm-data" value="${new Date().toISOString().slice(0,10)}"
+          <input type="date" id="atvm-data" value="${hojeISO()}"
             style="width:100%;background:var(--dark);border:1px solid var(--border);border-radius:8px;padding:9px 12px;color:var(--text);font-size:13px;box-sizing:border-box;">
         </div>
       </div>
@@ -9988,7 +10167,7 @@ function renderAtvMusicas() {
             </div>
             <div style="flex:1;min-width:130px;" class="form-group">
               <label>Data de início</label>
-              <input type="date" id="edit-m-data" value="${m.dataInicio||new Date().toISOString().slice(0,10)}" style="width:100%;background:var(--dark);border:1px solid var(--border);border-radius:8px;padding:8px 10px;color:var(--text);font-size:13px;box-sizing:border-box;">
+              <input type="date" id="edit-m-data" value="${m.dataInicio||hojeISO()}" style="width:100%;background:var(--dark);border:1px solid var(--border);border-radius:8px;padding:8px 10px;color:var(--text);font-size:13px;box-sizing:border-box;">
             </div>
           </div>
           <div style="display:flex;gap:8px;">
@@ -10030,7 +10209,7 @@ function salvarMusica() {
   const artista = document.getElementById('atvm-artista')?.value.trim() || '—';
   const estilo = document.getElementById('atvm-estilo')?.value || 'Rock';
   const status = document.getElementById('atvm-status')?.value || 'Em estudo';
-  const dataInicio = document.getElementById('atvm-data')?.value || new Date().toISOString().slice(0,10);
+  const dataInicio = document.getElementById('atvm-data')?.value || hojeISO();
   if (!nome) { toast('Digite o nome da música'); return; }
   const nextId = (state.atividades.musicas.reduce((mx, r) => Math.max(mx, r.id||0), 0)) + 1;
   const espNomeM = atvEspNome();
@@ -10048,7 +10227,7 @@ function atualizarStatusMusica(id, novoStatus) {
   if (!m) return;
   m.status = novoStatus;
   if (novoStatus === 'Dominada' || novoStatus === 'Apresentada') {
-    if (!m.dataConclusao) m.dataConclusao = new Date().toISOString().slice(0,10);
+    if (!m.dataConclusao) m.dataConclusao = hojeISO();
   } else {
     m.dataConclusao = null;
   }
@@ -10320,6 +10499,18 @@ function enviarRelatorioIAWpp(alunoId, btn) {
 // O mesmo texto vira o cartão PNG em Documents\Projetos\Novidades dos Apps\Controle LRC
 // (gerador lê o JSON entre as marcas NOVIDADES-INICIO e NOVIDADES-FIM; mantenha JSON puro aqui).
 const NOVIDADES_LRC = /*NOVIDADES-INICIO*/[
+  {
+    "id": "2026-11-18-5",
+    "data": "18/11/2026",
+    "titulo": "Dias sem lançamento e conferência com o extrato",
+    "itens": [
+      { "icone": "🗓️", "titulo": "Dias sem gasto lançado", "texto": "No Painel, os dias dos últimos 14 sem nenhum gasto. Toque no dia para lançar, ou no ✓ se não gastou nada." },
+      { "icone": "📄", "titulo": "Comparar com o extrato", "texto": "No cartão do banco: escolha o extrato do Itaú ou do Nubank e o app mostra o que já está lançado e o que falta." },
+      { "icone": "🧠", "titulo": "Gastos esquecidos por mês", "texto": "No histórico das conferências: quanto foi lançado depois, mês a mês, para ver se está diminuindo." },
+      { "icone": "💬", "titulo": "Chat responde contas e grupos", "texto": "Pergunte \"quanto paguei de luz?\" ou \"quanto gastei com alimentação?\": agora entram contas fixas, parcelas e grupos." },
+      { "icone": "🌙", "titulo": "Lançamento à noite no dia certo", "texto": "Depois das 21h, o app não pula mais para o dia seguinte." }
+    ]
+  },
   {
     "id": "2026-11-18-4",
     "data": "18/11/2026",

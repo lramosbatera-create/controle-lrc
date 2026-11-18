@@ -138,3 +138,15 @@ Toda verificação segue ANTES → DURANTE → DEPOIS → PUBLICAR, com **atenç
 - **B4** `historicoConferencias()` no cartão do banco (linhas compactas, seta ↓ menor/↑ maior); `conferirSaldo` guarda uma conferência por dia (a do mesmo dia substitui e mantém `lancado`).
 - **lrc-v30 (18/11, tarde)**: `difConferencia(c)`: conferência de HOJE compara com `window._saldoApp` de agora (antes ficava o número da hora e o botão "Lançar em Outros" lançaria a diferença velha, contando de novo o que já foi lançado). De outro dia, fica o número daquele dia. `renderConferir` deixa uma conferência por dia.
 - **lrc-v31 (18/11)**: "Google Pay" (compras na Play Store, confirmado pelo Leandro) + "google play"/"play store" entram no grupo 🎉 Lazer (`PROJ_GRUPOS_GASTO`). Google One continua em Assinaturas.
+
+## Vasculha pós-pacote 4 18/11/2026 (A1–A4, B1–B4) — sw lrc-v32
+- **A1** `hojeISO(d)` (data local): trocou os 19 `toISOString().slice(0,10)`/`split('T')[0]` (depois das 21h davam o dia seguinte). Chat: mês falado ≠ mês atual → data dia 01 daquele mês, `mes` sempre sai da data.
+- **A2** conferência guarda `cotIdAte` (= `cotNextId` na hora). `atrasadosDaConferencia(c)`: lançamentos com id ≥ cotIdAte e data ANTERIOR ao dia (ou o "Outros" da conferência). `difConferencia` = c.app − atrasados (não usa mais `_saldoApp`: receita nova e gasto do mesmo dia não viram diferença). Conferência de 18/11 recebeu cotIdAte 595 em `migrarVasculha1811`.
+- **A3** Chat: `respostaFixaParcelaGrupo` (conta fixa por `pagFixas`, parcela, grupo de `PROJ_GRUPOS_GASTO` via `calcProjecoes`); regex aceita "da/do/das/dos".
+- **A4** Receita Federal: 04/08/2026, 12 parcelas → fim jul/2027; marca "jul/2026" removida (`migrarVasculha1811`, idempotente, roda no boot, no dbLoad e no ↓ Importar). KPI: "+ R$ 675 pagos antes de 2026".
+- **A5 NÃO aplicado**: 6 lançamentos de 14/06 com mes 'mai' (ids 550–555) — a migração de 29/10 (`migrarChatOutrosMai`) diz que são gastos de MAIO lançados pelo Chat em 14/06. Confirmar com o Leandro antes.
+- **B1** `renderDiasVazios` (#painel-dias-vazios): 14 dias sem lançamento; `abrirDiaCotidiano(dia)` abre o mês com a data; `marcarSemGasto` → `state.diasSemGasto` (saveState, blob e as duas cargas).
+- **B2** prévia do extrato concilia: `noApp(it)` casa Cotidiano (mesmo valor, ±2 dias), parcela paga no mês e Gasto NB do mês, cada um uma vez só; linha "🔎 Conciliação" + "mostrar só as que faltam"; botão "📄 Comparar com o extrato" no cartão do banco (`abrirConciliacao`).
+- **B3** campo `criado` nos lançamentos novos (form, Chat, Outros); `esquecidosPorMes()` no histórico das conferências.
+- **B4** `resumoSaldo.conf = {data, banco, dif}`; `sync-apps.ps1` mostra a última conferência; `saude-das-pontes.ps1` avisa conferência com mais de 14 dias.
+- Achado para a próxima: no celular de 360 px o formulário do mês do Cotidiano corta o campo Valor (≈188 px a mais), anterior a este pacote.
