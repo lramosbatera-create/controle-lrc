@@ -216,3 +216,8 @@ Toda verificação segue ANTES → DURANTE → DEPOIS → PUBLICAR, com **atenç
 - **B2:** `casaCfg.nomesMarcia` guarda outros nomes que contam como repasse (busca em cat e desc).
 - **B3:** `casaEscolherRepasse` liga o pagamento a um repasse dos últimos 90 dias; a lista de repasses mostra "→ usado em".
 - **B4:** `casaMarciaCopiar` copia o resumo do mês para o WhatsApp, com contas, atrasadas e o que está em aberto nas lojas dela.
+
+## Revisão geral 3 apps 19–20/11/2026 (B1 da Casa) — sw lrc-v37
+- `casaForm({titulo,sub,campos,botao,aoSalvar})`: modal na tela (Esc/clique fora fecha, Enter salva, erro inline em `#cf-erro`); campos texto/numero/data/mes/select. Helpers `casaNum`, `casaDataOk`.
+- Usam o formulário: `casaEditar`, `casaFixaQuem`, `casaMarciaPagar` (select de repasse via `casaRepassesRecentes()` + próxima data opcional), `casaMarciaEuPaguei`, `casaMarciaEditar`. `casaEscolherRepasse` removido.
+- Candidato a reaproveitar o casaForm: Parceladas e outras telas que ainda fazem 6 prompts em sequência.
