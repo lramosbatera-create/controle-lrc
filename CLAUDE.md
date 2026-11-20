@@ -187,3 +187,20 @@ Toda verificação segue ANTES → DURANTE → DEPOIS → PUBLICAR, com **atenç
 **Outros**
 - V2: o formulário do mês do Cotidiano usa `minmax(0, …)` e o campo Valor não é mais cortado em 360 px.
 - Teste: Playwright com o full_state real no localStorage, todos os POST bloqueados e o `index.html` entregue por `route`.
+
+## RSM da Casa 19/11/2026 (A1–A8, B1–B4) — sw lrc-v35
+
+**Erros corrigidos (A)**
+- **A1** `casaLojaDoPagamento`: um pagamento sem loja abate a loja que está em aberto daquela pessoa. Se houver mais de uma, o formulário avisa e o Chat pergunta qual. O Chat também reconhece o nome de uma loja já usada.
+- **A2** `casaAchaNoCotidiano` + `casaLigarExistente`: se já existe no Cotidiano um lançamento sem `casaId` com o mesmo valor, até 3 dias de diferença e o nome da conta ou da loja, o app pergunta "é este?" e liga os dois (`casaId`, `casaParte` a, `mov.ligado`), sem duplicar. Apagar o pagamento na Casa tira também esse lançamento (a Lixeira devolve).
+- **A3** `casaFracoes`: o pagamento vai para o Cotidiano em partes, com `casaParte` a/l/h e `grupo` limpeza ou higiene, na proporção das compras anotadas que ele quita (desde o pagamento anterior da mesma loja). O Resumo mostra "Alimentação comprada" e "paga no mês" (`caixaAli`).
+- **A4** `diasVazios` considera também as datas do `casaMov`.
+- **A5** cada conta da Márcia tem `desde` (AAAA-MM; as que não tinham ficaram com 2026-11).
+- **A6** `casaValorDoTexto`: vale o número com R$ ou "reais"; sem isso, o maior número da frase.
+- **A7** o cartão "Sua parte" mostra pagos + anotados (`anotadoL`).
+- **A8** `casaAno`: o seletor atravessa a virada do ano (de 2026 até o ano atual + 1).
+
+**Melhorias (B)**
+- **B1 + B2** `renderCasaPainel` (#painel-casa, chamada em updatePainel): mostra quanto o Leandro deve nas lojas, as contas da Márcia a pagar, o próximo vencimento com data e os vencimentos dos próximos 3 dias (`casaVencimentosProximos`).
+- **B3** `meses` (índices 0–11) nas contas da Márcia, escolhidos no ✏️ com "2-11" ou "3,6,9" (`casaLerMeses`).
+- **B4** o Chat responde "quanto devo nas lojas?".
