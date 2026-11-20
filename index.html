@@ -8416,24 +8416,70 @@ function casaLancar(contaId) {
   casaPosMudanca(`✓ ${c.emoji} ${c.nome}: ${mov.tipo === 'pagamento' ? 'pagamento' : 'compra'} de ${fmtBRL(valor)}${onde}`);
 }
 
+// LRC B1 (vasculha dos 3 apps, 19/11/2026): formulário na tela no lugar das perguntas em
+// sequência (prompt), que eram ruins no celular. campos: [{id, rotulo, tipo: texto|numero|data|mes|
+// select, valor, opcoes:[{v,t}], dica}]. aoSalvar(valores) devolve uma mensagem de erro (fica aberto)
+// ou nada (fecha).
+function casaForm({titulo, sub, campos, botao, aoSalvar}) {
+  document.getElementById('casa-form')?.remove();
+  const fundo = document.createElement('div');
+  fundo.id = 'casa-form';
+  fundo.style.cssText = 'position:fixed;inset:0;z-index:700;background:rgba(0,0,0,0.65);display:flex;align-items:flex-end;justify-content:center;padding:16px;';
+  const campo = c => {
+    const base = `id="cf-${c.id}" style="${CASA_CAMPO}"`;
+    const v = casaEsc(c.valor ?? '');
+    const input = c.tipo === 'select'
+      ? `<select ${base}>${c.opcoes.map(o => `<option value="${casaEsc(o.v)}" ${String(o.v) === String(c.valor ?? '') ? 'selected' : ''}>${casaEsc(o.t)}</option>`).join('')}</select>`
+      : `<input ${base} type="${c.tipo === 'numero' ? 'number' : c.tipo === 'data' ? 'date' : c.tipo === 'mes' ? 'month' : 'text'}" ${c.tipo === 'numero' ? 'step="0.01" min="0" inputmode="decimal"' : ''} value="${v}" placeholder="${casaEsc(c.dica || '')}">`;
+    return `<label style="display:block;margin-bottom:10px;"><span style="display:block;font-size:11px;color:var(--muted);margin-bottom:4px;">${c.rotulo}</span>${input}</label>`;
+  };
+  fundo.innerHTML = `<div role="dialog" aria-modal="true" aria-label="${casaEsc(titulo)}" style="background:var(--card);border:1px solid var(--border);border-radius:14px;padding:16px;width:100%;max-width:420px;max-height:90vh;overflow:auto;margin-bottom:env(safe-area-inset-bottom,0px);">
+    <div style="font-family:'Cormorant Garamond',serif;font-size:20px;font-weight:700;color:var(--gold);margin-bottom:4px;">${titulo}</div>
+    ${sub ? `<div style="font-size:11px;color:var(--muted);margin-bottom:12px;line-height:1.5;">${sub}</div>` : ''}
+    ${campos.map(campo).join('')}
+    <div id="cf-erro" style="font-size:11px;color:var(--red);min-height:14px;margin-bottom:8px;"></div>
+    <div style="display:flex;gap:8px;justify-content:flex-end;">
+      <button class="btn btn-outline" id="cf-cancelar" style="font-size:12px;">Cancelar</button>
+      <button class="btn btn-gold" id="cf-salvar" style="font-size:12px;">${botao || 'Salvar'}</button>
+    </div></div>`;
+  document.body.appendChild(fundo);
+  const fechar = () => fundo.remove();
+  const salvar = () => {
+    const vals = Object.fromEntries(campos.map(c => [c.id, (document.getElementById('cf-' + c.id)?.value ?? '').trim()]));
+    const erro = aoSalvar(vals);
+    if (erro) { document.getElementById('cf-erro').textContent = '⚠️ ' + erro; return; }
+    fechar();
+  };
+  fundo.addEventListener('click', e => { if (e.target === fundo) fechar(); });
+  fundo.querySelector('#cf-cancelar').onclick = fechar;
+  fundo.querySelector('#cf-salvar').onclick = salvar;
+  fundo.addEventListener('keydown', e => { if (e.key === 'Escape') fechar(); if (e.key === 'Enter' && e.target.tagName !== 'SELECT') { e.preventDefault(); salvar(); } });
+  setTimeout(() => fundo.querySelector('input,select')?.focus(), 30);
+}
+const casaNum = t => { const v = parseFloat(String(t || '').replace(',', '.')); return v > 0 ? Math.round(v * 100) / 100 : 0; };
+const casaDataOk = t => /^\d{4}-\d{2}-\d{2}$/.test(t || '');
+
 function casaEditar(id) {
   const m = state.casaMov.find(x => x.id === id);
   if (!m) return;
-  const v = prompt('Valor (R$):', String(m.valor).replace('.', ','));
-  if (v === null) return;
-  const valor = parseFloat(v.replace(',', '.'));
-  if (!(valor > 0)) { toast('⚠️ Valor inválido'); return; }
-  const data = prompt('Data (AAAA-MM-DD):', m.data);
-  if (data === null) return;
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(data.trim())) { toast('⚠️ Data no formato AAAA-MM-DD'); return; }
-  const loja = prompt('Loja (opcional):', m.loja || '');
-  if (loja === null) return;
-  const quem = prompt('Quem? Escreva L para Leandro ou M para Márcia:', casaQuem(m) === 'marcia' ? 'M' : 'L');
-  if (quem === null) return;
-  m.valor = Math.round(valor * 100) / 100; m.data = data.trim(); m.loja = loja.trim();
-  m.quem = /^m/i.test(quem.trim()) ? 'marcia' : 'leandro';
-  if (m.div) { const s = (m.div.limpeza || 0) + (m.div.higiene || 0); if (s > m.valor) delete m.div; }
-  casaPosMudanca('✓ Lançamento atualizado');
+  casaForm({
+    titulo: 'Editar lançamento',
+    sub: m.tipo === 'pagamento' ? 'Pagamento da conta' : m.naHora ? 'Compra paga na hora' : 'Compra anotada',
+    campos: [
+      {id: 'valor', rotulo: 'Valor (R$)', tipo: 'numero', valor: m.valor},
+      {id: 'data', rotulo: 'Data', tipo: 'data', valor: m.data},
+      {id: 'loja', rotulo: 'Loja', tipo: 'texto', valor: m.loja || ''},
+      {id: 'quem', rotulo: m.tipo === 'pagamento' ? 'Quem pagou' : 'Quem comprou', tipo: 'select', valor: casaQuem(m), opcoes: [{v: 'leandro', t: '🙋 Leandro'}, {v: 'marcia', t: '👩 Márcia'}]},
+    ],
+    aoSalvar: v => {
+      const valor = casaNum(v.valor);
+      if (!valor) return 'Digite o valor.';
+      if (!casaDataOk(v.data)) return 'Escolha a data.';
+      m.valor = valor; m.data = v.data; m.loja = v.loja; m.quem = v.quem === 'marcia' ? 'marcia' : 'leandro';
+      if (m.div) { const s = (m.div.limpeza || 0) + (m.div.higiene || 0); if (s > m.valor) delete m.div; }
+      casaPosMudanca('✓ Lançamento atualizado');
+    },
+  });
 }
 
 function casaRemover(id) {
@@ -8473,19 +8519,25 @@ function casaSetPct(p) { state.casaCfg.reservaPct = Number(p) || 0; saveState();
 // C6/D5: conta da casa que falta → quem paga
 function casaFixaQuem(id, quem) {
   const f = CASA_FIXAS_CHECK.find(x => x.id === id);
-  const v = prompt(`${f.nome}: valor por mês (R$)${quem === 'marcia' ? ' — pode deixar em branco' : ''}`, '');
-  if (v === null) return;
-  const valor = Math.round((parseFloat(v.replace(',', '.')) || 0) * 100) / 100;
-  if (quem === 'leandro' && !(valor > 0)) { toast('⚠️ Valor inválido'); return; }
-  const venc = prompt('Dia do vencimento (1 a 31):', '10');
-  if (venc === null) return;
-  const dia = String(Math.min(31, Math.max(1, parseInt(venc, 10) || 10))).padStart(2, '0');
-  if (quem === 'leandro') state.despesas_fixas.push({nome: f.nome, valor, vencimento: dia});
-  else state.casaMarcia.contas.push({id: 'm' + Date.now().toString(36), nome: f.nome, valor, venc: dia, desde: hojeISO().slice(0, 7)});
-  state.casaCfg.fixas[id] = quem;
-  saveState(); renderCasa();
-  try { renderDespesas(); updateDespesasKPIs(); updatePainel(); } catch(e) {}
-  toast(quem === 'leandro' ? `✓ ${f.nome} agora é sua Despesa Fixa` : `✓ ${f.nome} foi para a aba da Dona Márcia`);
+  casaForm({
+    titulo: f.nome,
+    sub: quem === 'leandro' ? 'Você paga: vira Despesa Fixa do Controle LRC.' : 'A Márcia paga: vai para a aba 👩 Dona Márcia (só acompanhamento).',
+    campos: [
+      {id: 'valor', rotulo: `Valor por mês (R$)${quem === 'marcia' ? ' · pode deixar em branco' : ''}`, tipo: 'numero', valor: ''},
+      {id: 'venc', rotulo: 'Dia do vencimento (1 a 31)', tipo: 'numero', valor: '10'},
+    ],
+    aoSalvar: v => {
+      const valor = casaNum(v.valor);
+      if (quem === 'leandro' && !valor) return 'Digite o valor.';
+      const dia = String(Math.min(31, Math.max(1, parseInt(v.venc, 10) || 10))).padStart(2, '0');
+      if (quem === 'leandro') state.despesas_fixas.push({nome: f.nome, valor, vencimento: dia});
+      else state.casaMarcia.contas.push({id: 'm' + Date.now().toString(36), nome: f.nome, valor, venc: dia, desde: hojeISO().slice(0, 7)});
+      state.casaCfg.fixas[id] = quem;
+      saveState(); renderCasa();
+      try { renderDespesas(); updateDespesasKPIs(); updatePainel(); } catch(e) {}
+      toast(quem === 'leandro' ? `✓ ${f.nome} agora é sua Despesa Fixa` : `✓ ${f.nome} foi para a aba da Dona Márcia`);
+    },
+  });
 }
 function casaFixaNao(id) { state.casaCfg.fixas[id] = 'nao'; saveState(); renderCasa(); }
 function casaFixaVolta(id) { delete state.casaCfg.fixas[id]; saveState(); renderCasa(); }
@@ -8614,14 +8666,10 @@ function casaHtmlMarcia() {
 }
 
 // B3: escolher o repasse que pagou a conta (dos últimos 90 dias)
-function casaEscolherRepasse() {
+// B3: repasses dos últimos 90 dias para ligar ao pagamento
+function casaRepassesRecentes() {
   const lim = new Date(); lim.setDate(lim.getDate() - 90);
-  const reps = casaRepasses(null).filter(d => d.data >= hojeISO(lim)).sort((a, b) => b.data.localeCompare(a.data)).slice(0, 6);
-  if (!reps.length) return null;
-  const r = prompt('Foi pago com algum repasse seu? Digite o número (vazio = não):\n' + reps.map((d, i) => `${i + 1}) ${casaDia(d.data)} · ${fmtBRL(d.valor)} · ${d.cat}`).join('\n'), '');
-  if (r === null) return undefined;
-  const k = parseInt(r, 10);
-  return k >= 1 && k <= reps.length ? reps[k - 1].id : null;
+  return casaRepasses(null).filter(d => d.data >= hojeISO(lim)).sort((a, b) => b.data.localeCompare(a.data)).slice(0, 6);
 }
 
 function casaMarciaPagar(id, pagar, chaveArg) {
@@ -8644,26 +8692,27 @@ function casaMarciaPagar(id, pagar, chaveArg) {
     saveState(); renderCasa(); try { updatePainel(); updateDespesasKPIs(); } catch(e) {}
     return;
   }
-  const v = prompt(`${c.nome}: quanto ela pagou? (R$)`, c.valor ? String(c.valor).replace('.', ',') : '');
-  if (v === null) return;
-  const valor = parseFloat(v.replace(',', '.'));
-  if (!(valor > 0)) { toast('⚠️ Valor inválido'); return; }
-  const repasse = casaEscolherRepasse();
-  if (repasse === undefined) return;
-  // A1: conta com data (ex.: penhor) pede a próxima data, para o lembrete continuar
-  let prox = null;
-  if (c.data) {
-    prox = prompt('Próxima data desta conta (AAAA-MM-DD), ex.: a próxima renovação. Vazio = não tem:', '');
-    if (prox === null) return;
-    prox = prox.trim();
-    if (prox && !/^\d{4}-\d{2}-\d{2}$/.test(prox)) { toast('⚠️ Data no formato AAAA-MM-DD'); return; }
-  }
-  const v2 = Math.round(valor * 100) / 100;
-  state.casaMarcia.pagos[id][chave] = repasse ? {v: v2, por: 'marcia', repasse} : v2;
-  if (!c.valor) c.valor = v2;
-  if (prox) { (c.historico = c.historico || []).push({data: c.data, valor: v2}); c.data = prox; }
-  saveState(); renderCasa(); try { updatePainel(); } catch(e) {}
-  toast(`✓ ${c.nome} marcada como paga${prox ? ` · próxima em ${casaDia(prox)}` : ''}`);
+  const reps = casaRepassesRecentes();
+  const campos = [{id: 'valor', rotulo: 'Quanto ela pagou (R$)', tipo: 'numero', valor: c.valor || ''}];
+  if (reps.length) campos.push({id: 'repasse', rotulo: 'Pago com algum repasse seu?', tipo: 'select', valor: '',
+    opcoes: [{v: '', t: 'Não'}, ...reps.map(d => ({v: String(d.id), t: `${casaDia(d.data)} · ${fmtBRL(d.valor)} · ${d.cat}`}))]});
+  if (c.data) campos.push({id: 'prox', rotulo: 'Próxima data desta conta (ex.: próxima renovação) · opcional', tipo: 'data', valor: ''});
+  casaForm({
+    titulo: `${c.nome} · ela pagou`,
+    sub: `${MESES_FULL[Number(chave.slice(5, 7)) - 1]} de ${chave.slice(0, 4)} · não mexe no seu saldo.`,
+    campos, botao: '✓ Marcar pago',
+    aoSalvar: v => {
+      const valor = casaNum(v.valor);
+      if (!valor) return 'Digite o valor.';
+      if (v.prox && !casaDataOk(v.prox)) return 'Data inválida.';
+      const repasse = v.repasse ? Number(v.repasse) : null;
+      state.casaMarcia.pagos[id][chave] = repasse ? {v: valor, por: 'marcia', repasse} : valor;
+      if (!c.valor) c.valor = valor;
+      if (v.prox) { (c.historico = c.historico || []).push({data: c.data, valor}); c.data = v.prox; }
+      saveState(); renderCasa(); try { updatePainel(); } catch(e) {}
+      toast(`✓ ${c.nome} marcada como paga${v.prox ? ` · próxima em ${casaDia(v.prox)}` : ''}`);
+    },
+  });
 }
 
 // A3: o Leandro pagou uma conta dela → sai do saldo dele (Cotidiano, Família & Ajuda)
@@ -8671,31 +8720,32 @@ function casaMarciaEuPaguei(id, chaveArg) {
   const c = (state.casaMarcia.contas || []).find(x => x.id === id);
   if (!c) return;
   const chave = chaveArg || casaChaveMes(casaAno, casaMesSel);
-  const v = prompt(`${c.nome}: quanto você pagou por ela? (R$) — vai para o seu Cotidiano`, c.valor ? String(c.valor).replace('.', ',') : '');
-  if (v === null) return;
-  const valor = Math.round((parseFloat(v.replace(',', '.')) || 0) * 100) / 100;
-  if (!(valor > 0)) { toast('⚠️ Valor inválido'); return; }
-  const data = prompt('Data do pagamento (AAAA-MM-DD):', hojeISO());
-  if (data === null) return;
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(data.trim())) { toast('⚠️ Data no formato AAAA-MM-DD'); return; }
-  let prox = null;
-  if (c.data) {
-    prox = prompt('Próxima data desta conta (AAAA-MM-DD), ex.: a próxima renovação. Vazio = não tem:', '');
-    if (prox === null) return;
-    prox = prox.trim();
-    if (prox && !/^\d{4}-\d{2}-\d{2}$/.test(prox)) { toast('⚠️ Data no formato AAAA-MM-DD'); return; }
-  }
-  const d = data.trim();
-  const item = {id: cotNextId++, data: d, mes: MESES[new Date(d + 'T12:00:00').getMonth()], cat: `Márcia · ${c.nome}`, desc: 'Paguei por ela', valor, grupo: 'familia', criado: hojeISO(), casaMarciaRef: {id: c.id, chave}};
-  state.cotidiano = state.cotidiano || [];
-  state.cotidiano.push(item);
-  state.casaMarcia.pagos[id] = state.casaMarcia.pagos[id] || {};
-  state.casaMarcia.pagos[id][chave] = {v: valor, por: 'leandro', cotId: item.id};
-  if (!c.valor) c.valor = valor;
-  if (prox) { (c.historico = c.historico || []).push({data: c.data, valor}); c.data = prox; }
-  saveState(); renderCasa();
-  try { updatePainel(); updateDespesasKPIs(); } catch(e) {}
-  toast(`✓ ${c.nome}: ${fmtBRL(valor)} no seu Cotidiano (Família & Ajuda)`);
+  const campos = [
+    {id: 'valor', rotulo: 'Quanto você pagou (R$)', tipo: 'numero', valor: c.valor || ''},
+    {id: 'data', rotulo: 'Data do pagamento', tipo: 'data', valor: hojeISO()},
+  ];
+  if (c.data) campos.push({id: 'prox', rotulo: 'Próxima data desta conta (ex.: próxima renovação) · opcional', tipo: 'data', valor: ''});
+  casaForm({
+    titulo: `${c.nome} · eu paguei por ela`,
+    sub: 'Vai para o seu Cotidiano (👪 Família & Ajuda) e sai do seu saldo.',
+    campos, botao: '🙋 Lançar',
+    aoSalvar: v => {
+      const valor = casaNum(v.valor);
+      if (!valor) return 'Digite o valor.';
+      if (!casaDataOk(v.data)) return 'Escolha a data do pagamento.';
+      if (v.prox && !casaDataOk(v.prox)) return 'Data inválida.';
+      const item = {id: cotNextId++, data: v.data, mes: MESES[new Date(v.data + 'T12:00:00').getMonth()], cat: `Márcia · ${c.nome}`, desc: 'Paguei por ela', valor, grupo: 'familia', criado: hojeISO(), casaMarciaRef: {id: c.id, chave}};
+      state.cotidiano = state.cotidiano || [];
+      state.cotidiano.push(item);
+      state.casaMarcia.pagos[id] = state.casaMarcia.pagos[id] || {};
+      state.casaMarcia.pagos[id][chave] = {v: valor, por: 'leandro', cotId: item.id};
+      if (!c.valor) c.valor = valor;
+      if (v.prox) { (c.historico = c.historico || []).push({data: c.data, valor}); c.data = v.prox; }
+      saveState(); renderCasa();
+      try { updatePainel(); updateDespesasKPIs(); } catch(e) {}
+      toast(`✓ ${c.nome}: ${fmtBRL(valor)} no seu Cotidiano (Família & Ajuda)`);
+    },
+  });
 }
 
 // A5: apagar conta da Márcia com Lixeira e Desfazer
@@ -8732,33 +8782,34 @@ async function casaMarciaCopiar() {
 function casaMarciaEditar(id) {
   const c = (state.casaMarcia.contas || []).find(x => x.id === id);
   if (!c) return;
-  const nome = prompt('Nome da conta (apague tudo para tirar a conta):', c.nome);
-  if (nome === null) return;
-  if (!nome.trim()) {
-    if (!confirm(`Tirar ${c.nome} das contas da Márcia?`)) return;
-    paraLixeira('casaMarciaContas', c, `Conta da Márcia · ${c.nome}`, true);
-    state.casaMarcia.contas = state.casaMarcia.contas.filter(x => x.id !== id);
-    saveState(); renderCasa(); return;
-  }
-  const v = prompt('Valor (R$):', c.valor ? String(c.valor).replace('.', ',') : '');
-  if (v === null) return;
-  const quando = prompt(c.data ? 'Data do vencimento (AAAA-MM-DD):' : 'Dia do vencimento (1 a 31):', c.data || c.venc || '10');
-  if (quando === null) return;
-  let meses = null, desde = null;
-  if (!c.data) {
-    meses = prompt('Meses em que vence (ex.: 2-11 para fevereiro a novembro, ou 3,6,9). Vazio = todo mês:', (c.meses || []).length ? c.meses.map(i => i + 1).join(',') : '');
-    if (meses === null) return;
-    desde = prompt('Acompanhar desde (AAAA-MM):', c.desde || hojeISO().slice(0, 7));
-    if (desde === null) return;
-  }
-  c.nome = nome.trim(); c.valor = Math.round((parseFloat(v.replace(',', '.')) || 0) * 100) / 100;
-  if (c.data) { if (/^\d{4}-\d{2}-\d{2}$/.test(quando.trim())) c.data = quando.trim(); }
-  else {
-    c.venc = String(Math.min(31, Math.max(1, parseInt(quando, 10) || 10))).padStart(2, '0');
-    c.meses = casaLerMeses(meses);
-    if (/^\d{4}-\d{2}$/.test((desde || '').trim())) c.desde = desde.trim();
-  }
-  saveState(); renderCasa(); toast('✓ Conta atualizada');
+  const campos = [
+    {id: 'nome', rotulo: 'Nome da conta', tipo: 'texto', valor: c.nome},
+    {id: 'valor', rotulo: 'Valor (R$)', tipo: 'numero', valor: c.valor || ''},
+  ];
+  if (c.data) campos.push({id: 'data', rotulo: 'Data do vencimento', tipo: 'data', valor: c.data});
+  else campos.push(
+    {id: 'venc', rotulo: 'Dia do vencimento (1 a 31)', tipo: 'numero', valor: c.venc || '10'},
+    {id: 'meses', rotulo: 'Meses em que vence · vazio = todo mês', tipo: 'texto', valor: (c.meses || []).length ? c.meses.map(i => i + 1).join(',') : '', dica: 'ex.: 2-11 (fevereiro a novembro) ou 3,6,9'},
+    {id: 'desde', rotulo: 'Acompanhar desde', tipo: 'mes', valor: c.desde || hojeISO().slice(0, 7)},
+  );
+  casaForm({
+    titulo: `Editar · ${c.nome}`,
+    sub: 'Para tirar a conta, use 🗑️ na lista.',
+    campos,
+    aoSalvar: v => {
+      if (v.nome.length < 2) return 'Digite o nome da conta.';
+      if (c.data && !casaDataOk(v.data)) return 'Escolha a data do vencimento.';
+      c.nome = v.nome; c.valor = casaNum(v.valor);
+      if (c.data) c.data = v.data;
+      else {
+        c.venc = String(Math.min(31, Math.max(1, parseInt(v.venc, 10) || 10))).padStart(2, '0');
+        c.meses = casaLerMeses(v.meses);
+        if (/^\d{4}-\d{2}$/.test(v.desde)) c.desde = v.desde;
+      }
+      saveState(); renderCasa(); try { updatePainel(); } catch(e) {}
+      toast('✓ Conta atualizada');
+    },
+  });
 }
 function casaMarciaNova() {
   const nome = (document.getElementById('marcia-nome')?.value || '').trim();
@@ -11559,6 +11610,14 @@ function enviarRelatorioIAWpp(alunoId, btn) {
 // O mesmo texto vira o cartão PNG em Documents\Projetos\Novidades dos Apps\Controle LRC
 // (gerador lê o JSON entre as marcas NOVIDADES-INICIO e NOVIDADES-FIM; mantenha JSON puro aqui).
 const NOVIDADES_LRC = /*NOVIDADES-INICIO*/[
+  {
+    "id": "2026-11-19-4",
+    "data": "19/11/2026",
+    "titulo": "Casa: formulário na tela",
+    "itens": [
+      { "icone": "📝", "titulo": "Editar sem perguntas em sequência", "texto": "Editar um lançamento da Casa, marcar uma conta da Márcia como paga, “Eu paguei por ela”, editar uma conta dela e as contas que faltam agora abrem um formulário na própria tela, com todos os campos juntos." }
+    ]
+  },
   {
     "id": "2026-11-19-3",
     "data": "19/11/2026",
