@@ -150,3 +150,40 @@ Toda verificação segue ANTES → DURANTE → DEPOIS → PUBLICAR, com **atenç
 - **B3** campo `criado` nos lançamentos novos (form, Chat, Outros); `esquecidosPorMes()` no histórico das conferências.
 - **B4** `resumoSaldo.conf = {data, banco, dif}`; `sync-apps.ps1` mostra a última conferência; `saude-das-pontes.ps1` avisa conferência com mais de 14 dias.
 - Achado para a próxima: no celular de 360 px o formulário do mês do Cotidiano corta o campo Valor (≈188 px a mais), anterior a este pacote.
+
+## 🏠 Aba Casa (19/11/2026, pedido do Leandro, Modo Êxito, C1–C9 + D1–D5) — sw lrc-v34
+
+**Contas da casa**
+- Mercado, Açougue e Farmácia são contas próprias (`state.casaContas`); o botão ＋ Conta cria outras.
+- Cada lançamento fica em `state.casaMov` como `{id, conta, tipo: compra|pagamento, naHora, quem: leandro|marcia, data, valor, loja, desc, div:{limpeza, higiene}}`.
+- O em aberto é calculado por loja (`casaAbertoPorLoja`). Quem paga uma loja é quem fez o último pagamento nela (`casaCfg.lojaQuem`); sem pagamento, vale o padrão da conta.
+
+**Ligação com o Cotidiano**
+- `casaSyncCotidiano()` é idempotente. Cria no Cotidiano, com `casaId`, só os pagamentos e as compras pagas na hora DO LEANDRO, com cat = nome da conta.
+- O que a Márcia paga não mexe no saldo dele.
+- Para não contar duas vezes, as compras da Casa ficam fora do Cotidiano e entram no Resumo como custo real.
+- `removerCotidiano` e `editarCotidiano` de um lançamento com `casaId` abrem a aba Casa (`casaBloqueioCotidiano`).
+- A Lixeira restaura `casaMov` (e chama a sync) e `casaMarciaContas`.
+
+**Casa dividida (M1: cada um paga as suas contas)**
+- A sub-aba 👩 Dona Márcia é só acompanhamento.
+- `state.casaMarcia = {contas: [{id, nome, valor, venc | data, fora}], pagos: {contaId: {AAAA-MM: valor}}}`. Já vem com Água, IPTU e o penhor da Caixa (06/12, `fora` = fora dos blocos).
+- Os repasses são os lançamentos do Cotidiano com "Márcia" no nome (`casaRepasses`).
+
+**Resumo da Casa**
+- `casaResumoMes` soma, por bloco e por pessoa:
+  - fixas pagas no mês (`pagFixas`) e Cotidiano sem `casaId` → Leandro;
+  - compras da Casa → quem paga (anotada: quem paga a loja; na hora: quem comprou);
+  - contas da Márcia marcadas como pagas → Márcia.
+- Bloco de cada item: `casaBlocoDeNome` (grupos das Projeções; telefone vai para Extras).
+- Acerto do mês (M4): só mostra, não cobra.
+
+**Grupos, caixinha e Chat**
+- C5: grupos novos `limpeza` (faxin e quintal saíram de Moradia) e `higiene`; o IPTU saiu de Impostos e foi para Moradia.
+- C6/D5: lista das contas que faltam, com Eu pago (vira Despesa Fixa), Márcia paga (vai para as contas dela) e Não temos.
+- C7: caixinha `state.metas['casa-imprevistos']`. É como a Meta Janeiro: guardar não é gasto. A sugestão é 5% (`casaCfg.reservaPct`) do custo médio da casa, e o cartão da Reserva de emergência mostra quanto foi guardado.
+- C9: `chatCasa()` roda antes da IA. Exemplos: "comprei 80 no açougue anotado", "paguei o mercado 500", "a Márcia pagou a farmácia 60" (sem nada anotado vira compra paga na hora) e "quanto devo no açougue?". "Mercado Livre" fica de fora.
+
+**Outros**
+- V2: o formulário do mês do Cotidiano usa `minmax(0, …)` e o campo Valor não é mais cortado em 360 px.
+- Teste: Playwright com o full_state real no localStorage, todos os POST bloqueados e o `index.html` entregue por `route`.

@@ -536,6 +536,10 @@
   }
   .inb-subtab.active { background:var(--gold-glow);color:var(--gold);border:1px solid var(--border); }
   .inb-subtab:hover:not(.active) { color:var(--gold-light); }
+  /* 🏠 Casa (19/11/2026) */
+  .casa-subtab { padding:8px 10px;border:1px solid transparent;background:transparent;color:var(--muted);font-family:'DM Sans',sans-serif;font-size:11px;font-weight:600;cursor:pointer;border-radius:7px;white-space:nowrap; }
+  .casa-subtab.active { background:var(--gold-glow);color:var(--gold);border-color:var(--border); }
+  .casa-subtab:hover:not(.active) { color:var(--gold-light); }
 
   /* AGENDA */
   .agenda-slot {
@@ -694,6 +698,9 @@
   </div>
   <div class="nav-tab" onclick="showPage('despesas')" id="tab-despesas">
     <span class="icon">💳</span> Despesas
+  </div>
+  <div class="nav-tab" onclick="showPage('casa')" id="tab-casa">
+    <span class="icon">🏠</span> Casa
   </div>
   <div class="nav-tab" onclick="showPage('shows')" id="tab-shows">
     <span class="icon">🎸</span> Shows
@@ -1176,6 +1183,13 @@
   </div>
 </div>
 
+<div class="page" id="page-casa">
+  <p class="section-title">Casa</p>
+  <p class="section-sub">CONTAS DA CASA · LEANDRO E DONA MÁRCIA</p>
+  <div id="casa-subabas" style="display:flex;gap:4px;overflow-x:auto;background:var(--card);border:1px solid var(--border);border-radius:10px;padding:4px;margin-bottom:14px;"></div>
+  <div id="casa-corpo"></div>
+</div>
+
 <div class="page" id="page-projecoes">
   <p class="section-title">Projeções</p>
   <p class="section-sub">RECEITA · GASTOS · SALDO — REALIZADO + PROJETADO POR CATEGORIA · <span id="proj-horizonte-label">2026</span></p>
@@ -1508,6 +1522,10 @@ function saveState(opcoes) {
       regrasNome: state.regrasNome,
       limitesItem: state.limitesItem,
       diasSemGasto: state.diasSemGasto,
+      casaContas: state.casaContas,
+      casaMov: state.casaMov,
+      casaCfg: state.casaCfg,
+      casaMarcia: state.casaMarcia,
       agenda: state.agenda,
       recital: state.recital,
       nextId: state.nextId,
@@ -1949,6 +1967,10 @@ async function dbLoad() {
       if (b.regrasNome) state.regrasNome = b.regrasNome;
       if (b.limitesItem) state.limitesItem = b.limitesItem;
       if (b.diasSemGasto) state.diasSemGasto = b.diasSemGasto;
+      if (b.casaContas) state.casaContas = b.casaContas;
+      if (b.casaMov) state.casaMov = b.casaMov;
+      if (b.casaCfg) state.casaCfg = b.casaCfg;
+      if (b.casaMarcia) state.casaMarcia = b.casaMarcia;
       }
       if (!state.alunosEspeciais) state.alunosEspeciais = [];
       if (!state.parceladas) state.parceladas = [];
@@ -1957,6 +1979,7 @@ async function dbLoad() {
       migrateCotidianoCompleto2026();
       migrateCotidianoMaiJun();
       try { migrarVasculha1811(); } catch(e) { console.warn(e); }
+      try { casaSyncCotidiano(); } catch(e) { console.warn(e); }
       saveState();
       setLoading(false);
       return;
@@ -2220,6 +2243,10 @@ async function dbPushAll(silencioso) {
       regrasNome: state.regrasNome || {},
       limitesItem: state.limitesItem || {},
       diasSemGasto: state.diasSemGasto || [],
+      casaContas: state.casaContas || [],
+      casaMov: state.casaMov || [],
+      casaCfg: state.casaCfg || {},
+      casaMarcia: state.casaMarcia || null,
       shows:          state.shows          || [],
       despesas_fixas: state.despesas_fixas || [],
       gastos_inb:     state.gastos_inb     || [],
@@ -2315,6 +2342,10 @@ async function dbPullAll() {
       if (b.regrasNome) state.regrasNome = b.regrasNome;
       if (b.limitesItem) state.limitesItem = b.limitesItem;
       if (b.diasSemGasto) state.diasSemGasto = b.diasSemGasto;
+      if (b.casaContas) state.casaContas = b.casaContas;
+      if (b.casaMov) state.casaMov = b.casaMov;
+      if (b.casaCfg) state.casaCfg = b.casaCfg;
+      if (b.casaMarcia) state.casaMarcia = b.casaMarcia;
       if (b.nextId)                 state.nextId         = b.nextId;
       if (b._migAlunosExcel26)        state._migAlunosExcel26        = b._migAlunosExcel26;
       if (b._migFixasExcel26)         state._migFixasExcel26         = b._migFixasExcel26;
@@ -4888,6 +4919,7 @@ function showPage(id) {
   if (id === 'shows') { renderShows(); if (showsTabAtual==='agenda') renderShowsAgenda(); }
   if (id === 'despesas') { renderDespesas(); renderLixeira(); }
   if (id === 'projecoes') renderProjecoes();
+  if (id === 'casa') renderCasa();
   if (id === 'recital') { updateRecitalKPIs(); renderRecitalInscricoes(); populateRecitalSelect(); }
   if (id === 'relatorios') { document.getElementById('rel-mes-filter').style.display='block'; }
 }
@@ -6838,6 +6870,7 @@ function addCotidiano(mes) {
 }
 
 function removerCotidiano(id) {
+  if (casaBloqueioCotidiano(id)) return;
   if (!confirm('Remover este gasto?')) return;
   const item = (state.cotidiano||[]).find(d=>d.id===id);
   paraLixeira('cotidiano', item, `Cotidiano · ${item?.cat || ''} ${fmtBRL(item?.valor)}`);
@@ -6851,6 +6884,7 @@ function removerCotidiano(id) {
 }
 
 function editarCotidiano(id) {
+  if (casaBloqueioCotidiano(id)) return;
   const item = (state.cotidiano||[]).find(d=>d.id===id);
   if (!item) return;
   const novaDesc = prompt('Descrição:', item.cat + (item.desc && item.desc !== item.cat ? ' — ' + item.desc : ''));
@@ -6906,11 +6940,11 @@ function catSelect(sufixo) {
 }
 
 function buildCotBody(mes, items, total, i) {
-  const s = 'background:var(--card2);border:1px solid rgba(201,168,76,0.25);border-radius:8px;color:var(--text);font-family:inherit;font-size:12px;padding:7px;outline:none;width:100%;';
+  const s = 'background:var(--card2);border:1px solid rgba(201,168,76,0.25);border-radius:8px;color:var(--text);font-family:inherit;font-size:12px;padding:7px;outline:none;width:100%;min-width:0;box-sizing:border-box;';
   return `
   <div style="background:rgba(201,168,76,0.05);border:1px dashed rgba(201,168,76,0.2);border-radius:8px;padding:12px;margin-bottom:12px;">
     <div style="font-size:10px;color:var(--gold);letter-spacing:1px;text-transform:uppercase;margin-bottom:8px;">+ Novo lançamento em ${MESES_LABEL[MESES.indexOf(mes)]}</div>
-    <div style="display:grid;grid-template-columns:120px 1fr 100px;gap:8px;margin-bottom:8px;align-items:end;">
+    <div style="display:grid;grid-template-columns:minmax(0,120px) minmax(0,1fr) minmax(0,100px);gap:8px;margin-bottom:8px;align-items:end;">
       <div>
         <div style="font-size:10px;color:var(--muted);margin-bottom:3px;">Data</div>
         <input type="date" id="cot-data-${mes}" value="${new Date().getFullYear()}-${String(MESES.indexOf(mes)+1).padStart(2,'0')}-01" style="${s}">
@@ -6937,7 +6971,7 @@ function buildCotBody(mes, items, total, i) {
     </tr></thead>
     <tbody>
       ${items.sort((a,b)=>(a.data||'').localeCompare(b.data||'')).map(d=>{
-        const desc = d.cat + (d.desc && d.desc !== d.cat ? ' — ' + d.desc : '');
+        const desc = d.cat + (d.desc && d.desc !== d.cat ? ' — ' + d.desc : '') + (d.casaId ? ' 🔗' : '');
         return `
       <tr style="border-bottom:1px solid rgba(255,255,255,0.04);">
         <td style="padding:7px 8px;color:var(--muted);white-space:nowrap;">${d.data?new Date(d.data+'T12:00:00').toLocaleDateString('pt-BR',{day:'2-digit',month:'short'}):'—'}</td>
@@ -7556,13 +7590,16 @@ function cadastrarAluno() {
 // de decisão do grupo: regra criada pelo Leandro (state.regrasCategoria) →
 // grupo escolhido na importação do extrato (item.grupo) → palavra-chave.
 const PROJ_GRUPOS_GASTO = [
-  {id:'moradia',     label:'🏠 Moradia & Contas',     chaves:['luz','internet','vivo','água','agua','aluguel','gás','faxin','quintal','construção','construcao','arquitet','casa','material elétrico','material eletrico','elétric','eletric','cortina']},
-  {id:'alimentacao', label:'🍽️ Alimentação',          chaves:['almoço','almoco','lanche','padaria','mercado','açougue','acougue','sorvete','cerveja','comida','jantar','restaurante','pizza','hortifruti','ifood','supermerc']},
+  {id:'moradia',     label:'🏠 Moradia & Contas',     chaves:['luz','internet','vivo','água','agua','aluguel','gás','construção','construcao','arquitet','casa','material elétrico','material eletrico','elétric','eletric','cortina','iptu','condomínio','condominio','seguro resid','taxa de lixo','botijão','botijao']},
+  {id:'alimentacao', label:'🍽️ Alimentação',          chaves:['almoço','almoco','lanche','padaria','mercado','açougue','acougue','sorvete','cerveja','comida','jantar','restaurante','pizza','hortifruti','hortifrúti','ifood','supermerc','feira','sacolão','sacolao','água mineral','agua mineral','galão','galao']},
   {id:'transporte',  label:'🚗 Transporte',           chaves:['táxi','taxi','combust','gasolina','posto','pedágio','pedagio','passagem','mecânic','mecanic','lavador','uber','99app','estacionamento','ônibus','onibus','carro','pneu','ipva','movida','aluguel do carro','locadora']},
   {id:'saude',       label:'🩺 Saúde',                chaves:['saúde','saude','consulta','farmácia','farmacia','drogaria','remédio','remedio','dentista','exame','médic','medic']},
+  // 19/11/2026 (aba Casa, C5): limpeza/manutenção e higiene em grupos próprios
+  {id:'limpeza',     label:'🧼 Limpeza & Manutenção', chaves:['faxin','quintal','diarista','jardineiro','piscineiro','limpeza','detergente','desinfetante','sabão','sabao','saco de lixo','esponja','lâmpada','lampada','pilha','filtro','dedetiza','desentup','conserto','reparo','manutenção','manutencao','pintura','lavanderia']},
+  {id:'higiene',     label:'🧴 Higiene',              chaves:['sabonete','shampoo','xampu','papel higiênico','papel higienico','pasta de dente','creme dental','desodorante','higiene','absorvente','fralda']},
   {id:'igreja',      label:'🙏 Igreja & Doações',     chaves:['dízimo','dizimo','igreja','paróquia','paroquia','corpus christi','rifa','bingo','oferta','doação','doacao']},
   {id:'familia',     label:'👪 Família & Ajuda',      chaves:['márcia','marcia']},
-  {id:'impostos',    label:'🧾 Impostos & Contador',  chaves:['contador','contabil','contábil','darf','receita federal','dívida ativa','divida ativa','imposto','irpf','iptu'], pontual:true},
+  {id:'impostos',    label:'🧾 Impostos & Contador',  chaves:['contador','contabil','contábil','darf','receita federal','dívida ativa','divida ativa','imposto','irpf'], pontual:true},
   {id:'assinaturas', label:'📺 Assinaturas',          chaves:['spotify','iptv','netflix','youtube','prime','assinatura','icloud','google one','disney','globoplay']},
   {id:'vestuario',   label:'🛍️ Compras & Vestuário',  chaves:['roupa','beco da moda','severo curtume','brum','south','calçado','calcado','tênis','tenis','renner','riachuelo','shopee','mercadolivre','mercado livre','amazon','cartão ml','cartao ml','infinit']},
   {id:'lazer',       label:'🎉 Lazer & Presentes',    chaves:['entretenimento','presente','lazer','cinema','viagem','passeio','bar ','google pay','google play','play store']},  // Google Pay = compras na Play Store (Leandro, 18/11/2026)
@@ -7852,6 +7889,667 @@ function setRegraCategoria(nome, grupo) {
   renderProjecoes();
 }
 
+// ============ 🏠 CASA (19/11/2026, pedido do Leandro · Modo Êxito, C1–C9 + D1–D5) ============
+// Contas da casa (Mercado, Açougue, Farmácia e outras): compra ANOTADA fica na conta da loja;
+// o PAGAMENTO (ou a compra paga na hora) feito pelo LEANDRO entra sozinho no Cotidiano, com
+// casaId, para o saldo continuar batendo com o banco (modelo cartão × fatura do Organizze).
+// A casa é dividida (M1: cada um paga contas certas): cada lançamento tem `quem` (leandro |
+// marcia). O que a Dona Márcia paga fica só na Casa, como acompanhamento (sub-aba 👩).
+// Resumo da Casa: custo real do mês nos 5 blocos, com a parte de cada um e o acerto (M4).
+// Dados: state.casaContas, state.casaMov, state.casaCfg, state.casaMarcia (vão no full_state).
+const CASA_CONTAS_PADRAO = [
+  {id: 'mercado',  nome: 'Mercado',  emoji: '🛒', bloco: 'alimentacao', padrao: true, quem: 'leandro'},
+  {id: 'acougue',  nome: 'Açougue',  emoji: '🥩', bloco: 'alimentacao', padrao: true, quem: 'leandro'},
+  {id: 'farmacia', nome: 'Farmácia', emoji: '💊', bloco: 'saude',       padrao: true, quem: 'marcia'},  // M2: "é mais dela"
+];
+const CASA_BLOCOS = [
+  {id: 'moradia',     n: 1, label: '🏠 Moradia e contas básicas',     dica: 'Luz, internet, água, gás, IPTU, seguro'},
+  {id: 'alimentacao', n: 2, label: '🍽️ Alimentação e abastecimento', dica: 'Mercado, açougue, padaria, hortifrúti, água mineral'},
+  {id: 'limpeza',     n: 3, label: '🧼 Limpeza e manutenção',          dica: 'Produtos, utensílios, faxineira, quintal, reparos'},
+  {id: 'saude',       n: 4, label: '💊 Saúde e higiene',               dica: 'Farmácia, higiene, plano de saúde, consultas'},
+  {id: 'extras',      n: 5, label: '📺 Extras da casa',                dica: 'Assinaturas, telefone'},
+];
+const CASA_QUEM = {leandro: 'Leandro', marcia: 'Márcia'};
+// Grupo das Projeções → bloco da Casa (Igreja, Cartões, Transporte, Família etc. ficam fora)
+const CASA_GRUPO_BLOCO = {moradia: 'moradia', alimentacao: 'alimentacao', limpeza: 'limpeza', saude: 'saude', higiene: 'saude', assinaturas: 'extras'};
+// C6/D5: contas da casa que costumam existir (o Leandro marca quem paga)
+const CASA_FIXAS_CHECK = [
+  {id: 'agua', nome: 'Água'}, {id: 'gas', nome: 'Gás'}, {id: 'iptu', nome: 'IPTU'}, {id: 'lixo', nome: 'Taxa de lixo'},
+  {id: 'seguro', nome: 'Seguro residencial'}, {id: 'aluguel', nome: 'Aluguel ou prestação'}, {id: 'condominio', nome: 'Condomínio'},
+];
+const CASA_META = 'casa-imprevistos';
+
+let casaSub = 'resumo';
+let casaMesSel = new Date().getMonth();
+let casaTipoForm = 'anotada';
+let casaQuemForm = null;
+let casaBusca = '';
+
+function casaIni() {
+  if (!Array.isArray(state.casaContas) || !state.casaContas.length) state.casaContas = CASA_CONTAS_PADRAO.map(c => ({...c}));
+  if (!Array.isArray(state.casaMov)) state.casaMov = [];
+  if (!state.casaCfg || typeof state.casaCfg !== 'object') state.casaCfg = {};
+  if (state.casaCfg.reservaPct == null) state.casaCfg.reservaPct = 5;
+  if (!state.casaCfg.fixas) state.casaCfg.fixas = {};
+  if (!state.casaCfg.lojaQuem) state.casaCfg.lojaQuem = {};
+  if (!state.casaMarcia || typeof state.casaMarcia !== 'object') {
+    // M2 (19/11): água e IPTU são dela; M5: o penhor da Caixa (no nome dela) entra aqui. Valores a preencher.
+    state.casaMarcia = {contas: [
+      {id: 'agua', nome: 'Água', valor: 0, venc: '10'},
+      {id: 'iptu', nome: 'IPTU', valor: 0, venc: '10'},
+      {id: 'penhor', nome: 'Penhor Caixa (renovação)', valor: 0, data: '2026-12-06', fora: true},
+    ], pagos: {}};
+    state.casaCfg.fixas.agua = 'marcia';
+    state.casaCfg.fixas.iptu = 'marcia';
+  }
+  if (!state.casaMarcia.pagos) state.casaMarcia.pagos = {};
+}
+const casaConta = id => (state.casaContas || []).find(c => c.id === id);
+const casaNovoId = () => 'c' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
+const casaEsc = t => String(t ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+const casaDia = d => d ? d.split('-').reverse().slice(0, 2).join('/') : '—';
+const casaChaveMes = (ano, m) => `${ano}-${String(m + 1).padStart(2, '0')}`;
+const casaQuem = m => m.quem === 'marcia' ? 'marcia' : 'leandro';
+// Só o que o Leandro paga sai do saldo dele (vai para o Cotidiano)
+const casaGeraCotidiano = m => casaQuem(m) === 'leandro' && (m.tipo === 'pagamento' || (m.tipo === 'compra' && m.naHora));
+const casaChaveLoja = (contaId, loja) => contaId + '|' + semAcento(loja || '');
+// Quem paga a conta anotada de uma loja: o último pagamento dessa loja; senão, o padrão da conta
+function casaPagadorLoja(contaId, loja) {
+  return state.casaCfg.lojaQuem[casaChaveLoja(contaId, loja)] || (casaConta(contaId) || {}).quem || 'leandro';
+}
+
+// Bloco da Casa de um nome (fixa ou item do Cotidiano). Telefone vai para Extras.
+function casaBlocoDeNome(nome, item) {
+  const n = semAcento(nome || '');
+  if (/\b(vivo|claro|tim|oi|telefone|celular)\b/.test(n)) return 'extras';
+  return CASA_GRUPO_BLOCO[projGrupoGasto(nome, 'outros', item)] || null;
+}
+
+// O Cotidiano recebe 1 lançamento por pagamento (ou compra paga na hora) DO LEANDRO — com casaId.
+// Idempotente: cria, atualiza e apaga só os lançamentos que têm casaId.
+function casaSyncCotidiano() {
+  casaIni();
+  state.cotidiano = state.cotidiano || [];
+  const devem = new Map(state.casaMov.filter(casaGeraCotidiano).map(m => [m.id, m]));
+  state.cotidiano = state.cotidiano.filter(d => !d.casaId || devem.has(d.casaId));
+  devem.forEach(m => {
+    const conta = casaConta(m.conta) || {nome: 'Casa'};
+    const campos = {
+      data: m.data, mes: MESES[new Date(m.data + 'T12:00:00').getMonth()], valor: m.valor, cat: conta.nome,
+      desc: (m.tipo === 'pagamento' ? 'Pagamento da conta' : 'Compra paga na hora') + (m.loja ? ' · ' + m.loja : '') + (m.desc ? ' · ' + m.desc : ''),
+    };
+    const ex = state.cotidiano.find(d => d.casaId === m.id);
+    if (ex) Object.assign(ex, campos);
+    else state.cotidiano.push({id: cotNextId++, ...campos, criado: m.criado || hojeISO(), casaId: m.id});
+  });
+}
+
+// Em aberto por loja: compras anotadas − pagamentos (todos os tempos)
+function casaAbertoPorLoja(contaId) {
+  const lojas = {};
+  (state.casaMov || []).filter(m => (!contaId || m.conta === contaId)).forEach(m => {
+    const k = casaChaveLoja(m.conta, m.loja);
+    const v = m.tipo === 'compra' && !m.naHora ? m.valor : m.tipo === 'pagamento' ? -m.valor : 0;
+    if (!lojas[k]) lojas[k] = {conta: m.conta, loja: m.loja || '', valor: 0};
+    lojas[k].valor += v;
+  });
+  return Object.values(lojas).map(l => ({...l, valor: Math.round(l.valor * 100) / 100, quem: casaPagadorLoja(l.conta, l.loja)})).filter(l => Math.abs(l.valor) > 0.009);
+}
+function casaDevo(contaId, quem) {
+  return casaAbertoPorLoja(contaId).filter(l => !quem || l.quem === quem).reduce((s, l) => s + l.valor, 0);
+}
+
+// C8: lançamentos do Cotidiano de antes da aba Casa (sem casaId), por palavra da conta
+function casaHistoricoCotidiano(conta) {
+  const n = semAcento(conta.nome);
+  const pal = conta.id === 'mercado' ? ['mercado', 'supermerc'] : conta.id === 'farmacia' ? ['farmacia', 'drogaria', 'remedio'] : [n];
+  return (state.cotidiano || []).filter(d => {
+    if (d.casaId) return false;
+    const c = semAcento(d.cat || '');
+    if (conta.id === 'mercado' && /mercado ?livre/.test(c)) return false;
+    return pal.some(p => c.includes(p));
+  });
+}
+
+// D4: repasses do Leandro para a Márcia (Cotidiano com "Márcia" no nome)
+function casaRepasses(chave) {
+  return (state.cotidiano || []).filter(d => !d.casaId && /\bmarcia\b/.test(semAcento(d.cat || '')) && (!chave || (d.data || '').startsWith(chave)));
+}
+
+// Contas da Márcia pagas no mês m (valor pago ou o valor da conta se marcado "true")
+function casaMarciaPago(c, chave) {
+  const v = (state.casaMarcia.pagos[c.id] || {})[chave];
+  return v === true ? (c.valor || 0) : (Number(v) || 0);
+}
+function casaMarciaDoMes(c, ano, m) {
+  if (c.data) return c.data.startsWith(casaChaveMes(ano, m));
+  return true;
+}
+
+// Resumo de um mês: custo da casa por bloco e por pessoa
+function casaResumoMes(ano, m) {
+  casaIni();
+  const chave = casaChaveMes(ano, m);
+  const blocos = Object.fromEntries(CASA_BLOCOS.map(b => [b.id, {total: 0, leandro: 0, marcia: 0, itens: {}}]));
+  const soma = (b, nome, v, quem) => {
+    if (!b || !(v > 0)) return;
+    blocos[b].total += v; blocos[b][quem] += v;
+    const k = nome + (quem === 'marcia' ? ' · Márcia' : '');
+    blocos[b].itens[k] = (blocos[b].itens[k] || 0) + v;
+  };
+  if (ano === new Date().getFullYear()) {
+    (state.despesas_fixas || []).forEach(d => {
+      const v = (state.pagFixas?.[d.nome] || {})[MESES[m]];
+      soma(casaBlocoDeNome(d.nome), d.nome, v === true ? d.valor : (v || 0), 'leandro');
+    });
+  }
+  (state.cotidiano || []).filter(d => !d.casaId && (d.data || '').startsWith(chave))
+    .forEach(d => soma(casaBlocoDeNome(d.cat, d), d.cat, d.valor, 'leandro'));
+  // Compras das contas: custo de quem paga (anotada → quem paga a conta da loja; na hora → quem comprou)
+  state.casaMov.filter(x => x.tipo === 'compra' && (x.data || '').startsWith(chave)).forEach(x => {
+    const conta = casaConta(x.conta) || {nome: 'Casa', bloco: 'alimentacao'};
+    const quem = x.naHora ? casaQuem(x) : casaPagadorLoja(x.conta, x.loja);
+    const lim = Math.min(x.valor, x.div?.limpeza || 0), hig = Math.min(x.valor - lim, x.div?.higiene || 0);
+    soma('limpeza', conta.nome + ' (limpeza)', lim, quem);
+    soma('saude', conta.nome + ' (higiene)', hig, quem);
+    soma(conta.bloco || 'alimentacao', conta.nome, x.valor - lim - hig, quem);
+  });
+  (state.casaMarcia.contas || []).filter(c => !c.fora).forEach(c => soma(casaBlocoDeNome(c.nome) || 'moradia', c.nome, casaMarciaPago(c, chave), 'marcia'));
+  const tot = k => Object.values(blocos).reduce((s, b) => s + b[k], 0);
+  return {blocos, total: tot('total'), leandro: tot('leandro'), marcia: tot('marcia'), repasses: casaRepasses(chave).reduce((s, d) => s + d.valor, 0)};
+}
+
+function casaMediaFechados() {
+  const ano = new Date().getFullYear(), atual = new Date().getMonth();
+  const tot = [];
+  for (let k = atual - 1; k >= 0 && tot.length < 3; k--) { const t = casaResumoMes(ano, k).total; if (t > 0) tot.push(t); }
+  return tot.length ? tot.reduce((a, b) => a + b, 0) / tot.length : 0;
+}
+
+function casaMeta() {
+  state.metas = state.metas || {};
+  if (!state.metas[CASA_META]) state.metas[CASA_META] = {alvo: null, depositos: []};
+  return state.metas[CASA_META];
+}
+
+// ── Telas ──
+function renderCasa() {
+  casaIni();
+  const abas = document.getElementById('casa-subabas');
+  const corpo = document.getElementById('casa-corpo');
+  if (!abas || !corpo) return;
+  if (!['resumo', 'nova', 'marcia'].includes(casaSub) && !casaConta(casaSub)) casaSub = 'resumo';
+  const btn = (id, txt, extra = '') => `<button class="casa-subtab${casaSub === id ? ' active' : ''}" onclick="casaAbrir('${id}')">${txt}${extra}</button>`;
+  abas.innerHTML = btn('resumo', '🏠 Resumo') + state.casaContas.map(c => {
+    const devo = casaDevo(c.id);
+    return btn(c.id, `${c.emoji} ${casaEsc(c.nome)}`, devo > 0.009 ? ` <span style="color:var(--red)">· ${fmtBRL(devo)}</span>` : '');
+  }).join('') + btn('marcia', '👩 Dona Márcia') + btn('nova', '＋ Conta');
+  corpo.innerHTML = casaSub === 'resumo' ? casaHtmlResumo() : casaSub === 'nova' ? casaHtmlNovaConta() : casaSub === 'marcia' ? casaHtmlMarcia() : casaHtmlConta(casaConta(casaSub));
+}
+function casaAbrir(id) { casaSub = id; casaBusca = ''; casaQuemForm = null; renderCasa(); }
+function casaMudarMes(d) { casaMesSel = Math.min(11, Math.max(0, casaMesSel + d)); renderCasa(); }
+
+const CASA_CAMPO = 'background:var(--card2);border:1px solid rgba(201,168,76,0.25);border-radius:8px;color:var(--text);font-family:inherit;font-size:12px;padding:8px;outline:none;width:100%;min-width:0;box-sizing:border-box;';
+
+function casaKpi(rotulo, valor, sub, cor) {
+  return `<div class="kpi-card"><div class="kpi-label">${rotulo}</div><div class="kpi-value" style="color:${cor || 'var(--gold)'}">${valor}</div><div class="kpi-sub">${sub || ''}</div></div>`;
+}
+function casaSeletorMes() {
+  return `<div style="display:flex;align-items:center;gap:10px;margin-bottom:12px;">
+    <button class="btn btn-outline" style="padding:6px 12px;" onclick="casaMudarMes(-1)" ${casaMesSel === 0 ? 'disabled' : ''} aria-label="Mês anterior">‹</button>
+    <strong style="font-size:14px;color:var(--gold);min-width:110px;text-align:center;">${MESES_FULL[casaMesSel]} ${new Date().getFullYear()}</strong>
+    <button class="btn btn-outline" style="padding:6px 12px;" onclick="casaMudarMes(1)" ${casaMesSel === 11 ? 'disabled' : ''} aria-label="Próximo mês">›</button>
+  </div>`;
+}
+const casaPct = (a, t) => t > 0 ? Math.round(a / t * 100) + '%' : '—';
+
+function casaHtmlResumo() {
+  const ano = new Date().getFullYear(), chave = casaChaveMes(ano, casaMesSel);
+  const r = casaResumoMes(ano, casaMesSel);
+  const devoL = casaDevo(null, 'leandro'), devoM = casaDevo(null, 'marcia');
+  const limAli = projLimite('alimentacao');
+  const ali = r.blocos.alimentacao.total;
+  const pct = Number(state.casaCfg.reservaPct) || 0;
+  const media = casaMediaFechados();
+  const sugestao = Math.round((media || r.total) * pct / 100);
+  const meta = casaMeta();
+  const guardado = meta.depositos.reduce((s, d) => s + d.valor, 0);
+  const guardadoMes = meta.depositos.filter(d => (d.data || '').startsWith(chave)).reduce((s, d) => s + d.valor, 0);
+  const blocosHtml = CASA_BLOCOS.map(b => {
+    const x = r.blocos[b.id];
+    const itens = Object.entries(x.itens).sort((a, c) => c[1] - a[1]);
+    const lim = projLimite(b.id);
+    return `<details class="form-card" style="padding:12px 14px;margin-bottom:8px;">
+      <summary style="display:flex;justify-content:space-between;gap:10px;cursor:pointer;list-style:none;align-items:baseline;flex-wrap:wrap;">
+        <span style="font-size:13px;font-weight:600;color:var(--text);">${b.n}. ${b.label}</span>
+        <span style="font-family:'Cormorant Garamond',serif;font-size:19px;font-weight:700;color:${lim && x.total > lim.valor ? 'var(--red)' : 'var(--gold)'};">${fmtBRL(x.total)}${lim ? `<span style="font-family:'DM Sans',sans-serif;font-size:10px;color:var(--muted);font-weight:400;"> de ${fmtBRL(lim.valor)}</span>` : ''}</span>
+      </summary>
+      <div style="font-size:11px;color:var(--muted);margin:6px 0;">${b.dica}${x.total ? ` · Leandro ${fmtBRL(x.leandro)} (${casaPct(x.leandro, x.total)}) · Márcia ${fmtBRL(x.marcia)} (${casaPct(x.marcia, x.total)})` : ''}</div>
+      ${itens.length ? itens.map(([n, v]) => `<div style="display:flex;justify-content:space-between;gap:8px;font-size:12px;padding:4px 0;border-bottom:1px solid rgba(255,255,255,0.04);"><span>${casaEsc(n)}</span><span style="color:var(--gold)">${fmtBRL(v)}</span></div>`).join('') : '<div style="font-size:12px;color:var(--muted);">Nada neste mês.</div>'}
+    </details>`;
+  }).join('');
+  // M4: acerto do mês (cada um paga contas certas: o quadro só mostra quem bancou quanto)
+  const pendM = (state.casaMarcia.contas || []).filter(c => casaMarciaDoMes(c, ano, casaMesSel) && !casaMarciaPago(c, chave));
+  const acerto = `<div class="form-card" style="padding:12px 14px;margin-bottom:14px;">
+      <div class="chart-title" style="margin-bottom:8px;">⚖️ Acerto do mês · ${MESES_FULL[casaMesSel]}</div>
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;font-size:12px;">
+        <div><div style="color:var(--muted);font-size:10px;text-transform:uppercase;letter-spacing:1px;">Leandro</div><div style="font-family:'Cormorant Garamond',serif;font-size:22px;color:var(--gold);font-weight:700;">${fmtBRL(r.leandro)}</div><div style="color:var(--muted)">${casaPct(r.leandro, r.total)} da casa${r.repasses ? ` + ${fmtBRL(r.repasses)} repassados à Márcia` : ''}</div></div>
+        <div><div style="color:var(--muted);font-size:10px;text-transform:uppercase;letter-spacing:1px;">Márcia</div><div style="font-family:'Cormorant Garamond',serif;font-size:22px;color:var(--gold);font-weight:700;">${fmtBRL(r.marcia)}</div><div style="color:var(--muted)">${casaPct(r.marcia, r.total)} da casa</div></div>
+      </div>
+      <div style="font-size:11px;color:var(--muted);margin-top:8px;line-height:1.5;">Combinado: cada um paga as suas contas. ${pendM.length ? `<span style="color:var(--red)">Da Márcia ainda sem pagamento marcado: ${pendM.map(c => casaEsc(c.nome)).join(', ')}.</span>` : 'Contas da Márcia do mês: tudo marcado.'}${devoL > 0.009 || devoM > 0.009 ? ` Em aberto nas lojas: Leandro ${fmtBRL(Math.max(0, devoL))} · Márcia ${fmtBRL(Math.max(0, devoM))}.` : ''} Só mostra; não cobra nada.</div>
+    </div>`;
+  const marcadas = state.casaCfg.fixas;
+  const temFixa = f => (state.despesas_fixas || []).some(d => semAcento(d.nome).includes(semAcento(f.nome.split(' ')[0]))) || (state.casaMarcia.contas || []).some(c => semAcento(c.nome).includes(semAcento(f.nome.split(' ')[0])));
+  const pend = CASA_FIXAS_CHECK.filter(f => !temFixa(f) && !marcadas[f.id]);
+  const checklist = pend.length ? `<div class="form-card" style="padding:12px 14px;margin-top:14px;">
+      <div class="chart-title" style="margin-bottom:6px;">🧾 Contas da casa que ainda não estão em lugar nenhum</div>
+      <div style="font-size:11px;color:var(--muted);margin-bottom:8px;">Marque quem paga: se for você, vira Despesa Fixa do Controle LRC; se for a Márcia, vai para a aba 👩 Dona Márcia. O que não existe some da lista.</div>
+      ${pend.map(f => `<div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;padding:6px 0;border-bottom:1px solid rgba(255,255,255,0.04);">
+        <span style="flex:1;min-width:120px;font-size:12px;">${f.nome}</span>
+        <button class="btn btn-gold" style="font-size:11px;padding:5px 10px;" onclick="casaFixaQuem('${f.id}','leandro')">Eu pago</button>
+        <button class="btn btn-outline" style="font-size:11px;padding:5px 10px;" onclick="casaFixaQuem('${f.id}','marcia')">Márcia paga</button>
+        <button class="btn btn-outline" style="font-size:11px;padding:5px 10px;" onclick="casaFixaNao('${f.id}')">Não temos</button>
+      </div>`).join('')}
+    </div>` : '';
+  const escondidas = CASA_FIXAS_CHECK.filter(f => marcadas[f.id] === 'nao');
+  return `${casaSeletorMes()}
+    <div class="cards-grid" style="margin-bottom:14px;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));">
+      ${casaKpi(`Custo da casa · ${MESES_LABEL[casaMesSel].toLowerCase()}`, fmtBRL(r.total), media ? `média ${fmtBRL(media)}/mês` : 'Leandro + Márcia')}
+      ${casaKpi('Sua parte', fmtBRL(r.leandro), `${casaPct(r.leandro, r.total)} · no seu saldo`)}
+      ${casaKpi('Você deve nas lojas', fmtBRL(Math.max(0, devoL)), 'compras anotadas a pagar', devoL > 0.009 ? 'var(--red)' : 'var(--green)')}
+      ${casaKpi('Alimentação', fmtBRL(ali), limAli ? `de ${fmtBRL(limAli.valor)} (limite)` : 'sem limite', limAli && ali > limAli.valor ? 'var(--red)' : 'var(--gold)')}
+    </div>
+    ${acerto}
+    ${blocosHtml}
+    <div class="form-card" style="padding:12px 14px;margin-top:14px;">
+      <div class="chart-title" style="margin-bottom:6px;">🧰 Caixinha de manutenção e imprevistos (${pct}%)</div>
+      <div style="font-size:12px;color:var(--text);line-height:1.6;">Sugestão: guardar <strong style="color:var(--gold)">${fmtBRL(sugestao)}</strong> por mês (${pct}% do custo médio da casa). Neste mês: ${fmtBRL(guardadoMes)} · no total: ${fmtBRL(guardado)}.</div>
+      <div style="font-size:11px;color:var(--muted);margin-top:4px;">Como a Meta Janeiro: guardar não é gasto, o dinheiro continua no saldo e fica reservado para conserto, desentupimento, pintura, aumento da luz… (o Muro da Casa tem plano próprio).</div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-top:10px;">
+        <input type="number" id="casa-guardar" min="0" step="10" placeholder="Valor (R$)" value="${sugestao || ''}" style="${CASA_CAMPO}width:110px;">
+        <button class="btn btn-gold" style="font-size:12px;padding:8px 14px;" onclick="casaGuardar()">+ Guardar</button>
+        <span style="font-size:11px;color:var(--muted);">Percentual:</span>
+        <select onchange="casaSetPct(this.value)" aria-label="Percentual da caixinha" style="${CASA_CAMPO}width:auto;">${[0, 5, 10].map(p => `<option value="${p}" ${p === pct ? 'selected' : ''}>${p ? p + '%' : 'não agora'}</option>`).join('')}</select>
+      </div>
+    </div>
+    ${checklist}
+    ${escondidas.length ? `<div style="font-size:10px;color:var(--muted);margin-top:8px;">Marcadas como “não temos”: ${escondidas.map(f => `${f.nome} <a href="#" onclick="casaFixaVolta('${f.id}');return false;" style="color:var(--gold)">desfazer</a>`).join(' · ')}</div>` : ''}
+    <div style="font-size:10px;color:var(--muted);margin-top:12px;line-height:1.5;">O Resumo só lê: suas Despesas Fixas pagas no mês, seu Cotidiano, as compras das contas (custo real, mesmo anotado, de quem paga a conta da loja) e as contas da Márcia marcadas como pagas. Dízimo, cartões, transporte e os repasses à Márcia ficam fora dos blocos. Seus pagamentos das contas entram no 🛍️ Cotidiano com 🔗 e não são contados duas vezes.</div>`;
+}
+
+function casaHtmlNovaConta() {
+  return `<div class="form-card" style="padding:14px;">
+    <div class="chart-title" style="margin-bottom:8px;">＋ Nova conta da casa</div>
+    <div style="font-size:12px;color:var(--muted);margin-bottom:10px;">Ex.: Padaria, Hortifrúti, Feira, Água mineral (galão), Gás. Tem os mesmos recursos de Mercado, Açougue e Farmácia.</div>
+    <div style="display:grid;grid-template-columns:minmax(0,70px) minmax(0,1fr);gap:8px;margin-bottom:8px;">
+      <input id="casa-nova-emoji" value="🏪" maxlength="4" aria-label="Ícone" style="${CASA_CAMPO}text-align:center;">
+      <input id="casa-nova-nome" placeholder="Nome da conta" style="${CASA_CAMPO}">
+    </div>
+    <select id="casa-nova-bloco" aria-label="Bloco" style="${CASA_CAMPO}margin-bottom:8px;">${CASA_BLOCOS.map(b => `<option value="${b.id}" ${b.id === 'alimentacao' ? 'selected' : ''}>${b.label}</option>`).join('')}</select>
+    <select id="casa-nova-quem" aria-label="Quem paga" style="${CASA_CAMPO}margin-bottom:10px;"><option value="leandro">Quem costuma pagar: Leandro</option><option value="marcia">Quem costuma pagar: Márcia</option></select>
+    <button class="btn btn-gold" onclick="casaCriarConta()">Criar conta</button>
+  </div>`;
+}
+
+function casaHtmlConta(c) {
+  const ano = new Date().getFullYear(), chave = casaChaveMes(ano, casaMesSel);
+  const movs = state.casaMov.filter(m => m.conta === c.id);
+  const doMes = movs.filter(m => (m.data || '').startsWith(chave));
+  const abertas = casaAbertoPorLoja(c.id);
+  const devo = abertas.reduce((s, l) => s + l.valor, 0);
+  const comprasMes = doMes.filter(m => m.tipo === 'compra').reduce((s, m) => s + m.valor, 0);
+  const pagosL = doMes.filter(m => casaGeraCotidiano(m)).reduce((s, m) => s + m.valor, 0);
+  const pagosM = doMes.filter(m => casaQuem(m) === 'marcia' && (m.tipo === 'pagamento' || m.naHora)).reduce((s, m) => s + m.valor, 0);
+  const lojas = [...new Set(movs.map(m => m.loja).filter(Boolean))];
+  const hoje = hojeISO();
+  const dataPadrao = hoje.startsWith(chave) ? hoje : `${chave}-01`;
+  const busca = semAcento(casaBusca);
+  const lista = (busca ? movs.filter(m => semAcento(`${m.loja || ''} ${m.desc || ''} ${m.valor} ${CASA_QUEM[casaQuem(m)]}`).includes(busca)) : doMes)
+    .sort((a, b) => (b.data || '').localeCompare(a.data || '') || String(b.id).localeCompare(String(a.id)));
+  const t = casaTipoForm;
+  const quem = casaQuemForm || c.quem || 'leandro';
+  const tipoBtn = (id, txt) => `<button class="casa-subtab${t === id ? ' active' : ''}" style="flex:1;" onclick="casaTipo('${id}')">${txt}</button>`;
+  const quemBtn = (id) => `<button class="casa-subtab${quem === id ? ' active' : ''}" style="flex:1;" onclick="casaQuemSet('${id}')">${id === 'leandro' ? '🙋 Leandro' : '👩 Márcia'}</button>`;
+  const podeDividir = c.bloco === 'alimentacao' && t !== 'pagamento';
+  const hist = casaHistoricoCotidiano(c);
+  const histTot = hist.reduce((s, d) => s + d.valor, 0);
+  const devoSugestao = abertas.filter(l => l.quem === quem).reduce((s, l) => s + l.valor, 0);
+  return `${casaSeletorMes()}
+    <div class="cards-grid" style="margin-bottom:14px;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));">
+      ${casaKpi('Em aberto', fmtBRL(Math.max(0, devo)), devo < -0.009 ? `crédito de ${fmtBRL(-devo)}` : 'compras anotadas a pagar', devo > 0.009 ? 'var(--red)' : 'var(--green)')}
+      ${casaKpi(`Compras · ${MESES_LABEL[casaMesSel].toLowerCase()}`, fmtBRL(comprasMes), 'custo real do mês')}
+      ${casaKpi(`Você pagou · ${MESES_LABEL[casaMesSel].toLowerCase()}`, fmtBRL(pagosL), 'foi para o Cotidiano 🔗')}
+      ${casaKpi(`Márcia pagou · ${MESES_LABEL[casaMesSel].toLowerCase()}`, fmtBRL(pagosM), 'só acompanhamento')}
+    </div>
+    ${abertas.length ? `<div class="form-card" style="padding:10px 14px;margin-bottom:14px;">
+      <div style="font-size:10px;color:var(--gold);letter-spacing:1px;text-transform:uppercase;margin-bottom:6px;">Em aberto por loja · quem paga</div>
+      ${abertas.map(l => `<div style="display:flex;justify-content:space-between;gap:8px;font-size:12px;padding:4px 0;border-bottom:1px solid rgba(255,255,255,0.04);"><span>${casaEsc(l.loja || c.nome)} · <span style="color:var(--muted)">paga: ${CASA_QUEM[l.quem]}</span></span><span style="color:${l.valor > 0 ? 'var(--red)' : 'var(--green)'}">${fmtBRL(l.valor)}</span></div>`).join('')}
+    </div>` : ''}
+    <div style="background:rgba(201,168,76,0.05);border:1px dashed rgba(201,168,76,0.2);border-radius:8px;padding:12px;margin-bottom:14px;">
+      <div style="display:flex;gap:4px;margin-bottom:8px;background:var(--card2);border-radius:8px;padding:3px;flex-wrap:wrap;">
+        ${tipoBtn('anotada', '📝 Compra anotada')}${tipoBtn('nahora', '💵 Paga na hora')}${tipoBtn('pagamento', '✅ Pagou a conta')}
+      </div>
+      <div style="display:flex;gap:4px;margin-bottom:10px;background:var(--card2);border-radius:8px;padding:3px;align-items:center;">
+        <span style="font-size:10px;color:var(--muted);padding:0 6px;">${t === 'pagamento' ? 'Quem pagou' : 'Quem comprou'}</span>${quemBtn('leandro')}${quemBtn('marcia')}
+      </div>
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:8px;margin-bottom:8px;align-items:end;">
+        <div><div style="font-size:10px;color:var(--muted);margin-bottom:3px;">Data</div><input type="date" id="casa-data" value="${dataPadrao}" style="${CASA_CAMPO}"></div>
+        <div><div style="font-size:10px;color:var(--muted);margin-bottom:3px;">Loja</div><input id="casa-loja" list="casa-lojas" placeholder="${c.id === 'mercado' ? 'Ex.: Mercado Clen' : 'Nome da loja'}" style="${CASA_CAMPO}"><datalist id="casa-lojas">${lojas.map(l => `<option value="${casaEsc(l)}">`).join('')}</datalist></div>
+        <div><div style="font-size:10px;color:var(--muted);margin-bottom:3px;">Valor (R$)</div><input type="number" id="casa-valor" step="0.01" min="0" placeholder="0" value="${t === 'pagamento' && devoSugestao > 0 ? devoSugestao.toFixed(2) : ''}" style="${CASA_CAMPO}"></div>
+      </div>
+      <input id="casa-desc" placeholder="Observação (opcional)" style="${CASA_CAMPO}margin-bottom:8px;">
+      ${podeDividir ? `<details style="margin-bottom:8px;"><summary style="font-size:11px;color:var(--gold);cursor:pointer;">➗ Dividir a compra (limpeza e higiene)</summary>
+        <div style="display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:8px;margin-top:8px;">
+          <div><div style="font-size:10px;color:var(--muted);margin-bottom:3px;">🧼 Limpeza (R$)</div><input type="number" id="casa-div-limpeza" step="0.01" min="0" placeholder="0" style="${CASA_CAMPO}"></div>
+          <div><div style="font-size:10px;color:var(--muted);margin-bottom:3px;">🧴 Higiene (R$)</div><input type="number" id="casa-div-higiene" step="0.01" min="0" placeholder="0" style="${CASA_CAMPO}"></div>
+        </div><div style="font-size:10px;color:var(--muted);margin-top:4px;">O resto conta como alimentação.</div></details>` : ''}
+      <button class="btn btn-gold" style="font-size:12px;padding:8px 16px;" onclick="casaLancar('${c.id}')">${t === 'pagamento' ? '✅ Lançar pagamento' : '+ Lançar compra'}</button>
+      <div style="font-size:10px;color:var(--muted);margin-top:6px;">${t === 'anotada' ? 'Fica na conta da loja; ainda não sai de nenhum saldo.' : quem === 'marcia' ? 'Pago pela Márcia: fica só no acompanhamento da Casa, não mexe no seu saldo.' : t === 'nahora' ? 'Lança a compra e o pagamento juntos: entra no seu Cotidiano.' : 'O pagamento entra no seu 🛍️ Cotidiano e abate o que está em aberto na loja.'}</div>
+    </div>
+    <input type="search" placeholder="🔎 Buscar em todas as compras e pagamentos desta conta" value="${casaEsc(casaBusca)}" oninput="casaBusca=this.value;casaRenderLista('${c.id}')" style="${CASA_CAMPO}margin-bottom:8px;">
+    <div id="casa-lista">${casaHtmlLista(lista, !!busca)}</div>
+    ${hist.length ? `<details class="form-card" style="padding:12px 14px;margin-top:14px;">
+      <summary style="cursor:pointer;font-size:12px;color:var(--gold);">📜 Antes da aba Casa: ${hist.length} lançamentos seus no Cotidiano · ${fmtBRL(histTot)} (já pagos)</summary>
+      <div style="font-size:11px;color:var(--muted);margin:6px 0;">Só para consulta: continuam no Cotidiano e no saldo como sempre.</div>
+      ${hist.sort((a, b) => (b.data || '').localeCompare(a.data || '')).map(d => `<div style="display:flex;justify-content:space-between;gap:8px;font-size:12px;padding:4px 0;border-bottom:1px solid rgba(255,255,255,0.04);"><span>${casaDia(d.data)} · ${casaEsc(d.cat)}</span><span style="color:var(--gold)">${fmtBRL(d.valor)}</span></div>`).join('')}
+    </details>` : ''}
+    <div style="margin-top:12px;display:flex;gap:8px;flex-wrap:wrap;">
+      <button class="btn btn-outline" style="font-size:11px;" onclick="casaQuemPadrao('${c.id}')">Quem costuma pagar: ${CASA_QUEM[c.quem || 'leandro']} (trocar)</button>
+      ${!c.padrao && !movs.length ? `<button class="btn btn-outline" style="font-size:11px;" onclick="casaApagarConta('${c.id}')">Apagar esta conta</button>` : ''}
+    </div>`;
+}
+
+function casaHtmlLista(lista, buscando) {
+  if (!lista.length) return `<div style="font-size:12px;color:var(--muted);padding:8px 0;">${buscando ? 'Nada encontrado.' : 'Nenhum lançamento neste mês.'}</div>`;
+  return lista.map(m => {
+    const noCot = casaGeraCotidiano(m);
+    const quem = CASA_QUEM[casaQuem(m)];
+    const rot = m.tipo === 'pagamento' ? `✅ ${quem} pagou` : m.naHora ? `💵 ${quem} comprou e pagou` : `📝 ${quem} comprou (anotado)`;
+    const div = m.div && (m.div.limpeza || m.div.higiene) ? ` · ➗ ${m.div.limpeza ? 'limpeza ' + fmtBRL(m.div.limpeza) : ''}${m.div.limpeza && m.div.higiene ? ', ' : ''}${m.div.higiene ? 'higiene ' + fmtBRL(m.div.higiene) : ''}` : '';
+    return `<div style="display:flex;align-items:center;gap:8px;padding:8px 0;border-bottom:1px solid rgba(255,255,255,0.05);">
+      <div style="flex:1;min-width:0;">
+        <div style="font-size:12px;color:var(--text);">${casaDia(m.data)} · ${rot}${noCot ? ' <span title="Está no seu Cotidiano">🔗</span>' : ''}</div>
+        <div style="font-size:10px;color:var(--muted);overflow-wrap:anywhere;">${[m.loja, m.desc].filter(Boolean).map(casaEsc).join(' · ')}${div}</div>
+      </div>
+      <span style="font-family:'Cormorant Garamond',serif;font-size:16px;color:${m.tipo === 'pagamento' ? 'var(--green)' : 'var(--gold)'};white-space:nowrap;">${m.tipo === 'pagamento' ? '− ' : ''}${fmtBRL(m.valor)}</span>
+      <button onclick="casaEditar('${m.id}')" aria-label="Editar" style="background:var(--gold-glow);border:1px solid var(--border);color:var(--gold);border-radius:5px;padding:3px 8px;font-size:10px;cursor:pointer;">✏️</button>
+      <button onclick="casaRemover('${m.id}')" aria-label="Apagar" class="despesa-delete">✕</button>
+    </div>`;
+  }).join('');
+}
+function casaRenderLista(contaId) {
+  const el = document.getElementById('casa-lista');
+  if (!el) return;
+  const chave = casaChaveMes(new Date().getFullYear(), casaMesSel), busca = semAcento(casaBusca);
+  const movs = state.casaMov.filter(m => m.conta === contaId);
+  const lista = (busca ? movs.filter(m => semAcento(`${m.loja || ''} ${m.desc || ''} ${m.valor} ${CASA_QUEM[casaQuem(m)]}`).includes(busca)) : movs.filter(m => (m.data || '').startsWith(chave)))
+    .sort((a, b) => (b.data || '').localeCompare(a.data || ''));
+  el.innerHTML = casaHtmlLista(lista, !!busca);
+}
+function casaTipo(t) { casaTipoForm = t; renderCasa(); }
+function casaQuemSet(q) { casaQuemForm = q; renderCasa(); }
+function casaQuemPadrao(id) {
+  const c = casaConta(id); if (!c) return;
+  c.quem = (c.quem || 'leandro') === 'leandro' ? 'marcia' : 'leandro';
+  casaQuemForm = null; saveState(); renderCasa(); toast(`✓ ${c.nome}: quem costuma pagar agora é ${CASA_QUEM[c.quem]}`);
+}
+
+function casaPosMudanca(msg) {
+  casaSyncCotidiano();
+  saveState();
+  renderCasa();
+  try { updateDespesasKPIs(); } catch(e) {}
+  try { updatePainel(); } catch(e) {}
+  if (msg) toast(msg);
+}
+
+function casaLancar(contaId) {
+  const c = casaConta(contaId);
+  const num = id => { const v = parseFloat(String(document.getElementById(id)?.value || '').replace(',', '.')); return v > 0 ? Math.round(v * 100) / 100 : 0; };
+  const valor = num('casa-valor');
+  if (!valor) { toast('⚠️ Digite o valor'); return; }
+  const data = document.getElementById('casa-data')?.value || hojeISO();
+  const t = casaTipoForm;
+  const quem = casaQuemForm || c.quem || 'leandro';
+  const mov = {id: casaNovoId(), conta: contaId, tipo: t === 'pagamento' ? 'pagamento' : 'compra', naHora: t === 'nahora', quem, data, valor,
+    loja: (document.getElementById('casa-loja')?.value || '').trim(), desc: (document.getElementById('casa-desc')?.value || '').trim(), criado: hojeISO()};
+  const lim = num('casa-div-limpeza'), hig = num('casa-div-higiene');
+  if (mov.tipo === 'compra' && (lim || hig)) {
+    if (lim + hig > valor) { toast('⚠️ Limpeza + higiene passam do valor da compra'); return; }
+    mov.div = {limpeza: lim, higiene: hig};
+  }
+  // Quem paga a conta desta loja = quem fez o último pagamento nela
+  if (mov.tipo === 'pagamento') state.casaCfg.lojaQuem[casaChaveLoja(contaId, mov.loja)] = quem;
+  state.casaMov.push(mov);
+  const onde = casaGeraCotidiano(mov) ? ' (no seu Cotidiano)' : quem === 'marcia' && mov.tipo !== 'compra' || mov.naHora ? ' (da Márcia)' : ' anotada';
+  casaPosMudanca(`✓ ${c.emoji} ${c.nome}: ${mov.tipo === 'pagamento' ? 'pagamento' : 'compra'} de ${fmtBRL(valor)}${onde}`);
+}
+
+function casaEditar(id) {
+  const m = state.casaMov.find(x => x.id === id);
+  if (!m) return;
+  const v = prompt('Valor (R$):', String(m.valor).replace('.', ','));
+  if (v === null) return;
+  const valor = parseFloat(v.replace(',', '.'));
+  if (!(valor > 0)) { toast('⚠️ Valor inválido'); return; }
+  const data = prompt('Data (AAAA-MM-DD):', m.data);
+  if (data === null) return;
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(data.trim())) { toast('⚠️ Data no formato AAAA-MM-DD'); return; }
+  const loja = prompt('Loja (opcional):', m.loja || '');
+  if (loja === null) return;
+  const quem = prompt('Quem? Escreva L para Leandro ou M para Márcia:', casaQuem(m) === 'marcia' ? 'M' : 'L');
+  if (quem === null) return;
+  m.valor = Math.round(valor * 100) / 100; m.data = data.trim(); m.loja = loja.trim();
+  m.quem = /^m/i.test(quem.trim()) ? 'marcia' : 'leandro';
+  if (m.div) { const s = (m.div.limpeza || 0) + (m.div.higiene || 0); if (s > m.valor) delete m.div; }
+  casaPosMudanca('✓ Lançamento atualizado');
+}
+
+function casaRemover(id) {
+  const m = state.casaMov.find(x => x.id === id);
+  if (!m || !confirm('Apagar este lançamento da conta?' + (casaGeraCotidiano(m) ? ' Ele sai também do seu Cotidiano.' : ''))) return;
+  const c = casaConta(m.conta) || {nome: 'Casa'};
+  paraLixeira('casaMov', m, `${c.nome} · ${m.tipo === 'pagamento' ? 'pagamento' : 'compra'} ${fmtBRL(m.valor)} (${CASA_QUEM[casaQuem(m)]})`);
+  state.casaMov = state.casaMov.filter(x => x.id !== id);
+  casaPosMudanca('Lançamento apagado');
+}
+
+function casaCriarConta() {
+  const nome = (document.getElementById('casa-nova-nome')?.value || '').trim();
+  if (nome.length < 2) { toast('⚠️ Digite o nome da conta'); return; }
+  if (state.casaContas.some(c => semAcento(c.nome) === semAcento(nome))) { toast('⚠️ Já existe uma conta com esse nome'); return; }
+  const c = {id: 'k' + Date.now().toString(36), nome, emoji: (document.getElementById('casa-nova-emoji')?.value || '🏪').trim() || '🏪',
+    bloco: document.getElementById('casa-nova-bloco')?.value || 'alimentacao', quem: document.getElementById('casa-nova-quem')?.value || 'leandro'};
+  state.casaContas.push(c);
+  casaSub = c.id;
+  saveState(); renderCasa(); toast(`✓ Conta ${c.nome} criada`);
+}
+function casaApagarConta(id) {
+  const c = casaConta(id);
+  if (!c || c.padrao || state.casaMov.some(m => m.conta === id) || !confirm(`Apagar a conta ${c.nome}?`)) return;
+  state.casaContas = state.casaContas.filter(x => x.id !== id);
+  casaSub = 'resumo'; saveState(); renderCasa();
+}
+
+function casaGuardar() {
+  const v = parseFloat(String(document.getElementById('casa-guardar')?.value || '').replace(',', '.'));
+  if (!(v > 0)) { toast('⚠️ Digite quanto você guardou'); return; }
+  casaMeta().depositos.push({data: hojeISO(), valor: Math.round(v * 100) / 100, obs: 'Casa: manutenção e imprevistos'});
+  saveState(); renderCasa(); toast(`✓ ${fmtBRL(v)} guardados na caixinha da casa`);
+}
+function casaSetPct(p) { state.casaCfg.reservaPct = Number(p) || 0; saveState(); renderCasa(); }
+
+// C6/D5: conta da casa que falta → quem paga
+function casaFixaQuem(id, quem) {
+  const f = CASA_FIXAS_CHECK.find(x => x.id === id);
+  const v = prompt(`${f.nome}: valor por mês (R$)${quem === 'marcia' ? ' — pode deixar em branco' : ''}`, '');
+  if (v === null) return;
+  const valor = Math.round((parseFloat(v.replace(',', '.')) || 0) * 100) / 100;
+  if (quem === 'leandro' && !(valor > 0)) { toast('⚠️ Valor inválido'); return; }
+  const venc = prompt('Dia do vencimento (1 a 31):', '10');
+  if (venc === null) return;
+  const dia = String(Math.min(31, Math.max(1, parseInt(venc, 10) || 10))).padStart(2, '0');
+  if (quem === 'leandro') state.despesas_fixas.push({nome: f.nome, valor, vencimento: dia});
+  else state.casaMarcia.contas.push({id: 'm' + Date.now().toString(36), nome: f.nome, valor, venc: dia});
+  state.casaCfg.fixas[id] = quem;
+  saveState(); renderCasa();
+  try { renderDespesas(); updateDespesasKPIs(); updatePainel(); } catch(e) {}
+  toast(quem === 'leandro' ? `✓ ${f.nome} agora é sua Despesa Fixa` : `✓ ${f.nome} foi para a aba da Dona Márcia`);
+}
+function casaFixaNao(id) { state.casaCfg.fixas[id] = 'nao'; saveState(); renderCasa(); }
+function casaFixaVolta(id) { delete state.casaCfg.fixas[id]; saveState(); renderCasa(); }
+
+// ── D2: 👩 Dona Márcia (acompanhamento; nada aqui mexe no saldo do Leandro) ──
+function casaHtmlMarcia() {
+  const ano = new Date().getFullYear(), chave = casaChaveMes(ano, casaMesSel);
+  const contas = (state.casaMarcia.contas || []).filter(c => casaMarciaDoMes(c, ano, casaMesSel) || !c.data);
+  const doMes = contas.filter(c => casaMarciaDoMes(c, ano, casaMesSel));
+  const pagoContas = doMes.reduce((s, c) => s + casaMarciaPago(c, chave), 0);
+  const aPagar = doMes.filter(c => !casaMarciaPago(c, chave));
+  const movsM = state.casaMov.filter(m => casaQuem(m) === 'marcia' && (m.data || '').startsWith(chave));
+  const pagoLojas = movsM.filter(m => m.tipo === 'pagamento' || m.naHora).reduce((s, m) => s + m.valor, 0);
+  const abertoM = casaDevo(null, 'marcia');
+  const rep = casaRepasses(chave);
+  const repTot = rep.reduce((s, d) => s + d.valor, 0);
+  const repAno = casaRepasses(String(ano)).reduce((s, d) => s + d.valor, 0);
+  const proxData = (state.casaMarcia.contas || []).filter(c => c.data && c.data >= hojeISO()).sort((a, b) => a.data.localeCompare(b.data))[0];
+  const linhaConta = c => {
+    const pago = casaMarciaPago(c, chave);
+    const venc = c.data ? casaDia(c.data) : `dia ${c.venc || '—'}`;
+    const atrasada = !pago && c.valor > 0 && (c.data ? c.data < hojeISO() : (chave === hojeISO().slice(0, 7) && Number(c.venc) < new Date().getDate()));
+    return `<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;padding:8px 0;border-bottom:1px solid rgba(255,255,255,0.05);">
+      <div style="flex:1;min-width:140px;">
+        <div style="font-size:12px;color:var(--text);">${casaEsc(c.nome)}${c.fora ? ' <span style="font-size:10px;color:var(--muted)">(fora da casa)</span>' : ''}</div>
+        <div style="font-size:10px;color:${atrasada ? 'var(--red)' : 'var(--muted)'};">vence ${venc}${c.valor ? ` · ${fmtBRL(c.valor)}` : ' · valor a preencher'}${atrasada ? ' · atrasada' : ''}</div>
+      </div>
+      ${pago ? `<span style="color:var(--green);font-size:12px;">✓ pago ${fmtBRL(pago)}</span><button class="btn btn-outline" style="font-size:10px;padding:4px 8px;" onclick="casaMarciaPagar('${c.id}',false)">desfazer</button>`
+        : `<button class="btn btn-gold" style="font-size:11px;padding:5px 10px;" onclick="casaMarciaPagar('${c.id}',true)">Marcar pago</button>`}
+      <button onclick="casaMarciaEditar('${c.id}')" aria-label="Editar conta" style="background:var(--gold-glow);border:1px solid var(--border);color:var(--gold);border-radius:5px;padding:3px 8px;font-size:10px;cursor:pointer;">✏️</button>
+    </div>`;
+  };
+  return `${casaSeletorMes()}
+    <div style="font-size:12px;color:var(--muted);margin-bottom:12px;line-height:1.5;">Seu acompanhamento das contas da casa que a Dona Márcia paga. Ela não precisa usar o app, e nada aqui mexe no seu saldo.</div>
+    <div class="cards-grid" style="margin-bottom:14px;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));">
+      ${casaKpi(`Ela pagou · ${MESES_LABEL[casaMesSel].toLowerCase()}`, fmtBRL(pagoContas + pagoLojas), 'contas + lojas')}
+      ${casaKpi('Contas a pagar no mês', String(aPagar.length), aPagar.length ? aPagar.map(c => c.nome).join(', ') : 'tudo marcado', aPagar.length ? 'var(--red)' : 'var(--green)')}
+      ${casaKpi('Em aberto nas lojas', fmtBRL(Math.max(0, abertoM)), 'contas anotadas que ela paga', abertoM > 0.009 ? 'var(--red)' : 'var(--green)')}
+      ${casaKpi(`Você repassou · ${MESES_LABEL[casaMesSel].toLowerCase()}`, fmtBRL(repTot), `${fmtBRL(repAno)} em ${ano}`)}
+    </div>
+    ${proxData ? `<div class="form-card" style="padding:10px 14px;margin-bottom:14px;font-size:12px;">📌 Próximo vencimento com data: <strong style="color:var(--gold)">${casaEsc(proxData.nome)}</strong> em ${casaDia(proxData.data)}/${proxData.data.slice(0, 4)}${proxData.valor ? ` · ${fmtBRL(proxData.valor)}` : ''}.</div>` : ''}
+    <div class="form-card" style="padding:12px 14px;margin-bottom:14px;">
+      <div class="chart-title" style="margin-bottom:6px;">🧾 Contas dela</div>
+      ${contas.length ? contas.map(linhaConta).join('') : '<div style="font-size:12px;color:var(--muted);">Nenhuma conta neste mês.</div>'}
+      <div style="display:grid;grid-template-columns:minmax(0,1fr) minmax(0,90px) minmax(0,70px) auto;gap:6px;margin-top:10px;align-items:center;">
+        <input id="marcia-nome" placeholder="Nova conta (ex.: Gás)" style="${CASA_CAMPO}">
+        <input id="marcia-valor" type="number" step="0.01" min="0" placeholder="R$" style="${CASA_CAMPO}">
+        <input id="marcia-venc" type="number" min="1" max="31" placeholder="Dia" style="${CASA_CAMPO}">
+        <button class="btn btn-gold" style="font-size:11px;padding:7px 10px;" onclick="casaMarciaNova()">+</button>
+      </div>
+    </div>
+    <div class="form-card" style="padding:12px 14px;margin-bottom:14px;">
+      <div class="chart-title" style="margin-bottom:6px;">🛒 Compras e pagamentos dela nas lojas · ${MESES_FULL[casaMesSel]}</div>
+      ${casaHtmlLista(movsM.sort((a, b) => (b.data || '').localeCompare(a.data || '')), false)}
+      <div style="font-size:10px;color:var(--muted);margin-top:6px;">Para lançar, abra a conta da loja (🛒 Mercado, 💊 Farmácia…) e escolha 👩 Márcia.</div>
+    </div>
+    <div class="form-card" style="padding:12px 14px;">
+      <div class="chart-title" style="margin-bottom:6px;">🤝 Recebeu do Leandro · ${MESES_FULL[casaMesSel]}</div>
+      ${rep.length ? rep.map(d => `<div style="display:flex;justify-content:space-between;gap:8px;font-size:12px;padding:4px 0;border-bottom:1px solid rgba(255,255,255,0.04);"><span>${casaDia(d.data)} · ${casaEsc(d.cat)}${d.desc ? ' · ' + casaEsc(d.desc) : ''}</span><span style="color:var(--gold)">${fmtBRL(d.valor)}</span></div>`).join('') : '<div style="font-size:12px;color:var(--muted);">Nenhum repasse neste mês.</div>'}
+      <div style="font-size:10px;color:var(--muted);margin-top:6px;">Vem do seu Cotidiano (lançamentos com “Márcia” no nome). Ajuda em contas, consultas e outras coisas: entra no acerto como sua ajuda, fora dos blocos da casa.</div>
+    </div>`;
+}
+function casaMarciaPagar(id, pagar) {
+  const c = (state.casaMarcia.contas || []).find(x => x.id === id);
+  if (!c) return;
+  const chave = casaChaveMes(new Date().getFullYear(), casaMesSel);
+  state.casaMarcia.pagos[id] = state.casaMarcia.pagos[id] || {};
+  if (!pagar) { delete state.casaMarcia.pagos[id][chave]; saveState(); renderCasa(); return; }
+  const v = prompt(`${c.nome}: quanto ela pagou? (R$)`, c.valor ? String(c.valor).replace('.', ',') : '');
+  if (v === null) return;
+  const valor = parseFloat(v.replace(',', '.'));
+  if (!(valor > 0)) { toast('⚠️ Valor inválido'); return; }
+  state.casaMarcia.pagos[id][chave] = Math.round(valor * 100) / 100;
+  if (!c.valor) c.valor = state.casaMarcia.pagos[id][chave];
+  saveState(); renderCasa(); toast(`✓ ${c.nome} marcada como paga`);
+}
+function casaMarciaEditar(id) {
+  const c = (state.casaMarcia.contas || []).find(x => x.id === id);
+  if (!c) return;
+  const nome = prompt('Nome da conta (apague tudo para tirar a conta):', c.nome);
+  if (nome === null) return;
+  if (!nome.trim()) {
+    if (!confirm(`Tirar ${c.nome} das contas da Márcia?`)) return;
+    paraLixeira('casaMarciaContas', c, `Conta da Márcia · ${c.nome}`, true);
+    state.casaMarcia.contas = state.casaMarcia.contas.filter(x => x.id !== id);
+    saveState(); renderCasa(); return;
+  }
+  const v = prompt('Valor (R$):', c.valor ? String(c.valor).replace('.', ',') : '');
+  if (v === null) return;
+  const quando = prompt(c.data ? 'Data do vencimento (AAAA-MM-DD):' : 'Dia do vencimento (1 a 31):', c.data || c.venc || '10');
+  if (quando === null) return;
+  c.nome = nome.trim(); c.valor = Math.round((parseFloat(v.replace(',', '.')) || 0) * 100) / 100;
+  if (c.data) { if (/^\d{4}-\d{2}-\d{2}$/.test(quando.trim())) c.data = quando.trim(); }
+  else c.venc = String(Math.min(31, Math.max(1, parseInt(quando, 10) || 10))).padStart(2, '0');
+  saveState(); renderCasa(); toast('✓ Conta atualizada');
+}
+function casaMarciaNova() {
+  const nome = (document.getElementById('marcia-nome')?.value || '').trim();
+  if (nome.length < 2) { toast('⚠️ Digite o nome da conta'); return; }
+  const valor = Math.round((parseFloat(String(document.getElementById('marcia-valor')?.value || '').replace(',', '.')) || 0) * 100) / 100;
+  const dia = String(Math.min(31, Math.max(1, parseInt(document.getElementById('marcia-venc')?.value, 10) || 10))).padStart(2, '0');
+  state.casaMarcia.contas.push({id: 'm' + Date.now().toString(36), nome, valor, venc: dia});
+  saveState(); renderCasa(); toast(`✓ ${nome} nas contas da Márcia`);
+}
+
+// Cotidiano: o lançamento que veio da Casa só muda na aba Casa
+function casaBloqueioCotidiano(id) {
+  const item = (state.cotidiano || []).find(d => d.id === id);
+  if (!item || !item.casaId) return false;
+  const m = (state.casaMov || []).find(x => x.id === item.casaId);
+  toast('🔗 Este lançamento vem da aba 🏠 Casa: mude lá');
+  if (m) { casaSub = m.conta; casaMesSel = new Date(m.data + 'T12:00:00').getMonth(); }
+  showPage('casa');
+  return true;
+}
+
+// C9: Chat entende as contas da casa (sem a IA): "comprei 80 no açougue anotado",
+// "paguei o mercado 500", "a Márcia pagou a farmácia 60", "quanto devo no mercado?"
+function casaContaNoTexto(n) {
+  casaIni();
+  const alias = {mercado: ['mercado', 'supermercado'], farmacia: ['farmacia', 'drogaria'], acougue: ['acougue']};
+  if (/mercado ?livre/.test(n)) return null;
+  return state.casaContas.find(c => (alias[c.id] || [semAcento(c.nome)]).some(a => new RegExp(`\\b${a}\\b`).test(n)));
+}
+function chatCasa(texto) {
+  const n = semAcento(texto);
+  const c = casaContaNoTexto(n);
+  if (!c) return null;
+  if (/quanto (eu )?devo|quanto (ta|esta) (a )?(conta|devendo)|minha conta|em aberto/.test(n)) {
+    const l = casaAbertoPorLoja(c.id).filter(x => x.valor > 0.009);
+    return l.length ? `${c.emoji} Em aberto no ${c.nome}: ${l.map(x => `${x.loja || c.nome} ${fmtBRL(x.valor)} (paga: ${CASA_QUEM[x.quem]})`).join(' · ')}.` : `${c.emoji} Nada em aberto no ${c.nome}.`;
+  }
+  const num = n.match(/(\d+(?:[.,]\d{1,2})?)/);
+  const pagou = /\b(paguei|pagou|pagamento|acertei|acertou|quitei|quitou)\b/.test(n);
+  const comprou = /\b(comprei|comprou|compra|gastei|gastou|peguei|pegou)\b/.test(n);
+  if (!num || (!pagou && !comprou)) return null;
+  const valor = Math.round(parseFloat(num[1].replace(',', '.')) * 100) / 100;
+  if (!(valor > 0)) return null;
+  const quem = /\bmarcia\b/.test(n) ? 'marcia' : 'leandro';
+  const anotado = /anotad|fiado|pendurad|na conta|na caderneta|marquei|marcou/.test(n);
+  // "pagou a farmácia 60" sem nada anotado para essa pessoa = compra paga na hora (senão vira crédito)
+  const semAberto = pagou && casaDevo(c.id, quem) <= 0.009;
+  const tipo = pagou && !semAberto ? 'pagamento' : 'compra';
+  const naHora = tipo === 'compra' && (!anotado || semAberto);
+  const desc = tipo === 'pagamento' ? 'pagamento da conta' : naHora ? 'compra paga na hora' : 'compra anotada';
+  if (!confirm(`${c.emoji} ${c.nome}: ${desc} de ${fmtBRL(valor)} hoje, por ${CASA_QUEM[quem]}?`)) return '↩️ Não lancei nada.';
+  const mov = {id: casaNovoId(), conta: c.id, tipo, naHora, quem, data: hojeISO(), valor, loja: '', desc: 'pelo Chat', criado: hojeISO()};
+  if (tipo === 'pagamento') state.casaCfg.lojaQuem[casaChaveLoja(c.id, '')] = quem;
+  state.casaMov.push(mov);
+  casaPosMudanca();
+  const aberto = casaDevo(c.id);
+  return `✅ ${c.emoji} ${c.nome}: ${desc} de ${fmtBRL(valor)} (${CASA_QUEM[quem]})${casaGeraCotidiano(mov) ? ', foi para o seu Cotidiano' : ''}. ${aberto > 0.009 ? `Em aberto lá: ${fmtBRL(aberto)}.` : 'Nada em aberto.'}`;
+}
+
+
 // ============ META JANEIRO ============
 // Caixinha pra cobrir janeiro (férias = mensalidades mais baixas). Aparece de
 // setembro a janeiro. A meta sai sozinha da projeção realista de janeiro
@@ -8027,7 +8725,7 @@ function renderProjecoes() {
   const falta = Math.max(0, META_RESERVA * gastoMedio - saldoHoje);
   const corRes = mesesCobertos >= 6 ? 'var(--green)' : mesesCobertos >= 3 ? 'var(--gold)' : 'var(--red)';
   $('proj-reserva').innerHTML = gastoMedio <= 0 ? '' : `
-    <div class="chart-title" style="margin-bottom:8px;">💾 Reserva de emergência</div>
+    <div class="chart-title" style="margin-bottom:8px;">💾 Reserva de emergência${(() => { const g = ((state.metas || {})['casa-imprevistos']?.depositos || []).reduce((s, d) => s + d.valor, 0); return g > 0 ? ` <span style="font-size:11px;color:var(--muted);font-weight:400;">· caixinha da casa: ${fmtBRL(g)} guardados</span>` : ''; })()}</div>
     <div style="display:flex;align-items:baseline;gap:10px;flex-wrap:wrap;">
       <span style="font-family:'Cormorant Garamond',serif;font-size:28px;font-weight:700;color:${corRes}">${mesesCobertos.toFixed(1).replace('.', ',')} meses</span>
       <span style="font-size:11px;color:var(--muted)">seu saldo de hoje (${fmtBRL(saldoHoje)}) cobre isso do seu gasto médio (${fmtBRL(gastoMedio)}/mês)</span>
@@ -8517,9 +9215,13 @@ function mostrarDesfazer(reg) {
 function restaurarLixeira(id) {
   const reg = (state.lixeira || []).find(x => x.id === id);
   if (!reg) return;
-  const lista = (state[reg.colecao] = state[reg.colecao] || []);
-  if (reg.colecao === 'cotidiano' && lista.some(d => d.id === reg.item.id)) reg.item.id = cotNextId++;
-  lista.push(reg.item);
+  if (reg.colecao === 'casaMarciaContas') { casaIni(); state.casaMarcia.contas.push(reg.item); }
+  else {
+    const lista = (state[reg.colecao] = state[reg.colecao] || []);
+    if (reg.colecao === 'cotidiano' && lista.some(d => d.id === reg.item.id)) reg.item.id = cotNextId++;
+    lista.push(reg.item);
+  }
+  if (reg.colecao === 'casaMov') casaSyncCotidiano();
   state.lixeira = state.lixeira.filter(x => x.id !== id);
   saveState();
   const bar = document.getElementById('undo-bar'); if (bar) bar.style.display = 'none';
@@ -8551,7 +9253,7 @@ function renderLixeira() {
 // Redesenha o que pode ter mudado depois de restaurar/importar
 function atualizarTelas() {
   [() => renderDespesas(), () => updateDespesasKPIs(), () => renderParceladas(), () => renderShows(),
-   () => renderAgenda(), () => renderAlunos(), () => updatePainel(), () => renderProjecoes(), () => renderLixeira()]
+   () => renderAgenda(), () => renderAlunos(), () => updatePainel(), () => renderProjecoes(), () => renderLixeira(), () => renderCasa()]
     .forEach(f => { try { f(); } catch(e) {} });
 }
 
@@ -8985,6 +9687,8 @@ async function enviarChat() {
   input.style.height = 'auto';
   // B3 (18/11/2026): pergunta de gasto por item é respondida aqui, com os números do Por Item
   // (sem internet e sem a IA inventar valor).
+  const respCasa = chatCasa(texto);
+  if (respCasa) { addMessage(respCasa, 'assistant'); return; }
   const pergItem = chatPerguntaDeItem(texto);
   if (pergItem) { addMessage(respostaGastoItem(pergItem), 'assistant'); return; }
   chatHistory.push({ role: 'user', content: texto });
@@ -10507,6 +11211,20 @@ function enviarRelatorioIAWpp(alunoId, btn) {
 // O mesmo texto vira o cartão PNG em Documents\Projetos\Novidades dos Apps\Controle LRC
 // (gerador lê o JSON entre as marcas NOVIDADES-INICIO e NOVIDADES-FIM; mantenha JSON puro aqui).
 const NOVIDADES_LRC = /*NOVIDADES-INICIO*/[
+  {
+    "id": "2026-11-19",
+    "data": "19/11/2026",
+    "titulo": "Nova aba 🏠 Casa",
+    "itens": [
+      { "icone": "🏠", "titulo": "Aba Casa", "texto": "Resumo da Casa no mês em 5 blocos (Moradia, Alimentação, Limpeza e manutenção, Saúde e higiene, Extras), com a sua parte e a da Dona Márcia." },
+      { "icone": "🛒", "titulo": "Mercado, Açougue e Farmácia", "texto": "Compra anotada fica na conta da loja; quando você paga, o pagamento entra sozinho no Cotidiano (🔗) e o saldo continua batendo com o banco. Mostra o que está em aberto em cada loja e quem paga." },
+      { "icone": "👩", "titulo": "Dona Márcia", "texto": "Acompanhamento das contas que ela paga (Água, IPTU, penhor da Caixa…), das compras dela nas lojas e dos seus repasses. Nada disso mexe no seu saldo." },
+      { "icone": "⚖️", "titulo": "Acerto do mês", "texto": "Quanto cada um bancou da casa no mês e o que ainda falta pagar. Só mostra; não cobra nada." },
+      { "icone": "➗", "titulo": "Dividir a compra", "texto": "Numa compra do mercado, separe quanto foi limpeza e higiene. Faxineira e quintal agora são Limpeza & Manutenção; o IPTU é Moradia." },
+      { "icone": "🧰", "titulo": "Caixinha da casa", "texto": "Sugestão de 5% do custo médio da casa por mês para manutenção e imprevistos (pode trocar ou desligar)." },
+      { "icone": "💬", "titulo": "Chat entende as contas", "texto": "\"comprei 80 no açougue anotado\", \"paguei o mercado 500\", \"a Márcia pagou a farmácia 60\", \"quanto devo no açougue?\"." }
+    ]
+  },
   {
     "id": "2026-11-18-5",
     "data": "18/11/2026",
