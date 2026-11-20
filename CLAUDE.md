@@ -204,3 +204,15 @@ Toda verificação segue ANTES → DURANTE → DEPOIS → PUBLICAR, com **atenç
 - **B1 + B2** `renderCasaPainel` (#painel-casa, chamada em updatePainel): mostra quanto o Leandro deve nas lojas, as contas da Márcia a pagar, o próximo vencimento com data e os vencimentos dos próximos 3 dias (`casaVencimentosProximos`).
 - **B3** `meses` (índices 0–11) nas contas da Márcia, escolhidos no ✏️ com "2-11" ou "3,6,9" (`casaLerMeses`).
 - **B4** o Chat responde "quanto devo nas lojas?".
+
+## RSM da Dona Márcia 19/11/2026 (A1–A5, B1–B4) — sw lrc-v36
+- `pagos[conta][AAAA-MM]` aceita número, `true` ou `{v, por: leandro|marcia, cotId, repasse}`. Leitura: `casaMarciaReg`, `casaMarciaPago`, `casaMarciaPorLeandro`.
+- **A1:** uma conta com data (ex.: penhor), ao ser paga, pede a próxima data e guarda a anterior em `c.historico`. O desfazer volta para a data antiga.
+- **A2:** `casaMarciaAtrasadas()` lista os meses passados sem pagamento, desde `desde` (só contas com valor). Aparecem num quadro na aba dela e no cartão do Painel.
+- **A3:** `casaMarciaEuPaguei` cria um item no Cotidiano (`Márcia · <conta>`, `grupo: 'familia'`, `casaMarciaRef: {id, chave}`). Esse item fica fora de `casaRepasses` e conta na parte do Leandro no Resumo. `casaBloqueioCotidiano` manda editar pela aba dela, e o desfazer tira o item do Cotidiano.
+- **A4:** na aba dela também aparecem as compras anotadas pelo Leandro em lojas que ela paga, marcadas como "conta dela".
+- **A5:** o botão 🗑️ chama `casaMarciaApagar`, que manda para a Lixeira (`casaMarciaContas`).
+- **B1:** `casaMarciaMedia` mostra a média dos 3 meses anteriores pagos e a variação.
+- **B2:** `casaCfg.nomesMarcia` guarda outros nomes que contam como repasse (busca em cat e desc).
+- **B3:** `casaEscolherRepasse` liga o pagamento a um repasse dos últimos 90 dias; a lista de repasses mostra "→ usado em".
+- **B4:** `casaMarciaCopiar` copia o resumo do mês para o WhatsApp, com contas, atrasadas e o que está em aberto nas lojas dela.

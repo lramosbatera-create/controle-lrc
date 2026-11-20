@@ -8065,15 +8065,24 @@ function casaHistoricoCotidiano(conta) {
 }
 
 // D4: repasses do Leandro para a Márcia (Cotidiano com "Márcia" no nome)
+// B2 (RSM Márcia 19/11): outros nomes que o Leandro usa no Cotidiano para ela também contam
+function casaNomesMarcia() {
+  return ['marcia', ...((state.casaCfg && state.casaCfg.nomesMarcia) || []).map(semAcento).filter(Boolean)];
+}
 function casaRepasses(chave) {
-  return (state.cotidiano || []).filter(d => !d.casaId && /\bmarcia\b/.test(semAcento(d.cat || '')) && (!chave || (d.data || '').startsWith(chave)));
+  const nomes = casaNomesMarcia();
+  return (state.cotidiano || []).filter(d => !d.casaId && !d.casaMarciaRef && (!chave || (d.data || '').startsWith(chave)) &&
+    nomes.some(n => new RegExp(`(^|[^a-z])${n.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}([^a-z]|$)`).test(semAcento(`${d.cat || ''} ${d.desc || ''}`))));
 }
 
-// Contas da Márcia pagas no mês m (valor pago ou o valor da conta se marcado "true")
+// Pagamento de uma conta dela no mês: número, true (valor da conta) ou {v, por, cotId, repasse}
+function casaMarciaReg(c, chave) { return (state.casaMarcia.pagos[c.id] || {})[chave]; }
 function casaMarciaPago(c, chave) {
-  const v = (state.casaMarcia.pagos[c.id] || {})[chave];
+  const v = casaMarciaReg(c, chave);
+  if (v && typeof v === 'object') return Number(v.v) || 0;
   return v === true ? (c.valor || 0) : (Number(v) || 0);
 }
+const casaMarciaPorLeandro = (c, chave) => { const v = casaMarciaReg(c, chave); return !!(v && typeof v === 'object' && v.por === 'leandro'); };
 function casaMarciaDoMes(c, ano, m) {
   if (c.data) return c.data.startsWith(casaChaveMes(ano, m));
   if (c.desde && casaChaveMes(ano, m) < c.desde) return false;          // A5: antes de existir
@@ -8122,7 +8131,7 @@ function casaResumoMes(ano, m) {
     soma('saude', conta.nome + ' (higiene)', hig, quem);
     soma(conta.bloco || 'alimentacao', conta.nome, x.valor - lim - hig, quem);
   });
-  (state.casaMarcia.contas || []).filter(c => !c.fora).forEach(c => soma(casaBlocoDeNome(c.nome) || 'moradia', c.nome, casaMarciaPago(c, chave), 'marcia'));
+  (state.casaMarcia.contas || []).filter(c => !c.fora).forEach(c => soma(casaBlocoDeNome(c.nome) || 'moradia', c.nome + (casaMarciaPorLeandro(c, chave) ? ' (paguei por ela)' : ''), casaMarciaPago(c, chave), casaMarciaPorLeandro(c, chave) ? 'leandro' : 'marcia'));
   const tot = k => Object.values(blocos).reduce((s, b) => s + b[k], 0);
   // A3: o que as Projeções e o limite contam (pelo caixa) na Alimentação do mês
   const caixaAli = (state.cotidiano || []).filter(d => (d.data || '').startsWith(chave) && projGrupoGasto(d.cat, 'outros', d) === 'alimentacao').reduce((s, d) => s + d.valor, 0);
@@ -8339,7 +8348,8 @@ function casaHtmlLista(lista, buscando) {
   return lista.map(m => {
     const noCot = casaGeraCotidiano(m);
     const quem = CASA_QUEM[casaQuem(m)];
-    const rot = m.tipo === 'pagamento' ? `✅ ${quem} pagou` : m.naHora ? `💵 ${quem} comprou e pagou` : `📝 ${quem} comprou (anotado)`;
+    const contaDela = m.tipo === 'compra' && !m.naHora && casaQuem(m) === 'leandro' && casaPagadorLoja(m.conta, m.loja) === 'marcia';
+    const rot = m.tipo === 'pagamento' ? `✅ ${quem} pagou` : m.naHora ? `💵 ${quem} comprou e pagou` : `📝 ${quem} comprou (anotado)${contaDela ? ' · conta dela' : ''}`;
     const div = m.div && (m.div.limpeza || m.div.higiene) ? ` · ➗ ${m.div.limpeza ? 'limpeza ' + fmtBRL(m.div.limpeza) : ''}${m.div.limpeza && m.div.higiene ? ', ' : ''}${m.div.higiene ? 'higiene ' + fmtBRL(m.div.higiene) : ''}` : '';
     return `<div style="display:flex;align-items:center;gap:8px;padding:8px 0;border-bottom:1px solid rgba(255,255,255,0.05);">
       <div style="flex:1;min-width:0;">
@@ -8481,44 +8491,104 @@ function casaFixaNao(id) { state.casaCfg.fixas[id] = 'nao'; saveState(); renderC
 function casaFixaVolta(id) { delete state.casaCfg.fixas[id]; saveState(); renderCasa(); }
 
 // ── D2: 👩 Dona Márcia (acompanhamento; nada aqui mexe no saldo do Leandro) ──
+// A2 (RSM Márcia 19/11): contas dela sem pagamento em meses que já passaram (desde o "desde")
+function casaMarciaAtrasadas() {
+  casaIni();
+  const hoje = hojeISO(), mesAtual = hoje.slice(0, 7), out = [];
+  (state.casaMarcia.contas || []).forEach(c => {
+    if (c.data) {
+      if (c.data < hoje && !casaMarciaPago(c, c.data.slice(0, 7))) out.push({c, chave: c.data.slice(0, 7), quando: casaDia(c.data)});
+      return;
+    }
+    let ano = Number((c.desde || mesAtual).slice(0, 4)), m = Number((c.desde || mesAtual).slice(5, 7)) - 1;
+    for (let guarda = 0; guarda < 60; guarda++) {
+      const chave = casaChaveMes(ano, m);
+      if (chave > mesAtual) break;
+      const venceu = chave < mesAtual || (Number(c.venc) || 10) < new Date().getDate();
+      if (venceu && casaMarciaDoMes(c, ano, m) && !casaMarciaPago(c, chave) && c.valor > 0) out.push({c, chave, quando: `${MESES_LABEL[m].toLowerCase()}/${ano}`});
+      if (++m > 11) { m = 0; ano++; }
+    }
+  });
+  return out;
+}
+
+// B1: média dos 3 meses anteriores com pagamento e variação do mês escolhido
+function casaMarciaMedia(c, ano, m) {
+  const vals = [];
+  let a = ano, k = m;
+  for (let g = 0; g < 12 && vals.length < 3; g++) {
+    if (--k < 0) { k = 11; a--; }
+    const v = casaMarciaPago(c, casaChaveMes(a, k));
+    if (v > 0) vals.push(v);
+  }
+  if (!vals.length) return null;
+  const media = vals.reduce((x, y) => x + y, 0) / vals.length;
+  const atual = casaMarciaPago(c, casaChaveMes(ano, m));
+  return {media, n: vals.length, var: atual && media ? Math.round((atual / media - 1) * 100) : null};
+}
+
 function casaHtmlMarcia() {
   const ano = casaAno, chave = casaChaveMes(ano, casaMesSel);
   const contas = (state.casaMarcia.contas || []).filter(c => casaMarciaDoMes(c, ano, casaMesSel));
-  const doMes = contas.filter(c => casaMarciaDoMes(c, ano, casaMesSel));
-  const pagoContas = doMes.reduce((s, c) => s + casaMarciaPago(c, chave), 0);
-  const aPagar = doMes.filter(c => !casaMarciaPago(c, chave));
-  const movsM = state.casaMov.filter(m => casaQuem(m) === 'marcia' && (m.data || '').startsWith(chave));
-  const pagoLojas = movsM.filter(m => m.tipo === 'pagamento' || m.naHora).reduce((s, m) => s + m.valor, 0);
+  const pagoContas = contas.filter(c => !casaMarciaPorLeandro(c, chave)).reduce((s, c) => s + casaMarciaPago(c, chave), 0);
+  const pagoPorVoce = contas.filter(c => casaMarciaPorLeandro(c, chave)).reduce((s, c) => s + casaMarciaPago(c, chave), 0);
+  const aPagar = contas.filter(c => !casaMarciaPago(c, chave));
+  // A4: compras e pagamentos dela + compras suas anotadas nas lojas que ela paga
+  const movsM = state.casaMov.filter(m => (m.data || '').startsWith(chave) &&
+    (casaQuem(m) === 'marcia' || (m.tipo === 'compra' && !m.naHora && casaPagadorLoja(m.conta, m.loja) === 'marcia')));
+  const pagoLojas = movsM.filter(m => casaQuem(m) === 'marcia' && (m.tipo === 'pagamento' || m.naHora)).reduce((s, m) => s + m.valor, 0);
   const abertoM = casaDevo(null, 'marcia');
   const rep = casaRepasses(chave);
   const repTot = rep.reduce((s, d) => s + d.valor, 0);
   const repAno = casaRepasses(String(ano)).reduce((s, d) => s + d.valor, 0);
+  const atrasadas = casaMarciaAtrasadas().filter(a => a.chave !== chave);
   const proxData = (state.casaMarcia.contas || []).filter(c => c.data && c.data >= hojeISO()).sort((a, b) => a.data.localeCompare(b.data))[0];
+  // B3: onde cada repasse foi usado
+  const usos = {};
+  Object.entries(state.casaMarcia.pagos).forEach(([cid, meses]) => Object.entries(meses || {}).forEach(([ch, v]) => {
+    if (v && typeof v === 'object' && v.repasse) { const c = (state.casaMarcia.contas || []).find(x => x.id === cid); (usos[v.repasse] = usos[v.repasse] || []).push(`${c ? c.nome : 'conta'} (${MESES_LABEL[Number(ch.slice(5, 7)) - 1].toLowerCase()})`); }
+  }));
+  const botoes = (c, ch) => `<button class="btn btn-gold" style="font-size:11px;padding:5px 10px;" onclick="casaMarciaPagar('${c.id}',true,'${ch}')">Ela pagou</button>
+        <button class="btn btn-outline" style="font-size:11px;padding:5px 10px;" onclick="casaMarciaEuPaguei('${c.id}','${ch}')">🙋 Eu paguei por ela</button>`;
   const linhaConta = c => {
     const pago = casaMarciaPago(c, chave);
+    const reg = casaMarciaReg(c, chave);
     const venc = c.data ? casaDia(c.data) : `dia ${c.venc || '—'}`;
-    const atrasada = !pago && c.valor > 0 && (c.data ? c.data < hojeISO() : (chave === hojeISO().slice(0, 7) && Number(c.venc) < new Date().getDate()));
-    return `<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;padding:8px 0;border-bottom:1px solid rgba(255,255,255,0.05);">
-      <div style="flex:1;min-width:140px;">
+    const atrasada = !pago && c.valor > 0 && (c.data ? c.data < hojeISO() : (chave < hojeISO().slice(0, 7) || (chave === hojeISO().slice(0, 7) && Number(c.venc) < new Date().getDate())));
+    const md = c.data ? null : casaMarciaMedia(c, ano, casaMesSel);
+    const repUsado = reg && typeof reg === 'object' && reg.repasse ? (state.cotidiano || []).find(d => d.id === reg.repasse) : null;
+    return `<div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;padding:8px 0;border-bottom:1px solid rgba(255,255,255,0.05);">
+      <div style="flex:1;min-width:150px;">
         <div style="font-size:12px;color:var(--text);">${casaEsc(c.nome)}${c.fora ? ' <span style="font-size:10px;color:var(--muted)">(fora da casa)</span>' : ''}</div>
         <div style="font-size:10px;color:${atrasada ? 'var(--red)' : 'var(--muted)'};">vence ${venc}${c.meses && c.meses.length ? ` (só em ${casaMesesTexto(c.meses)})` : ''}${c.valor ? ` · ${fmtBRL(c.valor)}` : ' · valor a preencher'}${atrasada ? ' · atrasada' : ''}</div>
+        ${md ? `<div style="font-size:10px;color:var(--muted);">média ${fmtBRL(md.media)} (${md.n} ${md.n > 1 ? 'meses' : 'mês'})${md.var !== null ? ` · este mês <span style="color:${md.var > 10 ? 'var(--red)' : md.var < -10 ? 'var(--green)' : 'var(--muted)'}">${md.var > 0 ? '+' : ''}${md.var}%</span>` : ''}</div>` : ''}
       </div>
-      ${pago ? `<span style="color:var(--green);font-size:12px;">✓ pago ${fmtBRL(pago)}</span><button class="btn btn-outline" style="font-size:10px;padding:4px 8px;" onclick="casaMarciaPagar('${c.id}',false)">desfazer</button>`
-        : `<button class="btn btn-gold" style="font-size:11px;padding:5px 10px;" onclick="casaMarciaPagar('${c.id}',true)">Marcar pago</button>`}
+      ${pago ? `<span style="color:var(--green);font-size:12px;">✓ ${casaMarciaPorLeandro(c, chave) ? '🙋 você pagou' : 'pago'} ${fmtBRL(pago)}${repUsado ? ` <span style="color:var(--muted);font-size:10px;">com o seu repasse de ${casaDia(repUsado.data)}</span>` : ''}</span><button class="btn btn-outline" style="font-size:10px;padding:4px 8px;" onclick="casaMarciaPagar('${c.id}',false,'${chave}')">desfazer</button>`
+        : botoes(c, chave)}
       <button onclick="casaMarciaEditar('${c.id}')" aria-label="Editar conta" style="background:var(--gold-glow);border:1px solid var(--border);color:var(--gold);border-radius:5px;padding:3px 8px;font-size:10px;cursor:pointer;">✏️</button>
+      <button onclick="casaMarciaApagar('${c.id}')" aria-label="Apagar conta" class="despesa-delete">🗑️</button>
     </div>`;
   };
+  const nomes = ((state.casaCfg.nomesMarcia) || []).join(', ');
   return `${casaSeletorMes()}
-    <div style="font-size:12px;color:var(--muted);margin-bottom:12px;line-height:1.5;">Seu acompanhamento das contas da casa que a Dona Márcia paga. Ela não precisa usar o app, e nada aqui mexe no seu saldo.</div>
+    <div style="font-size:12px;color:var(--muted);margin-bottom:12px;line-height:1.5;">Seu acompanhamento das contas da casa que a Dona Márcia paga. Ela não precisa usar o app; só “🙋 Eu paguei por ela” mexe no seu saldo.</div>
     <div class="cards-grid" style="margin-bottom:14px;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));">
-      ${casaKpi(`Ela pagou · ${MESES_LABEL[casaMesSel].toLowerCase()}`, fmtBRL(pagoContas + pagoLojas), 'contas + lojas')}
+      ${casaKpi(`Ela pagou · ${MESES_LABEL[casaMesSel].toLowerCase()}`, fmtBRL(pagoContas + pagoLojas), pagoPorVoce ? `+ ${fmtBRL(pagoPorVoce)} que você pagou por ela` : 'contas + lojas')}
       ${casaKpi('Contas a pagar no mês', String(aPagar.length), aPagar.length ? aPagar.map(c => c.nome).join(', ') : 'tudo marcado', aPagar.length ? 'var(--red)' : 'var(--green)')}
       ${casaKpi('Em aberto nas lojas', fmtBRL(Math.max(0, abertoM)), 'contas anotadas que ela paga', abertoM > 0.009 ? 'var(--red)' : 'var(--green)')}
       ${casaKpi(`Você repassou · ${MESES_LABEL[casaMesSel].toLowerCase()}`, fmtBRL(repTot), `${fmtBRL(repAno)} em ${ano}`)}
     </div>
+    ${atrasadas.length ? `<div class="form-card" style="padding:12px 14px;margin-bottom:14px;border-color:rgba(224,122,106,0.5);">
+      <div class="chart-title" style="margin-bottom:6px;color:var(--red);">⚠ Atrasadas de outros meses (${atrasadas.length})</div>
+      ${atrasadas.map(a => `<div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;padding:6px 0;border-bottom:1px solid rgba(255,255,255,0.05);">
+        <span style="flex:1;min-width:150px;font-size:12px;">${casaEsc(a.c.nome)} · ${a.quando}${a.c.valor ? ` · ${fmtBRL(a.c.valor)}` : ''}</span>${botoes(a.c, a.chave)}</div>`).join('')}
+    </div>` : ''}
     ${proxData ? `<div class="form-card" style="padding:10px 14px;margin-bottom:14px;font-size:12px;">📌 Próximo vencimento com data: <strong style="color:var(--gold)">${casaEsc(proxData.nome)}</strong> em ${casaDia(proxData.data)}/${proxData.data.slice(0, 4)}${proxData.valor ? ` · ${fmtBRL(proxData.valor)}` : ''}.</div>` : ''}
     <div class="form-card" style="padding:12px 14px;margin-bottom:14px;">
-      <div class="chart-title" style="margin-bottom:6px;">🧾 Contas dela</div>
+      <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:6px;">
+        <div class="chart-title">🧾 Contas dela</div>
+        <button class="btn btn-outline" style="font-size:11px;padding:5px 10px;" onclick="casaMarciaCopiar()">📋 Copiar resumo para ela</button>
+      </div>
       ${contas.length ? contas.map(linhaConta).join('') : '<div style="font-size:12px;color:var(--muted);">Nenhuma conta neste mês.</div>'}
       <div style="display:grid;grid-template-columns:minmax(0,1fr) minmax(0,90px) minmax(0,70px) auto;gap:6px;margin-top:10px;align-items:center;">
         <input id="marcia-nome" placeholder="Nova conta (ex.: Gás)" style="${CASA_CAMPO}">
@@ -8528,30 +8598,137 @@ function casaHtmlMarcia() {
       </div>
     </div>
     <div class="form-card" style="padding:12px 14px;margin-bottom:14px;">
-      <div class="chart-title" style="margin-bottom:6px;">🛒 Compras e pagamentos dela nas lojas · ${MESES_FULL[casaMesSel]}</div>
+      <div class="chart-title" style="margin-bottom:6px;">🛒 Compras e pagamentos nas lojas dela · ${MESES_FULL[casaMesSel]}</div>
       ${casaHtmlLista(movsM.sort((a, b) => (b.data || '').localeCompare(a.data || '')), false)}
-      <div style="font-size:10px;color:var(--muted);margin-top:6px;">Para lançar, abra a conta da loja (🛒 Mercado, 💊 Farmácia…) e escolha 👩 Márcia.</div>
+      <div style="font-size:10px;color:var(--muted);margin-top:6px;">Para lançar, abra a conta da loja (🛒 Mercado, 💊 Farmácia…) e escolha 👩 Márcia. Compras suas anotadas numa loja que ela paga aparecem aqui como “conta dela”.</div>
     </div>
     <div class="form-card" style="padding:12px 14px;">
       <div class="chart-title" style="margin-bottom:6px;">🤝 Recebeu do Leandro · ${MESES_FULL[casaMesSel]}</div>
-      ${rep.length ? rep.map(d => `<div style="display:flex;justify-content:space-between;gap:8px;font-size:12px;padding:4px 0;border-bottom:1px solid rgba(255,255,255,0.04);"><span>${casaDia(d.data)} · ${casaEsc(d.cat)}${d.desc ? ' · ' + casaEsc(d.desc) : ''}</span><span style="color:var(--gold)">${fmtBRL(d.valor)}</span></div>`).join('') : '<div style="font-size:12px;color:var(--muted);">Nenhum repasse neste mês.</div>'}
-      <div style="font-size:10px;color:var(--muted);margin-top:6px;">Vem do seu Cotidiano (lançamentos com “Márcia” no nome). Ajuda em contas, consultas e outras coisas: entra no acerto como sua ajuda, fora dos blocos da casa.</div>
+      ${rep.length ? rep.map(d => `<div style="display:flex;justify-content:space-between;gap:8px;font-size:12px;padding:4px 0;border-bottom:1px solid rgba(255,255,255,0.04);"><span>${casaDia(d.data)} · ${casaEsc(d.cat)}${d.desc ? ' · ' + casaEsc(d.desc) : ''}${usos[d.id] ? `<span style="display:block;font-size:10px;color:var(--muted);">→ usado em: ${casaEsc(usos[d.id].join(', '))}</span>` : ''}</span><span style="color:var(--gold)">${fmtBRL(d.valor)}</span></div>`).join('') : '<div style="font-size:12px;color:var(--muted);">Nenhum repasse neste mês.</div>'}
+      <div style="font-size:10px;color:var(--muted);margin-top:8px;">Vem do seu Cotidiano: lançamentos com “Márcia” no nome${nomes ? ` ou com: ${casaEsc(nomes)}` : ''}. Ajuda em contas, consultas e outras coisas: entra no acerto como sua ajuda, fora dos blocos da casa.</div>
+      <div style="display:flex;gap:6px;margin-top:8px;flex-wrap:wrap;align-items:center;">
+        <input id="marcia-nomes" value="${casaEsc(nomes)}" placeholder="Outros nomes que você usa para ela (separe por vírgula)" style="${CASA_CAMPO}flex:1;min-width:180px;">
+        <button class="btn btn-outline" style="font-size:11px;padding:7px 10px;" onclick="casaMarciaNomes()">Salvar nomes</button>
+      </div>
     </div>`;
 }
-function casaMarciaPagar(id, pagar) {
+
+// B3: escolher o repasse que pagou a conta (dos últimos 90 dias)
+function casaEscolherRepasse() {
+  const lim = new Date(); lim.setDate(lim.getDate() - 90);
+  const reps = casaRepasses(null).filter(d => d.data >= hojeISO(lim)).sort((a, b) => b.data.localeCompare(a.data)).slice(0, 6);
+  if (!reps.length) return null;
+  const r = prompt('Foi pago com algum repasse seu? Digite o número (vazio = não):\n' + reps.map((d, i) => `${i + 1}) ${casaDia(d.data)} · ${fmtBRL(d.valor)} · ${d.cat}`).join('\n'), '');
+  if (r === null) return undefined;
+  const k = parseInt(r, 10);
+  return k >= 1 && k <= reps.length ? reps[k - 1].id : null;
+}
+
+function casaMarciaPagar(id, pagar, chaveArg) {
   const c = (state.casaMarcia.contas || []).find(x => x.id === id);
   if (!c) return;
-  const chave = casaChaveMes(casaAno, casaMesSel);
+  const chave = chaveArg || casaChaveMes(casaAno, casaMesSel);
   state.casaMarcia.pagos[id] = state.casaMarcia.pagos[id] || {};
-  if (!pagar) { delete state.casaMarcia.pagos[id][chave]; saveState(); renderCasa(); return; }
+  if (!pagar) {
+    const reg = state.casaMarcia.pagos[id][chave];
+    if (reg && typeof reg === 'object' && reg.cotId) {
+      if (!confirm('Desfazer? O lançamento que você fez no seu Cotidiano para esta conta também sai.')) return;
+      const item = (state.cotidiano || []).find(d => d.id === reg.cotId);
+      if (item) paraLixeira('cotidiano', item, `Cotidiano · ${item.cat} ${fmtBRL(item.valor)}`, true);
+      state.cotidiano = (state.cotidiano || []).filter(d => d.id !== reg.cotId);
+    }
+    delete state.casaMarcia.pagos[id][chave];
+    // A1: conta com data volta para a data que foi paga
+    const h = (c.historico || [])[c.historico ? c.historico.length - 1 : -1];
+    if (c.data && h && (h.data || '').startsWith(chave)) { c.data = h.data; c.historico.pop(); }
+    saveState(); renderCasa(); try { updatePainel(); updateDespesasKPIs(); } catch(e) {}
+    return;
+  }
   const v = prompt(`${c.nome}: quanto ela pagou? (R$)`, c.valor ? String(c.valor).replace('.', ',') : '');
   if (v === null) return;
   const valor = parseFloat(v.replace(',', '.'));
   if (!(valor > 0)) { toast('⚠️ Valor inválido'); return; }
-  state.casaMarcia.pagos[id][chave] = Math.round(valor * 100) / 100;
-  if (!c.valor) c.valor = state.casaMarcia.pagos[id][chave];
-  saveState(); renderCasa(); toast(`✓ ${c.nome} marcada como paga`);
+  const repasse = casaEscolherRepasse();
+  if (repasse === undefined) return;
+  // A1: conta com data (ex.: penhor) pede a próxima data, para o lembrete continuar
+  let prox = null;
+  if (c.data) {
+    prox = prompt('Próxima data desta conta (AAAA-MM-DD), ex.: a próxima renovação. Vazio = não tem:', '');
+    if (prox === null) return;
+    prox = prox.trim();
+    if (prox && !/^\d{4}-\d{2}-\d{2}$/.test(prox)) { toast('⚠️ Data no formato AAAA-MM-DD'); return; }
+  }
+  const v2 = Math.round(valor * 100) / 100;
+  state.casaMarcia.pagos[id][chave] = repasse ? {v: v2, por: 'marcia', repasse} : v2;
+  if (!c.valor) c.valor = v2;
+  if (prox) { (c.historico = c.historico || []).push({data: c.data, valor: v2}); c.data = prox; }
+  saveState(); renderCasa(); try { updatePainel(); } catch(e) {}
+  toast(`✓ ${c.nome} marcada como paga${prox ? ` · próxima em ${casaDia(prox)}` : ''}`);
 }
+
+// A3: o Leandro pagou uma conta dela → sai do saldo dele (Cotidiano, Família & Ajuda)
+function casaMarciaEuPaguei(id, chaveArg) {
+  const c = (state.casaMarcia.contas || []).find(x => x.id === id);
+  if (!c) return;
+  const chave = chaveArg || casaChaveMes(casaAno, casaMesSel);
+  const v = prompt(`${c.nome}: quanto você pagou por ela? (R$) — vai para o seu Cotidiano`, c.valor ? String(c.valor).replace('.', ',') : '');
+  if (v === null) return;
+  const valor = Math.round((parseFloat(v.replace(',', '.')) || 0) * 100) / 100;
+  if (!(valor > 0)) { toast('⚠️ Valor inválido'); return; }
+  const data = prompt('Data do pagamento (AAAA-MM-DD):', hojeISO());
+  if (data === null) return;
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(data.trim())) { toast('⚠️ Data no formato AAAA-MM-DD'); return; }
+  let prox = null;
+  if (c.data) {
+    prox = prompt('Próxima data desta conta (AAAA-MM-DD), ex.: a próxima renovação. Vazio = não tem:', '');
+    if (prox === null) return;
+    prox = prox.trim();
+    if (prox && !/^\d{4}-\d{2}-\d{2}$/.test(prox)) { toast('⚠️ Data no formato AAAA-MM-DD'); return; }
+  }
+  const d = data.trim();
+  const item = {id: cotNextId++, data: d, mes: MESES[new Date(d + 'T12:00:00').getMonth()], cat: `Márcia · ${c.nome}`, desc: 'Paguei por ela', valor, grupo: 'familia', criado: hojeISO(), casaMarciaRef: {id: c.id, chave}};
+  state.cotidiano = state.cotidiano || [];
+  state.cotidiano.push(item);
+  state.casaMarcia.pagos[id] = state.casaMarcia.pagos[id] || {};
+  state.casaMarcia.pagos[id][chave] = {v: valor, por: 'leandro', cotId: item.id};
+  if (!c.valor) c.valor = valor;
+  if (prox) { (c.historico = c.historico || []).push({data: c.data, valor}); c.data = prox; }
+  saveState(); renderCasa();
+  try { updatePainel(); updateDespesasKPIs(); } catch(e) {}
+  toast(`✓ ${c.nome}: ${fmtBRL(valor)} no seu Cotidiano (Família & Ajuda)`);
+}
+
+// A5: apagar conta da Márcia com Lixeira e Desfazer
+function casaMarciaApagar(id) {
+  const c = (state.casaMarcia.contas || []).find(x => x.id === id);
+  if (!c || !confirm(`Tirar ${c.nome} das contas da Márcia? (Os pagamentos já marcados ficam guardados.)`)) return;
+  paraLixeira('casaMarciaContas', c, `Conta da Márcia · ${c.nome}`);
+  state.casaMarcia.contas = state.casaMarcia.contas.filter(x => x.id !== id);
+  saveState(); renderCasa(); try { updatePainel(); } catch(e) {}
+}
+
+// B2
+function casaMarciaNomes() {
+  const t = document.getElementById('marcia-nomes')?.value || '';
+  state.casaCfg.nomesMarcia = t.split(',').map(x => x.trim()).filter(x => x.length >= 2);
+  saveState(); renderCasa(); toast('✓ Nomes salvos');
+}
+
+// B4: resumo do mês para mandar a ela (só no toque)
+async function casaMarciaCopiar() {
+  const ano = casaAno, m = casaMesSel, chave = casaChaveMes(ano, m);
+  const contas = (state.casaMarcia.contas || []).filter(c => casaMarciaDoMes(c, ano, m));
+  const linhas = contas.map(c => {
+    const p = casaMarciaPago(c, chave);
+    return p ? `✅ ${c.nome}: ${fmtBRL(p)} (pago${casaMarciaPorLeandro(c, chave) ? ' pelo Leandro' : ''})` : `⏳ ${c.nome}: ${c.valor ? fmtBRL(c.valor) + ', ' : ''}vence ${c.data ? casaDia(c.data) : 'dia ' + (c.venc || '—')}`;
+  });
+  const atr = casaMarciaAtrasadas().filter(a => a.chave !== chave).map(a => `⚠️ ${a.c.nome} de ${a.quando}${a.c.valor ? ': ' + fmtBRL(a.c.valor) : ''}`);
+  const lojas = casaAbertoPorLoja(null).filter(l => l.quem === 'marcia' && l.valor > 0.009).map(l => `🛒 ${l.loja || (casaConta(l.conta) || {}).nome}: ${fmtBRL(l.valor)} em aberto`);
+  const texto = [`🏠 Contas da casa · ${MESES_FULL[m]} de ${ano}`, '', ...(linhas.length ? linhas : ['Nenhuma conta neste mês.']), ...(atr.length ? ['', ...atr] : []), ...(lojas.length ? ['', ...lojas] : [])].join('\n');
+  try { await navigator.clipboard.writeText(texto); toast('📋 Resumo copiado: cole no WhatsApp'); }
+  catch(e) { prompt('Copie o texto:', texto); }
+}
+
 function casaMarciaEditar(id) {
   const c = (state.casaMarcia.contas || []).find(x => x.id === id);
   if (!c) return;
@@ -8623,14 +8800,16 @@ function renderCasaPainel() {
   const devo = casaDevo(null, 'leandro');
   const ano = new Date().getFullYear(), m = new Date().getMonth(), chave = casaChaveMes(ano, m);
   const pendM = (state.casaMarcia.contas || []).filter(c => !c.data && casaMarciaDoMes(c, ano, m) && !casaMarciaPago(c, chave));
+  const atrM = casaMarciaAtrasadas().filter(a => a.chave !== chave);
   const venc = casaVencimentosProximos(3);
   const prox = (state.casaMarcia.contas || []).filter(c => c.data && c.data >= hojeISO()).sort((a, b) => a.data.localeCompare(b.data))[0];
   const partes = [];
   if (devo > 0.009) partes.push(`você deve <strong style="color:var(--red)">${fmtBRL(devo)}</strong> nas lojas`);
   if (pendM.length) partes.push(`Márcia: ${pendM.length} conta${pendM.length > 1 ? 's' : ''} a pagar`);
+  if (atrM.length) partes.push(`<span style="color:var(--red)">⚠ ${atrM.length} atrasada${atrM.length > 1 ? 's' : ''} de outros meses</span>`);
   if (prox && !venc.some(v => v.c === prox)) partes.push(`${casaEsc(prox.nome)} vence ${casaDia(prox.data)}`);
   if (!partes.length && !venc.length) { el.innerHTML = ''; return; }
-  el.innerHTML = `<div class="form-card" style="margin-bottom:16px;display:flex;align-items:flex-start;gap:12px;cursor:pointer;" onclick="casaSub='resumo';casaMesSel=new Date().getMonth();casaAno=new Date().getFullYear();showPage('casa')">
+  el.innerHTML = `<div class="form-card" style="margin-bottom:16px;display:flex;align-items:flex-start;gap:12px;cursor:pointer;" onclick="casaSub=${atrM.length || pendM.length ? "'marcia'" : "'resumo'"};casaMesSel=new Date().getMonth();casaAno=new Date().getFullYear();showPage('casa')">
     <span style="font-size:22px;">🏠</span>
     <span style="flex:1;font-size:13px;color:var(--text);line-height:1.5;">${partes.length ? 'Casa: ' + partes.join(' · ') + '.' : ''}
       ${venc.map(v => `<span style="display:block;color:var(--gold);font-size:12px;">⏰ ${casaEsc(v.c.nome)} (Márcia) vence ${v.falta === 0 ? 'hoje' : v.falta === 1 ? 'amanhã' : `em ${v.falta} dias`} · ${casaDia(hojeISO(v.dt))}${v.c.valor ? ' · ' + fmtBRL(v.c.valor) : ''}</span>`).join('')}
@@ -8641,6 +8820,13 @@ function renderCasaPainel() {
 // Cotidiano: o lançamento que veio da Casa só muda na aba Casa
 function casaBloqueioCotidiano(id) {
   const item = (state.cotidiano || []).find(d => d.id === id);
+  if (item && item.casaMarciaRef) {
+    toast('🔗 Este lançamento é uma conta da Márcia que você pagou: mude na aba 🏠 Casa › 👩 Dona Márcia');
+    const ch = item.casaMarciaRef.chave || '';
+    casaSub = 'marcia'; casaAno = Number(ch.slice(0, 4)) || casaAno; casaMesSel = (Number(ch.slice(5, 7)) || casaMesSel + 1) - 1;
+    showPage('casa');
+    return true;
+  }
   if (!item || !item.casaId) return false;
   const m = (state.casaMov || []).find(x => x.id === item.casaId);
   toast('🔗 Este lançamento vem da aba 🏠 Casa: mude lá');
@@ -11373,6 +11559,19 @@ function enviarRelatorioIAWpp(alunoId, btn) {
 // O mesmo texto vira o cartão PNG em Documents\Projetos\Novidades dos Apps\Controle LRC
 // (gerador lê o JSON entre as marcas NOVIDADES-INICIO e NOVIDADES-FIM; mantenha JSON puro aqui).
 const NOVIDADES_LRC = /*NOVIDADES-INICIO*/[
+  {
+    "id": "2026-11-19-3",
+    "data": "19/11/2026",
+    "titulo": "Dona Márcia revisada (Sempre o Melhor)",
+    "itens": [
+      { "icone": "🙋", "titulo": "Eu paguei por ela", "texto": "Numa conta da Márcia, um toque lança o valor no seu Cotidiano (Família & Ajuda) e marca a conta como paga. “Ela pagou” continua sem mexer no seu saldo." },
+      { "icone": "📌", "titulo": "Penhor com próxima data", "texto": "Conta com data pergunta a próxima data ao ser paga, para o lembrete continuar." },
+      { "icone": "⚠️", "titulo": "Atrasadas de outros meses", "texto": "Contas dela sem pagamento de meses anteriores aparecem num quadro próprio e no cartão do Painel." },
+      { "icone": "📈", "titulo": "Média e variação", "texto": "Cada conta mostra a média dos últimos meses e quanto variou." },
+      { "icone": "🤝", "titulo": "Repasses", "texto": "Escolha outros nomes que contam como repasse e diga com qual repasse uma conta foi paga." },
+      { "icone": "📋", "titulo": "Resumo para ela", "texto": "Copia as contas do mês, as atrasadas e o que está em aberto nas lojas, para mandar pelo WhatsApp (só no seu toque). Compras suas na loja dela aparecem como “conta dela”; 🗑️ apaga uma conta com Desfazer." }
+    ]
+  },
   {
     "id": "2026-11-19-2",
     "data": "19/11/2026",
